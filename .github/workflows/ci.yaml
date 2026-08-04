@@ -19,7 +19,14 @@ jobs:
       - name: om ci
         run: om ci run --extra-access-tokens "github.com=${{ secrets.GITHUB_TOKEN }}" --systems "${{ matrix.system }}"
 
-      - name: om init tests
+      - name: Evaluate workstation configurations
+        if: matrix.system == 'x86_64-linux'
         run: |
-          om init --test .
+          nix eval .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
+          nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
 
+      - name: Build workstation configurations
+        if: matrix.system == 'x86_64-linux'
+        run: |
+          nix build --no-link .#nixosConfigurations.desktop.config.system.build.toplevel
+          nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel

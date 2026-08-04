@@ -5,5 +5,10 @@
   imports = [
     flake.inputs.self.nixosModules.common
   ];
+
+  hardware.enableRedistributableFirmware = true;
+  networking.networkmanager.enable = true;
+  nixpkgs.config.allowUnfree = true;
   services.openssh.enable = true;
+  zramSwap.enable = true;
 }

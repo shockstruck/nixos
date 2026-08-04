@@ -1,5 +1,5 @@
 {
-  description = "A home-manager template providing useful tools & settings for Nix-based development";
+  description = "ShockStruck's shared NixOS workstation configuration";
 
   inputs = {
     # Principle inputs (updated by `nix run .#update`)
@@ -8,7 +8,11 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
+    nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
     nixos-unified.url = "github:srid/nixos-unified";
 
     # Software inputs
