@@ -6,29 +6,40 @@ on:
       - ci/**
   pull_request:
 jobs:
-  nix:
+  validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      OMNIX_FLAKE: github:juspay/omnix/ccda191140205c0cd1aa95bec4bb0726c0146496
     steps:
-      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          tool-cache: true
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
-      - name: om show
-        run: nix run "$OMNIX_FLAKE" -- show .
-      - name: om ci
-        run: nix run "$OMNIX_FLAKE" -- ci run --extra-access-tokens "github.com=${{ secrets.GITHUB_TOKEN }}" --systems x86_64-linux
+
+      - name: Check flake
+        run: nix flake check --no-build
+
+      - name: Check formatting
+        run: nix fmt -- --check .
 
       - name: Evaluate workstation configurations
         run: |
           nix eval .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
           nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
 
-      - name: Build workstation configurations
-        run: |
-          nix build --no-link .#nixosConfigurations.desktop.config.system.build.toplevel
-          nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [desktop, laptop]
+    steps:
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
+
+      - name: Build ${{ matrix.host }} configuration
+        run: nix build --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
