@@ -27,7 +27,9 @@ Both workstations share one declarative Wayland session:
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
   a monitor fallback (`preferred` mode, automatic placement, scale `1`), systemd
-  graphical-session integration, and the shared keybindings below.
+  graphical-session integration, the shared keybindings below, and the
+  declarative Hyprland plugin load described under
+  [Hyprland plugins](#hyprland-plugins).
 
 > Vast Shell is under active upstream development. Features may change without
 > notice; pin a specific `vast-shell` revision in `flake.lock` before relying on
@@ -49,9 +51,57 @@ Both workstations share one declarative Wayland session:
 | `SUPER`+`C` | Vast Shell clipboard |
 | `SUPER`+`W` | Vast Shell wallpaper switcher |
 | `SUPER`+`SHIFT`+`E` | Vast Shell session menu |
+| `SUPER`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
 
 `foot` is installed declaratively by the shared GUI module so the terminal
 binding works on every host.
+
+## Hyprland plugins
+
+`hypr-autoscroll` is a Hyprland compositor plugin (Windows-style middle-click
+autoscroll) packaged from source in `packages/hypr-autoscroll.nix` and loaded
+declaratively for every host through Home Manager. It is **not** installed with
+`hyprpm`, the upstream setup script, or any mutable per-user plugin cache; the
+build artifact is the single `lib/libhypr-autoscroll.so` Home Manager loads from
+the Nix store.
+
+- **Purpose**: enables middle-button autoscroll; `direct_activation = false` keeps
+  the mode off by default so it only starts when toggled.
+- **SUPER+A**: the non-conflicting binding that toggles middle-button autoscroll
+  mode on and off (`hypr-autoscroll:middle-mode, toggle`).
+- **ABI sensitivity**: the plugin compiles against the exact configured Hyprland
+  package (`config.wayland.windowManager.hyprland.finalPackage`). Hyprland's
+  plugin ABI is unstable, so every Hyprland or input change must rebuild and
+  re-validate the plugin; a version skew fails the build rather than loading a
+  mismatched `.so`.
+- **Pinned rebuild**: the source is pinned through the non-flake `hypr-autoscroll`
+  input (`github:estebanhiram/hypr-autoscroll`) whose exact revision and NAR hash
+  live in `flake.lock`. After editing the input, refresh only its lock graph
+  (non-activating):
+
+  ```sh
+  nix flake lock --update-input hypr-autoscroll
+  ```
+
+- **Validation**: evaluate and build both hosts without activating anything:
+
+  ```sh
+  nix eval .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
+  nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
+  nix build --no-link .#nixosConfigurations.desktop.config.system.build.toplevel
+  nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
+  nix flake check
+  ```
+
+- **Rollout**: source-only. Land the accepted diff once, then rebuild one host at
+  a time (`sudo nixos-rebuild switch --flake .#HOST`).
+- **Rollback**: revert the integration commit and rebuild the affected host. A
+  failed plugin load must not be worked around with mutable `hyprpm` state.
+
+  ```sh
+  git revert <integration-commit>
+  sudo nixos-rebuild switch --flake .#HOST
+  ```
 
 ## Validate
 

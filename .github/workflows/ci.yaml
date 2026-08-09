@@ -18,7 +18,7 @@ jobs:
         run: nix flake show --no-write-lock-file
 
       - name: Check formatting
-        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/gui modules/home/hyprland.nix configurations/nixos/desktop configurations/nixos/laptop
+        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/gui modules/home/hyprland.nix packages/hypr-autoscroll.nix configurations/nixos/desktop configurations/nixos/laptop
 
       - name: Evaluate workstation configurations
         run: |

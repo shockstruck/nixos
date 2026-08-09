@@ -23,10 +23,30 @@
     nixvim.inputs.flake-parts.follows = "flake-parts";
     vast-shell.url = "github:myamusashi/vast-shell";
     vast-shell.inputs.nixpkgs.follows = "nixpkgs";
+    hypr-autoscroll.url = "github:estebanhiram/hypr-autoscroll";
+    hypr-autoscroll.flake = false;
   };
 
   # Wired using https://nixos-unified.org/guide/autowiring
+  #
+  # The nixos-unified autowire exposes `packages/<name>.nix` through
+  # `pkgs.callPackage fn { }`, which cannot supply the flake-locked source.
+  # Override the autowired `hypr-autoscroll` package so the standalone flake
+  # output builds from the same pinned source as the Home Manager-loaded
+  # plugin — a single source authority in `flake.lock`. `perSystem.packages`
+  # is `lazyAttrsOf`, so the replaced autowire definition is never evaluated.
   outputs = inputs:
-    inputs.nixos-unified.lib.mkFlake
-      { inherit inputs; root = ./.; };
+    let
+      base = inputs.nixos-unified.lib.mkFlake { inherit inputs; root = ./.; };
+    in
+    base // {
+      packages = builtins.mapAttrs
+        (system: sysPackages:
+          sysPackages // {
+            hypr-autoscroll = inputs.nixpkgs.legacyPackages.${system}.callPackage ./packages/hypr-autoscroll.nix {
+              src = inputs.hypr-autoscroll;
+            };
+          })
+        (base.packages or { });
+    };
 }
