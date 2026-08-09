@@ -13,6 +13,46 @@ home-manager configuration under `configurations/home`. The host trees under
 `configurations/nixos` contain only boot, hardware, graphics, power, and disk
 layout differences.
 
+## Desktop session
+
+Both workstations share one declarative Wayland session:
+
+- **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
+  XWayland. GDM stays as the only display manager and selects the `hyprland`
+  session by default. The previous GNOME desktop is removed.
+- **Vast Shell** is integrated through its upstream NixOS flake module
+  (`vast-shell.nixosModules.default`) and enabled with `programs.quickshell-shell`.
+  Vast Shell's own `quickshell-shell.service` (bound to
+  `graphical-session.target`) owns shell startup; no second autostart is added.
+- **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
+  auto-imported by `modules/home` and therefore shared by every host. It provides
+  a monitor fallback (`preferred` mode, automatic placement, scale `1`), systemd
+  graphical-session integration, and the shared keybindings below.
+
+> Vast Shell is under active upstream development. Features may change without
+> notice; pin a specific `vast-shell` revision in `flake.lock` before relying on
+> a particular panel.
+
+### Keybindings
+
+`SUPER` is the main modifier.
+
+| Binding | Action |
+| --- | --- |
+| `SUPER`+`Return` | Launch `foot` |
+| `SUPER`+`Q` | Close the focused window |
+| `SUPER`+`←` `→` `↑` `↓` | Move focus |
+| `SUPER`+`1`…`5` | Switch to workspace 1-5 |
+| `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
+| `SUPER`+`Space` | Vast Shell app launcher |
+| `SUPER`+`S` | Vast Shell quick settings |
+| `SUPER`+`C` | Vast Shell clipboard |
+| `SUPER`+`W` | Vast Shell wallpaper switcher |
+| `SUPER`+`SHIFT`+`E` | Vast Shell session menu |
+
+`foot` is installed declaratively by the shared GUI module so the terminal
+binding works on every host.
+
 ## Validate
 
 Evaluate both configurations without changing a running system:
@@ -28,6 +68,41 @@ Build both system closures without creating a result symlink:
 nix build --no-link .#nixosConfigurations.desktop.config.system.build.toplevel
 nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
 nix flake check
+```
+
+If the `vast-shell` input was just added or changed, refresh its lock graph first
+(non-activating):
+
+```sh
+nix flake lock --update-input vast-shell
+```
+
+## Apply changes
+
+Roll out an accepted change to one host at a time, selecting that host's
+configuration explicitly:
+
+```sh
+# Replace HOST with desktop or laptop.
+sudo nixos-rebuild switch --flake .#HOST
+```
+
+Roll back an accepted change that has already landed with a Git revert followed
+by the host rebuild:
+
+```sh
+git revert <integration-commit>
+sudo nixos-rebuild switch --flake .#HOST
+```
+
+### TTY recovery
+
+If the Hyprland session fails to start after a rebuild, switch to a virtual
+console (`Ctrl`+`Alt`+`F3`), sign in, and roll the host back to its previous
+generation without using the display manager:
+
+```sh
+sudo nixos-rebuild switch --rollback --flake .#HOST
 ```
 
 ## Pre-install checks

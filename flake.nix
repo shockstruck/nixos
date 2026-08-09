@@ -21,6 +21,8 @@
     nixvim.url = "github:nix-community/nixvim";
     nixvim.inputs.nixpkgs.follows = "nixpkgs";
     nixvim.inputs.flake-parts.follows = "flake-parts";
+    vast-shell.url = "github:myamusashi/vast-shell";
+    vast-shell.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   # Wired using https://nixos-unified.org/guide/autowiring

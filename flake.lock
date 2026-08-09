@@ -38,6 +38,24 @@
         "type": "github"
       }
     },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems_2"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -188,6 +206,27 @@
         "type": "github"
       }
     },
+    "quickshell": {
+      "inputs": {
+        "nixpkgs": [
+          "vast-shell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785704021,
+        "narHash": "sha256-eQtczKMAS4ItlB4pr1B3MqBZiyRVl2nkqNdtyRSQMa8=",
+        "ref": "refs/heads/master",
+        "rev": "28771c7c74b42e20afca0b1b63980cb46515537c",
+        "revCount": 835,
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      }
+    },
     "root": {
       "inputs": {
         "disko": "disko",
@@ -198,7 +237,8 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-unified": "nixos-unified",
         "nixpkgs": "nixpkgs",
-        "nixvim": "nixvim"
+        "nixvim": "nixvim",
+        "vast-shell": "vast-shell"
       }
     },
     "systems": {
@@ -214,6 +254,65 @@
         "owner": "nix-systems",
         "ref": "future-26.11",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_2": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "vast-shell": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "quickshell": "quickshell",
+        "wl-screenrec-fork": "wl-screenrec-fork"
+      },
+      "locked": {
+        "lastModified": 1786157665,
+        "narHash": "sha256-3/dPUUKKb7+BlbrfHcsyxKKQjbxJEaA2joAG3lsSYrA=",
+        "owner": "myamusashi",
+        "repo": "vast-shell",
+        "rev": "bab27f3d8c149dc1f7af11c88739aa70ab7a199d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "myamusashi",
+        "repo": "vast-shell",
+        "type": "github"
+      }
+    },
+    "wl-screenrec-fork": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": [
+          "vast-shell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784609172,
+        "narHash": "sha256-091iNX5A9M/RSpfDVSR6xunFdMOOIFc4wz1Q6p+bPFw=",
+        "owner": "myamusashi",
+        "repo": "wl-screenrec",
+        "rev": "cc280b238ab99cdeefa70afcceaf09a1f98fe982",
+        "type": "github"
+      },
+      "original": {
+        "owner": "myamusashi",
+        "repo": "wl-screenrec",
         "type": "github"
       }
     }
