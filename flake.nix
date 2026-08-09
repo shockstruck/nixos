@@ -37,7 +37,11 @@
   # is `lazyAttrsOf`, so the replaced autowire definition is never evaluated.
   outputs = inputs:
     let
-      base = inputs.nixos-unified.lib.mkFlake { inherit inputs; root = ./.; };
+      base = inputs.nixos-unified.lib.mkFlake {
+        inherit inputs;
+        root = ./.;
+        systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
+      };
     in
     base // {
       packages = builtins.mapAttrs
