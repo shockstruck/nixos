@@ -157,11 +157,9 @@ sudo nixos-rebuild switch --rollback --flake .#HOST
 
 ## Fresh laptop install
 
-Use this sequence from the minimal NixOS installer for the confirmed ThinkPad
-P15s Gen 2. This is an intentional clean install. Disko permanently destroys
-the existing partition table and data; the wipe cannot be undone.
-
-First clone the repository, or fast-forward an existing clean checkout:
+Use the checked-in installer from the minimal NixOS installer for the confirmed
+ThinkPad P15s Gen 2. Boot the ISO in UEFI mode, then clone the repository or
+fast-forward an existing clean checkout:
 
 ```sh
 # New checkout:
@@ -173,88 +171,56 @@ git fetch origin main
 git pull --ff-only origin main
 ```
 
-Before running Disko, perform every preflight check below. The checks stop the
-sequence before Disko when the confirmed disk or GPU addresses do not match:
+Run the installer with both selections explicit. Omitting either option prompts
+for it; hardware detection is read-only and advisory and never selects a host
+or disk. The installer displays the CPU, GPU, target disk model/size,
+partitions, and mounts, then stops unless the target is a whole disk, UEFI is
+available, the laptop target is the confirmed 476.9 GiB size, and the laptop
+GPU identities match the configured addresses:
 
 ```sh
-set -eu
-
-test -b /dev/nvme0n1 || {
-  echo "STOP: /dev/nvme0n1 is not present" >&2
-  exit 1
-}
-lsblk -d -o NAME,SIZE,MODEL,TRAN /dev/nvme0n1
-target_size_bytes="$(lsblk -dnbo SIZE /dev/nvme0n1)"
-test "$target_size_bytes" = "512110190592" || {
-  echo "STOP: /dev/nvme0n1 is not the confirmed 476.9 GiB target" >&2
-  exit 1
-}
-read -r -p "Type the confirmed target disk (/dev/nvme0n1): " disk_confirm
-test "$disk_confirm" = "/dev/nvme0n1" || {
-  echo "STOP: target disk was not confirmed" >&2
-  exit 1
-}
-
-lspci -D -nn | grep -E 'VGA|3D'
-lspci -D -nn | grep -Eiq '^0000:00:02\.0 .*Intel.*\[8086:' || {
-  echo "STOP: expected Intel GPU (vendor 8086) at 0000:00:02.0 was not found" >&2
-  exit 1
-}
-lspci -D -nn | grep -Eiq '^0000:01:00\.0 .*NVIDIA.*\[10de:' || {
-  echo "STOP: expected NVIDIA GPU (vendor 10de) at 0000:01:00.0 was not found" >&2
-  exit 1
-}
+./install.sh --host laptop --disk /dev/nvme0n1
 ```
 
-The laptop PRIME configuration uses those addresses as `PCI:0:2:0` and
-`PCI:1:0:0`. If either address differs, stop and do not run Disko.
+The laptop PRIME configuration uses Intel `0000:00:02.0` and NVIDIA
+`0000:01:00.0`, with vendor identities `8086` and `10de`. If either address or
+vendor identity differs, the installer stops before Disko. It also resolves the
+Disko revision from the checked-in `flake.lock` and uses that pinned revision.
 
-Only after the preflight succeeds, read and explicitly confirm this warning:
+The installer requires this exact confirmation. A generic `yes`, `y`, or
+different wording fails closed:
 
 ```text
-WARNING: the next command permanently destroys the partition table and all
-data on /dev/nvme0n1. This clean-install wipe is intentional and cannot be
-undone. Do not continue unless the disk checks, GPU checks, and backups are
-correct.
+Type exactly 'WIPE /dev/nvme0n1 AS laptop' to continue:
 ```
 
+Disko permanently destroys the existing partition table and data; the wipe
+cannot be undone. The installer runs Disko with `--mode destroy,format,mount`
+and the exact `--flake ".#laptop"` selector, followed by:
+
 ```sh
-read -r -p "Type DESTROY /dev/nvme0n1 to continue: " wipe_confirm
-test "$wipe_confirm" = "DESTROY /dev/nvme0n1" || {
-  echo "Aborted before Disko" >&2
-  exit 1
-}
-
-sudo nix --extra-experimental-features "nix-command flakes" \
-  run github:nix-community/disko -- \
-  --mode disko --flake .#laptop
-
-sudo nixos-install --flake .#laptop
+sudo nixos-install --flake ".#laptop"
+sudo nixos-enter --root "/mnt" -c "passwd kevin"
 ```
 
-Before rebooting, set Kevin's password interactively inside the installed
-system mounted at `/mnt`. The source intentionally contains no initial
-password or password hash:
+Enter the password only at the interactive `passwd` prompt. The source has no
+initial password or password hash, the installer never prints or declares a
+password, and it never reboots automatically. After the installer reports
+success, reboot manually:
 
 ```sh
-sudo nixos-enter --root /mnt -c 'passwd kevin'
 sudo reboot
 ```
 
 ## Install another host
 
-For a normal installation of a different host, validate that host's target
-disk and backups before running the same generic Disko flow. Use `.#desktop`
-for the desktop and `.#laptop` for the laptop; do not select one machine's
-configuration on the other machine.
+For a normal installation of the desktop, validate the target disk and backups
+and use the same guarded installer with the matching explicit host selector.
+Do not select one machine's configuration on the other machine.
 
 ```sh
-# Replace HOST with desktop or laptop after validating the matching hardware.
-sudo nix --extra-experimental-features "nix-command flakes" \
-  run github:nix-community/disko -- \
-  --mode disko --flake .#HOST
-
-sudo nixos-install --flake .#HOST
+# The installer also accepts --host desktop; use the checked-in target disk.
+./install.sh --host desktop --disk /dev/nvme0n1
 ```
 
 After rebooting into an installed system, select the matching host explicitly

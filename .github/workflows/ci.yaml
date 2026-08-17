@@ -17,6 +17,9 @@ jobs:
       - name: Evaluate flake outputs
         run: nix flake show --no-write-lock-file
 
+      - name: Check installer syntax
+        run: bash -n install.sh
+
       - name: Check formatting
         run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix packages/hypr-autoscroll.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop
 
