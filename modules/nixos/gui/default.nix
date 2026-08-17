@@ -6,6 +6,7 @@
   boot = {
     consoleLogLevel = 3;
     initrd.verbose = false;
+    loader.timeout = 0;
     kernelParams = [
       "quiet"
       "udev.log_level=3"
@@ -15,7 +16,7 @@
     ];
     plymouth = {
       enable = true;
-      theme = "breeze";
+      theme = "bgrt";
     };
   };
 

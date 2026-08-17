@@ -25,6 +25,11 @@
     xwayland.enable = true;
   };
 
+  programs.steam = {
+    enable = true;
+    extraCompatPackages = [ pkgs.proton-ge-bin ];
+  };
+
   environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
 
   fonts.packages = [

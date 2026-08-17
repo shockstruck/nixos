@@ -9,6 +9,7 @@
   hardware.enableRedistributableFirmware = true;
   networking.networkmanager.enable = true;
   nixpkgs.config.allowUnfree = true;
+  services.netbird.enable = true;
   services.openssh.enable = true;
   zramSwap.enable = true;
 }

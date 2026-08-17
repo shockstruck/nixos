@@ -1,0 +1,152 @@
+diff --git a/ii/modules/common/Config.qml b/ii/modules/common/Config.qml
+--- a/ii/modules/common/Config.qml
++++ b/ii/modules/common/Config.qml
+@@ -111,8 +111,8 @@ Singleton {
+ 
+             property JsonObject apps: JsonObject {
+                 property string bluetooth: "kcmshell6-bluetooth"
+-                property string network: "kcmshell6-network"
+-                property string networkEthernet: "kcmshell6-network"
++                property string network: "nm-connection-editor"
++                property string networkEthernet: "nm-connection-editor"
+                 property string taskManager: "plasma-systemmonitor --page-name Processes"
+                 property string terminal: "kitty -1" // This is only for shell actions
+             }
+diff --git a/ii/scripts/colors/switchwall.sh b/ii/scripts/colors/switchwall.sh
+--- a/ii/scripts/colors/switchwall.sh
++++ b/ii/scripts/colors/switchwall.sh
+@@ -386,6 +386,9 @@ main() {
+             --noswitch)
+                 noswitch_flag="1"
+                 imgpath=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "")
++                if [[ -z "$imgpath" || ! -f "$imgpath" ]]; then
++                    imgpath="$CONFIG_DIR/assets/images/default_wallpaper.png"
++                fi
+                 shift
+                 ;;
+             --choose)
+diff --git a/ii/services/Ai.qml b/ii/services/Ai.qml
+--- a/ii/services/Ai.qml
++++ b/ii/services/Ai.qml
+@@ -1101,7 +1101,9 @@ Singleton {
+     }
+ 
+     function addModel(modelName, data) {
+-        root.models[modelName] = aiModelComponent.createObject(this, data);
++        root.models = Object.assign({}, root.models, {
++            [modelName]: aiModelComponent.createObject(this, data)
++        });
+     }
+ 
+     Process {
+@@ -1478,7 +1480,9 @@ Singleton {
+             // console.log("Header string: ", headerString);
+ 
+             /* Get authorization header from strategy */
+-            const authHeader = requester.currentStrategy.buildAuthorizationHeader(root.apiKeyEnvVarName);
++            const authHeader = model.requires_key
++                ? requester.currentStrategy.buildAuthorizationHeader(root.apiKeyEnvVarName)
++                : "";
+ 
+             /* Write JSON payload to temp file via FileView to avoid ARG_MAX limits.
+              * Large base64 image payloads can exceed the 2MB shell argument limit. */
+diff --git a/ii/modules/sidebarRight/SidebarRight.qml b/ii/modules/sidebarRight/SidebarRight.qml
+--- a/ii/modules/sidebarRight/SidebarRight.qml
++++ b/ii/modules/sidebarRight/SidebarRight.qml
+@@ -160,6 +160,7 @@ Scope {
+ 
+                             NetworkToggle {}
+                             BluetoothToggle {}
++                            NetBird {}
+                             NightLight {}
+                             GameMode {}
+                             IdleInhibitor {}
+diff --git a/ii/modules/sidebarRight/quickToggles/NetBird.qml b/ii/modules/sidebarRight/quickToggles/NetBird.qml
+new file mode 100644
+--- /dev/null
++++ b/ii/modules/sidebarRight/quickToggles/NetBird.qml
+@@ -0,0 +1,57 @@
++import qs
++import qs.modules.common
++import qs.modules.common.widgets
++import QtQuick
++import Quickshell
++import Quickshell.Io
++
++QuickToggleButton {
++    id: root
++    buttonIcon: "vpn_lock"
++    toggled: false
++
++    onClicked: {
++        toggleProc.command = ["netbird", root.toggled ? "down" : "up"]
++        toggleProc.running = true
++    }
++
++    altAction: () => {
++        Quickshell.execDetached(["netbird-ui"])
++        GlobalStates.sidebarRightOpen = false
++    }
++
++    Process {
++        id: toggleProc
++        onExited: (exitCode, exitStatus) => {
++            statusProc.running = true
++            if (exitCode !== 0) {
++                Quickshell.execDetached([
++                    "notify-send",
++                    "NetBird",
++                    "Connection change failed; right-click the toggle to configure NetBird.",
++                    "-a", "Shell"
++                ])
++            }
++        }
++    }
++
++    Process {
++        id: statusProc
++        running: true
++        command: ["bash", "-c", "netbird status 2>/dev/null | grep -q 'Management: Connected'"]
++        onExited: (exitCode, exitStatus) => root.toggled = exitCode === 0
++    }
++
++    Timer {
++        interval: 5000
++        repeat: true
++        running: true
++        onTriggered: {
++            if (!statusProc.running && !toggleProc.running) statusProc.running = true
++        }
++    }
++
++    StyledToolTip {
++        content: "NetBird | Right-click to configure"
++    }
++}
+diff --git a/ii/modules/sidebarRight/calendar/CalendarWidget.qml b/ii/modules/sidebarRight/calendar/CalendarWidget.qml
+--- a/ii/modules/sidebarRight/calendar/CalendarWidget.qml
++++ b/ii/modules/sidebarRight/calendar/CalendarWidget.qml
+@@ -5,6 +5,7 @@ import "./calendar_layout.js" as CalendarLayout
+ import QtQuick
+ import QtQuick.Controls
+ import QtQuick.Layouts
++import Quickshell
+ 
+ Item {
+     // Layout.topMargin: 10
+@@ -49,9 +50,13 @@ Item {
+             CalendarHeaderButton {
+                 clip: true
+                 buttonText: `${monthShift != 0 ? "• " : ""}${viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")}`
+-                tooltipText: (monthShift === 0) ? "" : Translation.tr("Jump to current month")
++                tooltipText: (monthShift === 0) ? Translation.tr("Open Calendar") : Translation.tr("Jump to current month")
+                 onClicked: {
+-                    monthShift = 0;
++                    if (monthShift === 0) {
++                        Quickshell.execDetached(["gnome-calendar"])
++                    } else {
++                        monthShift = 0;
++                    }
+                 }
+             }
+             Item {

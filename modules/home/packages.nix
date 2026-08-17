@@ -5,13 +5,40 @@
   # Search for packages here: https://search.nixos.org/packages
   home.packages = with pkgs; [
     omnix
+    opencode
+
+    # Desktop applications
+    bitwarden-desktop
+    bolt-launcher
+    brave
+    firefox
+    github-desktop
+    gnome-calendar
+    netbird-ui
+    proton-authenticator
+    proton-pass
+    proton-vpn
+    protonmail-bridge-gui
+    protonmail-desktop
+    runelite
+    vesktop
+    vscodium
 
     # Unix tools
+    bitwarden-cli
+    cloudflared
+    gh
+    kubeconform
+    kubectl
     ripgrep # Better `grep`
     fd
     sd
     tree
     gnumake
+    yamllint
+    yq-go
+    proton-pass-cli
+    _1password-cli
 
     # Nix dev
     cachix

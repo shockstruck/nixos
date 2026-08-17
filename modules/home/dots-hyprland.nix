@@ -9,8 +9,10 @@ let
   # current branch stores the maintained Quickshell implementation in configs/.
   source = pkgs.runCommand "dots-hyprland-config-source" { } ''
     mkdir -p $out/.config
-    ln -s ${flake.inputs.dots-hyprland}/configs/matugen $out/.config/matugen
-    ln -s ${flake.inputs.dots-hyprland}/configs/quickshell $out/.config/quickshell
+    cp -R ${flake.inputs.dots-hyprland}/configs/matugen $out/.config/matugen
+    cp -R ${flake.inputs.dots-hyprland}/configs/quickshell $out/.config/quickshell
+    chmod -R u+w $out/.config
+    patch -d $out/.config/quickshell -p1 < ${../../patches/dots-hyprland-functional-fixes.patch}
   '';
 
   initialGreenTheme = pkgs.writeShellScript "dots-hyprland-initial-theme" ''
@@ -107,6 +109,7 @@ in
       ollama
       piper-tts
       slurp
+      socat
       songrec
       swappy
       tesseract
