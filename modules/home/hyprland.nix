@@ -5,6 +5,10 @@
 , ...
 }:
 let
+  initialMonitorConfig = pkgs.writeText "hyprland-monitors.conf" ''
+    monitor = , preferred, auto, 1
+  '';
+
   # Build the plugin from the flake-locked source against the exact Hyprland
   # package Home Manager resolves for this configuration. ABI between the
   # plugin and compositor is unstable, so both must come from the same build.
@@ -24,10 +28,12 @@ in
       # `${package}/lib/lib${pname}.so`.
       plugins = [ hypr-autoscroll ];
 
-      settings = {
-        # Preferred mode, automatic placement, scale 1.
-        monitor = [ ",preferred,auto,1" ];
+      # nwg-displays owns this mutable file and reloads Hyprland after changes.
+      extraConfig = ''
+        source = ~/.config/hypr/monitors.conf
+      '';
 
+      settings = {
         input.touchpad.natural_scroll = true;
 
         "$mainMod" = "SUPER";
@@ -68,6 +74,8 @@ in
           "$mainMod, M, Shell: Toggle media controls, global, quickshell:mediaControlsToggle"
           "$mainMod, slash, Shell: Toggle keybind cheatsheet, global, quickshell:cheatsheetToggle"
 
+          "$mainMod, D, Utilities: Configure displays, exec, nwg-displays"
+
           # Keep SUPER+A for ii's AI sidebar and move middle-button autoscroll.
           "$mainMod CTRL, A, Utilities: Toggle middle-button autoscroll, hypr-autoscroll:middle-mode, toggle"
         ];
@@ -88,5 +96,12 @@ in
         ];
       };
     };
+
+    home.activation.ensureHyprlandMonitorConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      $DRY_RUN_CMD mkdir -p "$HOME/.config/hypr"
+      if [[ ! -e "$HOME/.config/hypr/monitors.conf" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${initialMonitorConfig} "$HOME/.config/hypr/monitors.conf"
+      fi
+    '';
   };
 }

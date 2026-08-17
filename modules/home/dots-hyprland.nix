@@ -48,6 +48,7 @@ in
       inherit source;
       packageSet = "all";
       mode = "hybrid";
+      packages.includeNwgDisplays = true;
 
       # Preserve the fork's complete Config.qml, including its dock and AI/voice
       # schema. Its generated Nix replacement currently omits those settings.
