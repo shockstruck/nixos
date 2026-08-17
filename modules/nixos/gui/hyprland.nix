@@ -18,6 +18,7 @@
 
   programs.dconf.enable = true;
   programs.hyprlock.enable = true;
+  programs.kdeconnect.enable = true;
   programs.ydotool.enable = true;
 
   programs.hyprland = {
