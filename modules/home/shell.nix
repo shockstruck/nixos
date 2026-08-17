@@ -1,5 +1,15 @@
-{ ... }:
+{ config, lib, ... }:
 {
+  home.activation.migrateZshHistory = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    oldHistory="${config.home.homeDirectory}/.zsh_history"
+    newHistory="${config.xdg.configHome}/zsh/.zsh_history"
+
+    if [[ -f "$oldHistory" && ! -e "$newHistory" ]]; then
+      $DRY_RUN_CMD mkdir -p "$(dirname "$newHistory")"
+      $DRY_RUN_CMD mv "$oldHistory" "$newHistory"
+    fi
+  '';
+
   programs = {
     # on macOS, you probably don't need this
     bash = {

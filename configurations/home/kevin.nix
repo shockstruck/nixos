@@ -16,5 +16,6 @@ in
     email = "186360364+shockstruck@users.noreply.github.com";
   };
 
-  home.stateVersion = "24.11";
+  # Compatibility baseline, not the installed Home Manager version.
+  home.stateVersion = "26.05";
 }
