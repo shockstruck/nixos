@@ -88,6 +88,12 @@ in
       $DRY_RUN_CMD mkdir -p "$HOME/.cache/dots-hyprland"
       $DRY_RUN_CMD touch "$HOME/.cache/dots-hyprland/setup-complete"
       $DRY_RUN_CMD mkdir -p "$HOME/.config/hypr/custom/scripts"
+      $DRY_RUN_CMD ${pkgs.systemd}/bin/systemctl --user unset-environment LD_LIBRARY_PATH || true
+
+      shellConfig="$HOME/.config/illogical-impulse/config.json"
+      if [[ -f "$shellConfig" ]]; then
+        $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c "${pkgs.jq}/bin/jq '.bar.workspaces.monochromeIcons = false | .dock.monochromeIcons = false' \"\$1\" > \"\$1.tmp\" && mv \"\$1.tmp\" \"\$1\"" _ "$shellConfig"
+      fi
     '';
 
     # packageSet = "all" still omits several executables used by the complete
@@ -122,6 +128,10 @@ in
       kdePackages.systemsettings
     ];
 
+    # The Python environment is only needed by shell scripts. Exporting its
+    # library path session-wide breaks wrapped applications such as Electron.
+    home.sessionVariables.LD_LIBRARY_PATH = lib.mkForce null;
+
     services.cliphist = {
       enable = true;
       systemdTargets = [ "hyprland-session.target" ];
@@ -129,6 +139,13 @@ in
 
     services.easyeffects.enable = true;
     services.polkit-gnome.enable = true;
+
+    # The target wants Quickshell, so ordering Quickshell after that same target
+    # creates a systemd transaction cycle during Home Manager activation.
+    systemd.user.services.quickshell.Unit = {
+      After = lib.mkForce [ "graphical-session.target" ];
+      Wants = lib.mkForce [ ];
+    };
 
     services.hypridle = {
       enable = true;

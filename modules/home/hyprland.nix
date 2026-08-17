@@ -36,40 +36,40 @@ in
         # after the SUPER+CTRL+A toggle.
         plugin.hypr_autoscroll.direct_activation = false;
 
-        bind = [
-          "$mainMod, Return, exec, foot"
-          "$mainMod, Q, killactive"
+        bindd = [
+          "$mainMod, Return, Applications: Open terminal, exec, foot"
+          "$mainMod, Q, Windows: Close active window, killactive"
 
-          "$mainMod, left, movefocus, l"
-          "$mainMod, right, movefocus, r"
-          "$mainMod, up, movefocus, u"
-          "$mainMod, down, movefocus, d"
+          "$mainMod, left, Windows: Focus left, movefocus, l"
+          "$mainMod, right, Windows: Focus right, movefocus, r"
+          "$mainMod, up, Windows: Focus up, movefocus, u"
+          "$mainMod, down, Windows: Focus down, movefocus, d"
 
-          "$mainMod, 1, workspace, 1"
-          "$mainMod, 2, workspace, 2"
-          "$mainMod, 3, workspace, 3"
-          "$mainMod, 4, workspace, 4"
-          "$mainMod, 5, workspace, 5"
+          "$mainMod, 1, Workspaces: Switch to workspace 1, workspace, 1"
+          "$mainMod, 2, Workspaces: Switch to workspace 2, workspace, 2"
+          "$mainMod, 3, Workspaces: Switch to workspace 3, workspace, 3"
+          "$mainMod, 4, Workspaces: Switch to workspace 4, workspace, 4"
+          "$mainMod, 5, Workspaces: Switch to workspace 5, workspace, 5"
 
-          "$mainMod SHIFT, 1, movetoworkspace, 1"
-          "$mainMod SHIFT, 2, movetoworkspace, 2"
-          "$mainMod SHIFT, 3, movetoworkspace, 3"
-          "$mainMod SHIFT, 4, movetoworkspace, 4"
-          "$mainMod SHIFT, 5, movetoworkspace, 5"
+          "$mainMod SHIFT, 1, Workspaces: Move window to workspace 1, movetoworkspace, 1"
+          "$mainMod SHIFT, 2, Workspaces: Move window to workspace 2, movetoworkspace, 2"
+          "$mainMod SHIFT, 3, Workspaces: Move window to workspace 3, movetoworkspace, 3"
+          "$mainMod SHIFT, 4, Workspaces: Move window to workspace 4, movetoworkspace, 4"
+          "$mainMod SHIFT, 5, Workspaces: Move window to workspace 5, movetoworkspace, 5"
 
           # illogical-impulse Quickshell surfaces.
-          "$mainMod, Space, global, quickshell:overviewToggle"
-          "$mainMod, S, exec, quickshell -p $HOME/.config/quickshell/ii/settings.qml"
-          "$mainMod, C, global, quickshell:overviewClipboardToggle"
-          "$mainMod, W, exec, $HOME/.config/quickshell/ii/scripts/colors/switchwall.sh --choose"
-          "$mainMod SHIFT, E, global, quickshell:sessionToggle"
-          "$mainMod, A, global, quickshell:sidebarLeftToggle"
-          "$mainMod, N, global, quickshell:sidebarRightToggle"
-          "$mainMod, M, global, quickshell:mediaControlsToggle"
-          "$mainMod, slash, global, quickshell:cheatsheetToggle"
+          "$mainMod, Space, Shell: Toggle overview, global, quickshell:overviewToggle"
+          "$mainMod, S, Shell: Open settings, exec, quickshell -p $HOME/.config/quickshell/ii/settings.qml"
+          "$mainMod, C, Shell: Toggle clipboard history, global, quickshell:overviewClipboardToggle"
+          "$mainMod, W, Shell: Choose wallpaper, exec, $HOME/.config/quickshell/ii/scripts/colors/switchwall.sh --choose"
+          "$mainMod SHIFT, E, Shell: Toggle session menu, global, quickshell:sessionToggle"
+          "$mainMod, A, Shell: Toggle AI sidebar, global, quickshell:sidebarLeftToggle"
+          "$mainMod, N, Shell: Toggle right sidebar, global, quickshell:sidebarRightToggle"
+          "$mainMod, M, Shell: Toggle media controls, global, quickshell:mediaControlsToggle"
+          "$mainMod, slash, Shell: Toggle keybind cheatsheet, global, quickshell:cheatsheetToggle"
 
           # Keep SUPER+A for ii's AI sidebar and move middle-button autoscroll.
-          "$mainMod CTRL, A, hypr-autoscroll:middle-mode, toggle"
+          "$mainMod CTRL, A, Utilities: Toggle middle-button autoscroll, hypr-autoscroll:middle-mode, toggle"
         ];
 
         bindel = [
