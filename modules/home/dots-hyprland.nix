@@ -59,12 +59,16 @@ in
       touchegg.enable = true;
     };
 
-    # The fork's hybrid activation backs up unrelated mutable configs and tries
-    # to regenerate already-vendored qmldir files through read-only store links.
+    # The fork's hybrid activation backs up unrelated mutable configs, tries to
+    # regenerate vendored qmldir files through store links, and copies an
+    # optional reset helper before its ~/.local/bin setup runs.
     home.activation.copyQuickshellConfigs = lib.mkForce (
       lib.hm.dag.entryBefore [ "linkGeneration" ] ""
     );
     home.activation.generateQmldirFiles = lib.mkForce (
+      lib.hm.dag.entryAfter [ "linkGeneration" ] ""
+    );
+    home.activation.createWorkingQsScript = lib.mkForce (
       lib.hm.dag.entryAfter [ "linkGeneration" ] ""
     );
 
