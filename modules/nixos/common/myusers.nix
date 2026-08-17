@@ -14,7 +14,7 @@ in
       default =
         let
           dirContents = builtins.readDir (self + /configurations/home);
-          fileNames = builtins.attrNames dirContents; # Extracts keys: [ "runner.nix" ]
+          fileNames = builtins.attrNames dirContents; # Extracts keys: [ "kevin.nix" ]
           regularFiles = builtins.filter (name: dirContents.${name} == "regular") fileNames; # Filters for regular files
           baseNames = map (name: builtins.replaceStrings [ ".nix" ] [ "" ] name) regularFiles; # Removes .nix extension
         in
@@ -31,6 +31,7 @@ in
           home = "/Users/${name}";
         } // lib.optionalAttrs pkgs.stdenv.isLinux {
         isNormalUser = true;
+        extraGroups = [ "wheel" "networkmanager" ];
       }
     );
 

@@ -155,35 +155,101 @@ generation without using the display manager:
 sudo nixos-rebuild switch --rollback --flake .#HOST
 ```
 
-## Pre-install checks
+## Fresh laptop install
 
-The Disko layouts assume the target disk is `/dev/nvme0n1`. Confirm the disk
-name, size, and model from the NixOS installer before running any destructive
-command:
+Use this sequence from the minimal NixOS installer for the confirmed ThinkPad
+P15s Gen 2. This is an intentional clean install. Disko permanently destroys
+the existing partition table and data; the wipe cannot be undone.
+
+First clone the repository, or fast-forward an existing clean checkout:
 
 ```sh
-lsblk -d -o NAME,SIZE,MODEL,TRAN
+# New checkout:
+git clone https://github.com/shockstruck/nixos.git
+cd nixos
+
+# Existing checkout instead:
+git fetch origin main
+git pull --ff-only origin main
 ```
 
-The laptop PRIME configuration expects the Intel GPU at `0000:00:02.0` and the
-NVIDIA GPU at `0000:01:00.0`. Confirm both addresses before installation:
+Before running Disko, perform every preflight check below. The checks stop the
+sequence before Disko when the confirmed disk or GPU addresses do not match:
 
 ```sh
+set -eu
+
+test -b /dev/nvme0n1 || {
+  echo "STOP: /dev/nvme0n1 is not present" >&2
+  exit 1
+}
+lsblk -d -o NAME,SIZE,MODEL,TRAN /dev/nvme0n1
+target_size_bytes="$(lsblk -dnbo SIZE /dev/nvme0n1)"
+test "$target_size_bytes" = "512110190592" || {
+  echo "STOP: /dev/nvme0n1 is not the confirmed 476.9 GiB target" >&2
+  exit 1
+}
+read -r -p "Type the confirmed target disk (/dev/nvme0n1): " disk_confirm
+test "$disk_confirm" = "/dev/nvme0n1" || {
+  echo "STOP: target disk was not confirmed" >&2
+  exit 1
+}
+
 lspci -D -nn | grep -E 'VGA|3D'
+lspci -D -nn | grep -q '^0000:00:02.0 ' || {
+  echo "STOP: expected Intel GPU at 0000:00:02.0 was not found" >&2
+  exit 1
+}
+lspci -D -nn | grep -q '^0000:01:00.0 ' || {
+  echo "STOP: expected NVIDIA GPU at 0000:01:00.0 was not found" >&2
+  exit 1
+}
 ```
 
-NixOS expresses those addresses as `PCI:0:2:0` and `PCI:1:0:0`. Update
-`configurations/nixos/laptop/graphics.nix` if the hardware reports different
-addresses.
+The laptop PRIME configuration uses those addresses as `PCI:0:2:0` and
+`PCI:1:0:0`. If either address differs, stop and do not run Disko.
 
-## Install
+Only after the preflight succeeds, read and explicitly confirm this warning:
 
-The following Disko command destroys the partition table and all data on the
-configured target disk. Run it only from the NixOS installer after validating
-the host name, `/dev/nvme0n1`, backups, and laptop GPU addresses.
+```text
+WARNING: the next command permanently destroys the partition table and all
+data on /dev/nvme0n1. This clean-install wipe is intentional and cannot be
+undone. Do not continue unless the disk checks, GPU checks, and backups are
+correct.
+```
 
 ```sh
-# Replace HOST with desktop or laptop.
+read -r -p "Type DESTROY /dev/nvme0n1 to continue: " wipe_confirm
+test "$wipe_confirm" = "DESTROY /dev/nvme0n1" || {
+  echo "Aborted before Disko" >&2
+  exit 1
+}
+
+sudo nix --extra-experimental-features "nix-command flakes" \
+  run github:nix-community/disko -- \
+  --mode disko --flake .#laptop
+
+sudo nixos-install --flake .#laptop
+```
+
+Before rebooting, set Kevin's password interactively inside the installed
+system mounted at `/mnt`. The source intentionally contains no initial
+password or password hash:
+
+```sh
+sudo nixos-enter --root /mnt -c 'passwd kevin'
+sudo reboot
+```
+
+## Install another host
+
+For a normal installation of a different host, validate that host's target
+disk and backups before running the same generic Disko flow. Use `.#desktop`
+for the desktop and `.#laptop` for the laptop; do not select one machine's
+configuration on the other machine.
+
+```sh
+# Replace HOST with desktop or laptop after validating the matching hardware.
 sudo nix --extra-experimental-features "nix-command flakes" \
   run github:nix-community/disko -- \
   --mode disko --flake .#HOST
@@ -198,5 +264,3 @@ for future source-controlled updates:
 # Replace HOST with desktop or laptop.
 sudo nixos-rebuild switch --flake .#HOST
 ```
-
-Do not select one machine's host configuration on the other machine.
