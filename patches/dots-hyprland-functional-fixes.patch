@@ -123,6 +123,16 @@ new file mode 100644
 +        content: "NetBird | Right-click to configure"
 +    }
 +}
+diff --git a/ii/modules/sidebarRight/quickToggles/qmldir b/ii/modules/sidebarRight/quickToggles/qmldir
+--- a/ii/modules/sidebarRight/quickToggles/qmldir
++++ b/ii/modules/sidebarRight/quickToggles/qmldir
+@@ -6,5 +6,6 @@ EasyEffectsToggle 1.0 EasyEffectsToggle.qml
+ GameMode 1.0 GameMode.qml
+ IdleInhibitor 1.0 IdleInhibitor.qml
+ NetworkToggle 1.0 NetworkToggle.qml
++NetBird 1.0 NetBird.qml
+ NightLight 1.0 NightLight.qml
+ QuickToggleButton 1.0 QuickToggleButton.qml
 diff --git a/ii/modules/sidebarRight/calendar/CalendarWidget.qml b/ii/modules/sidebarRight/calendar/CalendarWidget.qml
 --- a/ii/modules/sidebarRight/calendar/CalendarWidget.qml
 +++ b/ii/modules/sidebarRight/calendar/CalendarWidget.qml
