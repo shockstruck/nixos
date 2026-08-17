@@ -11,6 +11,23 @@
   '';
 
   programs = {
+    atuin = {
+      enable = true;
+      enableBashIntegration = true;
+      enableZshIntegration = true;
+      flags = [ "--disable-up-arrow" ];
+      settings = {
+        auto_sync = false;
+        enter_accept = false;
+        filter_mode = "global";
+        inline_height = 30;
+        search_mode = "fuzzy";
+        show_preview = true;
+        style = "compact";
+        update_check = false;
+      };
+    };
+
     # on macOS, you probably don't need this
     bash = {
       enable = true;
@@ -41,6 +58,9 @@
 
     # Type `z <pat>` to cd to some directory
     zoxide.enable = true;
+
+    # Atuin owns Ctrl-R; fzf keeps its file and directory widgets.
+    fzf.historyWidget.command = "";
 
     # Better shell prompt!
     starship = {
