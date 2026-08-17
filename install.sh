@@ -9,8 +9,9 @@ Run the guarded clean-install flow from the repository root. If --host or
 --disk is omitted, the installer prompts for it explicitly.
 
 The installer never chooses a host or disk from hardware detection. It shows
-read-only hardware and mount information, requires an exact destructive
-confirmation, and never reboots automatically.
+read-only hardware and mount information, requires one usable TPM2 device and
+an exact destructive confirmation, encrypts the root filesystem with LUKS2,
+and never reboots automatically.
 EOF
 }
 
@@ -140,6 +141,20 @@ require_command nix
 require_command sudo
 require_command nixos-install
 require_command nixos-enter
+require_command systemd-cryptenroll
+
+tpm_inventory=""
+if ! tpm_inventory="$(sudo systemd-cryptenroll --tpm2-device=list 2>&1)"; then
+  stop "could not inspect TPM2 devices: $tpm_inventory"
+fi
+printf '\nTPM2 devices (required for automatic root unlock):\n%s\n' "$tpm_inventory"
+tpm_device_count=0
+while IFS= read -r tpm_line; do
+  if [[ "$tpm_line" =~ /dev/tpm(rm)?[[:digit:]]+ ]]; then
+    tpm_device_count=$((tpm_device_count + 1))
+  fi
+done <<<"$tpm_inventory"
+[[ "$tpm_device_count" == 1 ]] || stop "expected exactly one usable TPM2 device, found $tpm_device_count; check firmware settings before installing"
 
 disko_rev=""
 if ! disko_rev="$(nix --extra-experimental-features "nix-command flakes" eval --raw --impure --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes.disko.locked.rev')"; then
@@ -158,9 +173,28 @@ printf 'Using pinned Disko revision %s from flake.lock.\n' "$disko_rev"
 sudo nix --extra-experimental-features "nix-command flakes" run "$disko_ref" -- \
   --mode destroy,format,mount --flake ".#$host"
 
+readonly luks_partition="/dev/disk/by-partlabel/cryptroot"
+[[ -b "$luks_partition" ]] || stop "Disko did not create the expected LUKS partition '$luks_partition'"
+luks_parent="$(lsblk -dnro PKNAME -- "$luks_partition" 2>/dev/null || true)"
+luks_parent="${luks_parent//$'\n'/}"
+luks_parent="${luks_parent//[[:space:]]/}"
+[[ -n "$luks_parent" ]] || stop "could not identify the parent disk for '$luks_partition'"
+[[ "/dev/$luks_parent" == "$disk" ]] || stop "LUKS partition '$luks_partition' belongs to /dev/$luks_parent, not '$disk'"
+
+printf '\nEnroll TPM2 automatic unlock for %s.\n' "$luks_partition"
+printf '%s\n' 'Enter the same LUKS passphrase that Disko requested during formatting.'
+sudo systemd-cryptenroll \
+  --tpm2-device=auto \
+  --tpm2-pcrs= \
+  "$luks_partition"
+if ! sudo systemd-cryptenroll "$luks_partition" | grep -qw tpm2; then
+  stop 'TPM2 enrollment could not be verified; the encrypted disk remains accessible with its LUKS passphrase'
+fi
+printf '%s\n' 'TPM2 enrollment verified.'
+
 sudo nixos-install --flake ".#$host"
 sudo nixos-enter --root "/mnt" -c "passwd kevin"
 
-printf '\nInstall and interactive password setup completed.\n'
+printf '\nEncrypted install, TPM2 enrollment, and interactive password setup completed.\n'
 printf '%s\n' 'Reboot manually when ready:'
 printf '%s\n' '  sudo reboot'

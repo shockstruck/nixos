@@ -1,3 +1,5 @@
+{ pkgs, ... }:
+
 {
   hardware.graphics = {
     enable = true;
@@ -17,4 +19,11 @@
   };
 
   services.xserver.videoDrivers = [ "nvidia" ];
+
+  services.ollama = {
+    enable = true;
+    package = pkgs.ollama-cuda;
+    loadModels = [ "nemotron-3-nano:4b" ];
+    environmentVariables.OLLAMA_CONTEXT_LENGTH = "4096";
+  };
 }

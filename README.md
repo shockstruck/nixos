@@ -6,7 +6,7 @@ configuration. Hardware-dependent settings stay in each host directory.
 | Host | Hardware | Storage |
 | --- | --- | --- |
 | `desktop` | AMD Ryzen 9 7950X and Radeon RX 7900 XT | 1 TB NVMe |
-| `laptop` | Lenovo ThinkPad P15s Gen 2, 11th-generation Intel CPU, Intel iGPU, and NVIDIA dGPU | 512 GB NVMe |
+| `laptop` | Lenovo ThinkPad P15s Gen 2, 11th-generation Intel CPU, Intel iGPU, and 4 GB NVIDIA T500 dGPU | 512 GB NVMe |
 
 Both hosts import the shared modules under `modules/nixos` and the same
 home-manager configuration under `configurations/home`. The host trees under
@@ -64,6 +64,22 @@ Both workstations share one declarative Wayland session:
 
 `foot` is installed declaratively by the shared GUI module so the terminal
 binding works on every host.
+
+## Local AI
+
+The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
+Its model loader downloads `nemotron-3-nano:4b` after networking becomes
+available. This is the 2.8 GB Q4_K_M release; Ollama is capped to a 4,096-token
+context so its weights and runtime cache fit the T500's 4 GB VRAM budget.
+
+The first boot can finish before the background model download completes. Check
+its progress or run the model with:
+
+```sh
+systemctl status ollama-model-loader.service
+journalctl -u ollama-model-loader.service -f
+ollama run nemotron-3-nano:4b
+```
 
 ## Hyprland plugins
 
@@ -185,8 +201,9 @@ Run the installer with both selections explicit. Omitting either option prompts
 for it; hardware detection is read-only and advisory and never selects a host
 or disk. The installer displays the CPU, GPU, target disk model/size,
 partitions, and mounts, then stops unless the target is a whole disk, UEFI is
-available, the laptop target is the confirmed 476.9 GiB size, and the laptop
-GPU identities match the configured addresses:
+available, exactly one usable TPM2 device is visible, the laptop target is the
+confirmed 476.9 GiB size, and the laptop GPU identities match the configured
+addresses:
 
 ```sh
 ./install.sh --host laptop --disk /dev/nvme0n1
@@ -205,18 +222,30 @@ Type exactly 'WIPE /dev/nvme0n1 AS laptop' to continue:
 ```
 
 Disko permanently destroys the existing partition table and data; the wipe
-cannot be undone. The installer runs Disko with `--mode destroy,format,mount`
-and the exact `--flake ".#laptop"` selector, followed by:
+cannot be undone. It leaves the 1 GiB EFI system partition unencrypted and
+creates the Btrfs root, home, and Nix subvolumes inside a LUKS2 volume. During
+formatting, enter a LUKS passphrase twice. The installer then enrolls the same
+volume for TPM2 automatic unlock and asks for that passphrase once more before
+running `nixos-install`.
+
+The TPM enrollment intentionally has no PCR binding because Secure Boot is not
+configured. This keeps NixOS generation changes bootable without re-enrollment;
+it protects a removed disk or a disk whose TPM has been cleared, but not against
+an attacker who controls the complete machine and its unverified boot chain. If
+TPM unlock is unavailable, boot falls back to the LUKS passphrase.
+
+The installer runs Disko with `--mode destroy,format,mount` and the exact
+`--flake ".#laptop"` selector, followed by:
 
 ```sh
 sudo nixos-install --flake ".#laptop"
 sudo nixos-enter --root "/mnt" -c "passwd kevin"
 ```
 
-Enter the password only at the interactive `passwd` prompt. The source has no
-initial password or password hash, the installer never prints or declares a
-password, and it never reboots automatically. After the installer reports
-success, reboot manually:
+The source has no initial password, password hash, or disk key. The LUKS and
+account passwords are entered only at interactive prompts, and the installer
+never prints or declares them. It never reboots automatically. After the
+installer reports success, reboot manually:
 
 ```sh
 sudo reboot
@@ -224,9 +253,9 @@ sudo reboot
 
 ## Install another host
 
-For a normal installation of the desktop, validate the target disk and backups
-and use the same guarded installer with the matching explicit host selector.
-Do not select one machine's configuration on the other machine.
+For a normal installation of the desktop, validate the target disk, TPM2, and
+backups and use the same guarded encrypted installer with the matching explicit
+host selector. Do not select one machine's configuration on the other machine.
 
 ```sh
 # The installer also accepts --host desktop; use the checked-in target disk.
