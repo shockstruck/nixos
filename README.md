@@ -34,6 +34,8 @@ Both workstations share one declarative Wayland session:
 - **Theme**: the first end-4 session generates a dark, tonal-spot Material theme
   from the green seed `#B6D086` without changing the wallpaper. Runtime theme
   state remains writable under `~/.local/state/quickshell`.
+- **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
+  boot messages while preserving automatic status output for failures.
 
 > The end-4 fork is under active development. Its exact revision is pinned as
 > `dots-hyprland` in `flake.lock`; rebuild both hosts after updating that input.
