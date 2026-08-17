@@ -10,6 +10,7 @@
   services.displayManager.defaultSession = "hyprland";
 
   services.geoclue2.enable = true;
+  services.flatpak.enable = true;
   services.gnome.gnome-keyring.enable = true;
   services.touchegg.enable = true;
 
@@ -29,6 +30,28 @@
   programs.steam = {
     enable = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
+  };
+
+  systemd.services.grayjay-flatpak = {
+    description = "Install or update Grayjay from Flathub";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      ${pkgs.flatpak}/bin/flatpak remote-add --system --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      if ${pkgs.flatpak}/bin/flatpak info --system app.grayjay.Grayjay >/dev/null 2>&1; then
+        ${pkgs.flatpak}/bin/flatpak update --system --noninteractive app.grayjay.Grayjay
+      else
+        ${pkgs.flatpak}/bin/flatpak install --system --noninteractive flathub app.grayjay.Grayjay
+      fi
+    '';
   };
 
   environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];

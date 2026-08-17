@@ -14,7 +14,6 @@
     firefox
     github-desktop
     gnome-calendar
-    grayjay
     netbird-ui
     proton-authenticator
     proton-pass
