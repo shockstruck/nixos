@@ -196,12 +196,12 @@ test "$disk_confirm" = "/dev/nvme0n1" || {
 }
 
 lspci -D -nn | grep -E 'VGA|3D'
-lspci -D -nn | grep -q '^0000:00:02.0 ' || {
-  echo "STOP: expected Intel GPU at 0000:00:02.0 was not found" >&2
+lspci -D -nn | grep -Eiq '^0000:00:02\.0 .*Intel.*\[8086:' || {
+  echo "STOP: expected Intel GPU (vendor 8086) at 0000:00:02.0 was not found" >&2
   exit 1
 }
-lspci -D -nn | grep -q '^0000:01:00.0 ' || {
-  echo "STOP: expected NVIDIA GPU at 0000:01:00.0 was not found" >&2
+lspci -D -nn | grep -Eiq '^0000:01:00\.0 .*NVIDIA.*\[10de:' || {
+  echo "STOP: expected NVIDIA GPU (vendor 10de) at 0000:01:00.0 was not found" >&2
   exit 1
 }
 ```
