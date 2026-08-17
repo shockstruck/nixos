@@ -12,7 +12,7 @@ in
   # And used all around in /modules/home/*
   me = {
     username = "kevin";
-    fullname = "Kevin";
+    fullname = "shockstruck";
     email = "186360364+shockstruck@users.noreply.github.com";
   };
 

@@ -111,6 +111,18 @@
         };
       };
 
+    om.develop.default.readme = ''
+      # Apply the configuration
+
+      Activate a host explicitly from the repository root. The activation wrapper
+      obtains root privileges itself, so do not run these commands with `sudo`.
+
+      ```sh
+      nix run .#activate -- laptop
+      nix run .#activate -- desktop
+      ```
+    '';
+
     # https://omnix.page/om/init.html#spec
     om.templates = {
       home = {
