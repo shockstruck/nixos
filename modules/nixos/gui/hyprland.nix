@@ -1,21 +1,43 @@
 { flake, pkgs, ... }:
 {
   imports = [
-    flake.inputs.vast-shell.nixosModules.default
+    flake.inputs.dots-hyprland.nixosModules.default
   ];
+
+  nixpkgs.overlays = [ flake.inputs.dots-hyprland.overlays.default ];
 
   services.displayManager.gdm.enable = true;
   services.displayManager.defaultSession = "hyprland";
+
+  services.geoclue2.enable = true;
+  services.gnome.gnome-keyring.enable = true;
+  services.touchegg.enable = true;
+
+  hardware.bluetooth.enable = true;
+  hardware.i2c.enable = true;
+
+  programs.dconf.enable = true;
+  programs.hyprlock.enable = true;
+  programs.ydotool.enable = true;
 
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
   };
 
-  # Terminal launched by the shared Hyprland binding.
-  environment.systemPackages = [ pkgs.foot ];
+  environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
 
-  # Started by vast-shell's upstream quickshell-shell.service; do not add a
-  # second autostart path.
-  programs.quickshell-shell.enable = true;
+  fonts.packages = [
+    (pkgs.google-fonts.override {
+      fonts = [ "Google Sans Flex" "Readex Pro" "Space Grotesk" ];
+    })
+    pkgs.material-symbols
+    pkgs.nerd-fonts.jetbrains-mono
+    pkgs.rubik
+    pkgs.twemoji-color-font
+  ];
+
+  # Terminal launched by the shared Hyprland binding. Quickshell and its
+  # feature dependencies are installed by the Home Manager module.
+  environment.systemPackages = [ pkgs.foot ];
 }

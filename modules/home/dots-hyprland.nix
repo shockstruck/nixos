@@ -1,0 +1,176 @@
+{ config
+, flake
+, lib
+, pkgs
+, ...
+}:
+let
+  # The fork's module expects an upstream-style `.config` tree, while its
+  # current branch stores the maintained Quickshell implementation in configs/.
+  source = pkgs.runCommand "dots-hyprland-config-source" { } ''
+    mkdir -p $out/.config
+    ln -s ${flake.inputs.dots-hyprland}/configs/matugen $out/.config/matugen
+    ln -s ${flake.inputs.dots-hyprland}/configs/quickshell $out/.config/quickshell
+  '';
+
+  initialGreenTheme = pkgs.writeShellScript "dots-hyprland-initial-theme" ''
+    set -euo pipefail
+
+    generated="$HOME/.local/state/quickshell/user/generated"
+    colors="$generated/colors.json"
+    marker="$generated/.nix-theme-B6D086-dark-tonal-spot"
+    if [[ -e "$marker" ]]; then
+      exit 0
+    fi
+
+    for _ in {1..20}; do
+      [[ -x "$HOME/.config/quickshell/ii/scripts/colors/switchwall.sh" ]] && break
+      sleep 1
+    done
+
+    "$HOME/.config/quickshell/ii/scripts/colors/switchwall.sh" \
+      --color '#B6D086' \
+      --mode dark \
+      --type scheme-tonal-spot
+
+    test -s "$colors"
+    touch "$marker"
+  '';
+in
+{
+  imports = [ flake.inputs.dots-hyprland.homeManagerModules.default ];
+
+  config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    programs.dots-hyprland = {
+      enable = true;
+      inherit source;
+      packageSet = "all";
+      mode = "hybrid";
+
+      # Preserve the fork's complete Config.qml, including its dock and AI/voice
+      # schema. Its generated Nix replacement currently omits those settings.
+      configuration = {
+        enable = true;
+        copyMiscConfig = false;
+        copyFishConfig = false;
+        copyHyprlandConfig = false;
+      };
+
+      touchegg.enable = true;
+    };
+
+    # The fork's hybrid activation backs up unrelated mutable configs and tries
+    # to regenerate already-vendored qmldir files through read-only store links.
+    home.activation.copyQuickshellConfigs = lib.mkForce (
+      lib.hm.dag.entryBefore [ "linkGeneration" ] ""
+    );
+    home.activation.generateQmldirFiles = lib.mkForce (
+      lib.hm.dag.entryAfter [ "linkGeneration" ] ""
+    );
+
+    # switchwall.sh reads the KDE and application theme templates from this
+    # path, but the fork's configuration module does not expose its new layout.
+    xdg.configFile."matugen" = {
+      source = "${source}/.config/matugen";
+      recursive = true;
+      force = true;
+    };
+
+    # quickshell-startup otherwise runs the writable-mode setup path even when
+    # the module is configured in hybrid mode.
+    home.activation.ensureDotsHyprlandSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      $DRY_RUN_CMD mkdir -p "$HOME/.cache/dots-hyprland"
+      $DRY_RUN_CMD touch "$HOME/.cache/dots-hyprland/setup-complete"
+      $DRY_RUN_CMD mkdir -p "$HOME/.config/hypr/custom/scripts"
+    '';
+
+    # packageSet = "all" still omits several executables used by the complete
+    # shell, capture, OCR, wallpaper, AI, and settings surfaces.
+    home.packages = with pkgs; [
+      bibata-cursors
+      brightnessctl
+      ddcutil
+      easyeffects
+      espeak-ng
+      ffmpeg
+      grim
+      hyprshot
+      imagemagick
+      libcava
+      libnotify
+      libqalculate
+      mpvpaper
+      ollama
+      piper-tts
+      slurp
+      songrec
+      swappy
+      tesseract
+      (wf-recorder.override { ffmpeg = ffmpeg_8; })
+      wl-screenrec
+      wtype
+      kdePackages.dolphin
+      kdePackages.plasma-browser-integration
+      kdePackages.plasma-systemmonitor
+      kdePackages.systemsettings
+    ];
+
+    services.cliphist = {
+      enable = true;
+      systemdTargets = [ "hyprland-session.target" ];
+    };
+
+    services.easyeffects.enable = true;
+    services.polkit-gnome.enable = true;
+
+    services.hypridle = {
+      enable = true;
+      systemdTarget = "hyprland-session.target";
+      settings = {
+        general = {
+          lock_cmd = "pidof hyprlock || hyprlock";
+          before_sleep_cmd = "loginctl lock-session";
+          after_sleep_cmd = "hyprctl dispatch dpms on";
+        };
+        listener = [
+          {
+            timeout = 150;
+            on-timeout = "brightnessctl -s set 10";
+            on-resume = "brightnessctl -r";
+          }
+          {
+            timeout = 300;
+            on-timeout = "loginctl lock-session";
+          }
+          {
+            timeout = 330;
+            on-timeout = "hyprctl dispatch dpms off";
+            on-resume = "hyprctl dispatch dpms on";
+          }
+          {
+            timeout = 1800;
+            on-timeout = "systemctl suspend";
+          }
+        ];
+      };
+    };
+
+    systemd.user.services.dots-hyprland-initial-theme = {
+      Unit = {
+        Description = "Generate the initial green illogical-impulse theme";
+        After = [ "quickshell.service" ];
+        PartOf = [ "hyprland-session.target" ];
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = initialGreenTheme;
+        Environment = [
+          "PATH=${config.home.profileDirectory}/bin:/run/wrappers/bin:/run/current-system/sw/bin"
+        ];
+        Restart = "on-failure";
+        RestartSec = 5;
+      };
+      Install.WantedBy = [ "hyprland-session.target" ];
+    };
+  };
+}

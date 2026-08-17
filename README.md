@@ -20,20 +20,23 @@ Both workstations share one declarative Wayland session:
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
   XWayland. GDM stays as the only display manager and selects the `hyprland`
   session by default. The previous GNOME desktop is removed.
-- **Vast Shell** is integrated through its upstream NixOS flake module
-  (`vast-shell.nixosModules.default`) and enabled with `programs.quickshell-shell`.
-  Vast Shell's own `quickshell-shell.service` (bound to
-  `graphical-session.target`) owns shell startup; no second autostart is added.
+- **end-4 dots-hyprland** is integrated through the `celesrenata/end-4-flakes`
+  NixOS and Home Manager modules. The complete Quickshell implementation and
+  package set are enabled in hybrid mode, while this repository remains the
+  source of truth for Hyprland and Fish. Its `quickshell.service` starts with
+  `hyprland-session.target`.
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
   a monitor fallback (`preferred` mode, automatic placement, scale `1`), systemd
   graphical-session integration, the shared keybindings below, and the
   declarative Hyprland plugin load described under
   [Hyprland plugins](#hyprland-plugins).
+- **Theme**: the first end-4 session generates a dark, tonal-spot Material theme
+  from the green seed `#B6D086` without changing the wallpaper. Runtime theme
+  state remains writable under `~/.local/state/quickshell`.
 
-> Vast Shell is under active upstream development. Features may change without
-> notice; pin a specific `vast-shell` revision in `flake.lock` before relying on
-> a particular panel.
+> The end-4 fork is under active development. Its exact revision is pinned as
+> `dots-hyprland` in `flake.lock`; rebuild both hosts after updating that input.
 
 ### Keybindings
 
@@ -46,12 +49,16 @@ Both workstations share one declarative Wayland session:
 | `SUPER`+`←` `→` `↑` `↓` | Move focus |
 | `SUPER`+`1`…`5` | Switch to workspace 1-5 |
 | `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
-| `SUPER`+`Space` | Vast Shell app launcher |
-| `SUPER`+`S` | Vast Shell quick settings |
-| `SUPER`+`C` | Vast Shell clipboard |
-| `SUPER`+`W` | Vast Shell wallpaper switcher |
-| `SUPER`+`SHIFT`+`E` | Vast Shell session menu |
-| `SUPER`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
+| `SUPER`+`Space` | Toggle the end-4 overview and app launcher |
+| `SUPER`+`S` | Open end-4 settings |
+| `SUPER`+`C` | Toggle the clipboard history |
+| `SUPER`+`W` | Open the wallpaper chooser |
+| `SUPER`+`SHIFT`+`E` | Toggle the session menu |
+| `SUPER`+`A` | Toggle the left AI sidebar |
+| `SUPER`+`N` | Toggle the right sidebar |
+| `SUPER`+`M` | Toggle media controls |
+| `SUPER`+`/` | Toggle the end-4 keybinding cheatsheet |
+| `SUPER`+`CTRL`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
 
 `foot` is installed declaratively by the shared GUI module so the terminal
 binding works on every host.
@@ -67,8 +74,9 @@ the Nix store.
 
 - **Purpose**: enables middle-button autoscroll; `direct_activation = false` keeps
   the mode off by default so it only starts when toggled.
-- **SUPER+A**: the non-conflicting binding that toggles middle-button autoscroll
-  mode on and off (`hypr-autoscroll:middle-mode, toggle`).
+- **SUPER+CTRL+A**: toggles middle-button autoscroll mode on and off
+  (`hypr-autoscroll:middle-mode, toggle`) without replacing the AI sidebar
+  binding.
 - **ABI sensitivity**: the plugin compiles against the exact configured Hyprland
   package (`config.wayland.windowManager.hyprland.finalPackage`). Hyprland's
   plugin ABI is unstable, so every Hyprland or input change must rebuild and
@@ -120,11 +128,11 @@ nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
 nix flake check
 ```
 
-If the `vast-shell` input was just added or changed, refresh its lock graph first
-(non-activating):
+If the `dots-hyprland` input was just added or changed, refresh its lock graph
+first (non-activating):
 
 ```sh
-nix flake lock --update-input vast-shell
+nix flake lock --update-input dots-hyprland
 ```
 
 ## Apply changes

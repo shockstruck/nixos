@@ -20,6 +20,30 @@
         "type": "github"
       }
     },
+    "dots-hyprland": {
+      "inputs": {
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786836728,
+        "narHash": "sha256-rqPDlZ8pRqhHqFNKFbooPn1drGMUN1e3gZkbLHChhhk=",
+        "owner": "celesrenata",
+        "repo": "end-4-flakes",
+        "rev": "8c8881c21d8f1ca2e93505a5533fe85c0665f78a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "celesrenata",
+        "ref": "upstream-sync-2026",
+        "repo": "end-4-flakes",
+        "type": "github"
+      }
+    },
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": "nixpkgs-lib"
@@ -35,24 +59,6 @@
       "original": {
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "type": "github"
-      }
-    },
-    "flake-utils": {
-      "inputs": {
-        "systems": "systems_2"
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
         "type": "github"
       }
     },
@@ -222,30 +228,10 @@
         "type": "github"
       }
     },
-    "quickshell": {
-      "inputs": {
-        "nixpkgs": [
-          "vast-shell",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1785704021,
-        "narHash": "sha256-eQtczKMAS4ItlB4pr1B3MqBZiyRVl2nkqNdtyRSQMa8=",
-        "ref": "refs/heads/master",
-        "rev": "28771c7c74b42e20afca0b1b63980cb46515537c",
-        "revCount": 835,
-        "type": "git",
-        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
-      },
-      "original": {
-        "type": "git",
-        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
-      }
-    },
     "root": {
       "inputs": {
         "disko": "disko",
+        "dots-hyprland": "dots-hyprland",
         "flake-parts": "flake-parts",
         "home-manager": "home-manager",
         "hypr-autoscroll": "hypr-autoscroll",
@@ -254,8 +240,7 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-unified": "nixos-unified",
         "nixpkgs": "nixpkgs",
-        "nixvim": "nixvim",
-        "vast-shell": "vast-shell"
+        "nixvim": "nixvim"
       }
     },
     "systems": {
@@ -271,65 +256,6 @@
         "owner": "nix-systems",
         "ref": "future-26.11",
         "repo": "default",
-        "type": "github"
-      }
-    },
-    "systems_2": {
-      "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
-      }
-    },
-    "vast-shell": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "quickshell": "quickshell",
-        "wl-screenrec-fork": "wl-screenrec-fork"
-      },
-      "locked": {
-        "lastModified": 1786777471,
-        "narHash": "sha256-usZtyaMC1bZdpTK2dOhn1RyaeOAXD/rAUsrCT59Lxn4=",
-        "owner": "myamusashi",
-        "repo": "vast-shell",
-        "rev": "9788afeccd115c934da9e7a4f162459bf52f3cfa",
-        "type": "github"
-      },
-      "original": {
-        "owner": "myamusashi",
-        "repo": "vast-shell",
-        "type": "github"
-      }
-    },
-    "wl-screenrec-fork": {
-      "inputs": {
-        "flake-utils": "flake-utils",
-        "nixpkgs": [
-          "vast-shell",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1786279336,
-        "narHash": "sha256-74X5Kty+4d1WKJhR4hkTRXooocRO+k2VGtcQYRy38qY=",
-        "owner": "myamusashi",
-        "repo": "wl-screenrec",
-        "rev": "0d23ae192bb6b6e365cb9c79bd711a6637c0e853",
-        "type": "github"
-      },
-      "original": {
-        "owner": "myamusashi",
-        "repo": "wl-screenrec",
         "type": "github"
       }
     }

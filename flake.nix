@@ -21,8 +21,9 @@
     nixvim.url = "github:nix-community/nixvim";
     nixvim.inputs.nixpkgs.follows = "nixpkgs";
     nixvim.inputs.flake-parts.follows = "flake-parts";
-    vast-shell.url = "github:myamusashi/vast-shell";
-    vast-shell.inputs.nixpkgs.follows = "nixpkgs";
+    dots-hyprland.url = "github:celesrenata/end-4-flakes/upstream-sync-2026";
+    dots-hyprland.inputs.nixpkgs.follows = "nixpkgs";
+    dots-hyprland.inputs.home-manager.follows = "home-manager";
     hypr-autoscroll.url = "github:estebanhiram/hypr-autoscroll";
     hypr-autoscroll.flake = false;
   };

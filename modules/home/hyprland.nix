@@ -18,6 +18,7 @@ in
     wayland.windowManager.hyprland = {
       enable = true;
       systemd.enable = true;
+      configType = "hyprlang";
 
       # Declarative plugin load. Home Manager resolves this package at
       # `${package}/lib/lib${pname}.so`.
@@ -30,7 +31,7 @@ in
         "$mainMod" = "SUPER";
 
         # Plugin defaults to inactive; middle-button autoscroll starts only
-        # after the SUPER+A toggle.
+        # after the SUPER+CTRL+A toggle.
         plugin.hypr_autoscroll.direct_activation = false;
 
         bind = [
@@ -54,15 +55,19 @@ in
           "$mainMod SHIFT, 4, movetoworkspace, 4"
           "$mainMod SHIFT, 5, movetoworkspace, 5"
 
-          # Vast Shell (Quickshell) global shortcuts.
-          "$mainMod, Space, global, quickshell:appLauncher"
-          "$mainMod, S, global, quickshell:QuickSettings"
-          "$mainMod, C, global, quickshell:clipboard"
-          "$mainMod, W, global, quickshell:wallpaperSwitcher"
-          "$mainMod SHIFT, E, global, quickshell:session"
+          # illogical-impulse Quickshell surfaces.
+          "$mainMod, Space, global, quickshell:overviewToggle"
+          "$mainMod, S, exec, quickshell -p $HOME/.config/quickshell/ii/settings.qml"
+          "$mainMod, C, global, quickshell:overviewClipboardToggle"
+          "$mainMod, W, exec, $HOME/.config/quickshell/ii/scripts/colors/switchwall.sh --choose"
+          "$mainMod SHIFT, E, global, quickshell:sessionToggle"
+          "$mainMod, A, global, quickshell:sidebarLeftToggle"
+          "$mainMod, N, global, quickshell:sidebarRightToggle"
+          "$mainMod, M, global, quickshell:mediaControlsToggle"
+          "$mainMod, slash, global, quickshell:cheatsheetToggle"
 
-          # hypr-autoscroll: toggle middle-button autoscroll mode.
-          "$mainMod, A, hypr-autoscroll:middle-mode, toggle"
+          # Keep SUPER+A for ii's AI sidebar and move middle-button autoscroll.
+          "$mainMod CTRL, A, hypr-autoscroll:middle-mode, toggle"
         ];
       };
     };
