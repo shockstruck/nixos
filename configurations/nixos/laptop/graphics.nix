@@ -1,6 +1,9 @@
 { pkgs, ... }:
 
 {
+  # The T500 is Turing (sm_75); do not compile CUDA packages for every GPU generation.
+  nixpkgs.config.cudaCapabilities = [ "7.5" ];
+
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
