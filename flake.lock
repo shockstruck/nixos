@@ -275,25 +275,7 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-unified": "nixos-unified",
         "nixpkgs": "nixpkgs",
-        "nixvim": "nixvim",
-        "sathi-ai": "sathi-ai"
-      }
-    },
-    "sathi-ai": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1785891100,
-        "narHash": "sha256-xz/cgiQEypzRG54+fWkrIocB+40DWbWaRawGqWwcqA4=",
-        "owner": "ss44",
-        "repo": "sathi.ai",
-        "rev": "1d656040fb2a4a08656ac9bcd4df2dc859456e99",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ss44",
-        "ref": "1.11.0",
-        "repo": "sathi.ai",
-        "type": "github"
+        "nixvim": "nixvim"
       }
     },
     "systems": {

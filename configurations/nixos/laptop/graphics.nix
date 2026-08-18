@@ -1,19 +1,4 @@
-{ config, lib, pkgs, ... }:
-
-let
-  ollamaCudaLibrary = "cuda_v${lib.versions.major pkgs.cudaPackages.cuda_cudart.version}";
-  waitForNvidia = pkgs.writeShellScript "wait-for-nvidia" ''
-    for attempt in {1..30}; do
-      if ${config.hardware.nvidia.package}/bin/nvidia-smi -L >/dev/null 2>&1; then
-        exit 0
-      fi
-      sleep 1
-    done
-
-    echo "NVIDIA GPU did not become ready before Ollama startup" >&2
-    exit 1
-  '';
-in
+{ pkgs, ... }:
 {
   # The T500 is Turing (sm_75); do not compile CUDA packages for every GPU generation.
   nixpkgs.config.cudaCapabilities = [ "7.5" ];
@@ -50,17 +35,6 @@ in
       OLLAMA_CONTEXT_LENGTH = "2048";
       OLLAMA_FLASH_ATTENTION = "1";
       OLLAMA_KV_CACHE_TYPE = "q4_0";
-      OLLAMA_LLM_LIBRARY = ollamaCudaLibrary;
-    };
-  };
-
-  systemd.services.ollama = {
-    wants = [ "systemd-modules-load.service" ];
-    after = [ "systemd-modules-load.service" ];
-    serviceConfig = {
-      ExecStartPre = waitForNvidia;
-      Restart = "on-failure";
-      RestartSec = "5s";
     };
   };
 }

@@ -13,6 +13,7 @@ let
     "dankKDEConnect"
     "dockerManager"
     "quickCapture"
+    "sathiAi"
     "wallpaperCarousel"
   ];
   enabledPluginIds = sharedPluginIds ++ lib.optional isLaptop "netbirdStatus";
@@ -46,6 +47,8 @@ let
     | .dockLauncherEnabled = true
     | .dockLauncherLogoMode = "os"
     | .dockShowTrash = true
+    | .cursorSettings.theme = "Adwaita"
+    | .cursorSettings.size = 24
     | .barConfigs = (
         (.barConfigs // [])
         | map(
@@ -102,6 +105,10 @@ let
     groupWorkspaceApps = true;
     groupActiveWorkspaceApps = true;
     launcherLogoMode = "os";
+    cursorSettings = {
+      theme = "Adwaita";
+      size = 24;
+    };
 
     clockFormat = "12h";
     clockDateFormat = "ddd, MM/dd";
@@ -249,7 +256,7 @@ in
       # DMS settings after activation enforces the enabled plugin set.
       managePluginSettings = false;
       plugins = {
-        sathiAi.src = flake.inputs.sathi-ai;
+        sathiAi.enable = true;
         calculator.enable = true;
         claudeCodeUsage.enable = true;
         dankKDEConnect.enable = true;

@@ -15,6 +15,13 @@ let
 in
 {
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    home.pointerCursor = {
+      enable = true;
+      package = pkgs.adwaita-icon-theme;
+      name = "Adwaita";
+      size = 24;
+    };
+
     wayland.windowManager.hyprland = {
       enable = true;
       systemd.enable = true;
@@ -29,6 +36,12 @@ in
         input = {
           numlock_by_default = true;
           touchpad.natural_scroll = true;
+        };
+        misc = {
+          background_color = "rgb(000000)";
+          disable_hyprland_logo = true;
+          disable_splash_rendering = true;
+          force_default_wallpaper = 0;
         };
       };
 

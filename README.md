@@ -59,9 +59,9 @@ Both workstations share one declarative Wayland session:
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
 
-> DMS, its plugin registry, and Sathi.AI are pinned as `dank-material-shell`,
-> `dms-plugin-registry`, and `sathi-ai` in `flake.lock`; rebuild both hosts after
-> updating these inputs.
+> DMS and its plugin registry are pinned as `dank-material-shell` and
+> `dms-plugin-registry` in `flake.lock`; rebuild both hosts after updating these
+> inputs.
 
 ### Keybindings
 
