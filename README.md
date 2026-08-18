@@ -33,11 +33,18 @@ Both workstations share one declarative Wayland session:
 - **DMS display settings** remain writable under `~/.config/hypr/dms`. The
   initial output uses preferred mode, automatic placement, and scale `1`; DMS
   owns its display, layout, color, cursor, shortcut, and window-rule Lua
-  fragments while GDM remains the login greeter.
+  fragments while GDM remains the login greeter. The laptop bar includes the
+  battery widget.
 - **Session locking** uses the native DMS lock screen.
+- **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
+  retained, but Dolphin and KDE System Settings are not installed.
+- **Input defaults** enable Num Lock in GDM and Hyprland on both hosts. The
+  laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
 - **Theme**: the first DMS session starts with its dark stock green theme and
   dynamic theming enabled. Runtime settings remain writable under
-  `~/.config/DankMaterialShell`.
+  `~/.config/DankMaterialShell`; activation only enforces the launcher OS logos,
+  dock launcher and trash, workspace app grouping, clock seconds, and weather
+  units/location. Both hosts use the `America/Detroit` timezone.
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
 
@@ -75,11 +82,16 @@ binding works on every host.
 ## Local AI
 
 The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
-The service waits for the T500, selects its CUDA runner, and enables Flash
-Attention with an 8-bit KV cache. Its model loader downloads
+It starts at boot after the T500 driver and preloaded NVIDIA UVM module are
+ready, selects its CUDA runner, and enables Flash Attention with an 8-bit KV
+cache. The laptop CLI uses the same CUDA package. Its model loader downloads
 `nemotron-3-nano:4b` after networking becomes available. This is the 2.8 GB
 Q4_K_M release; Ollama is capped to a 4,096-token context so its weights and
 runtime cache fit the T500's 4 GB VRAM budget.
+
+The desktop runs the same boot-time service and model through Ollama's ROCm
+package, which natively supports its Radeon RX 7900 XT. Both services remain
+localhost-only.
 
 The first boot can finish before the background model download completes. Check
 its progress or run the model with:

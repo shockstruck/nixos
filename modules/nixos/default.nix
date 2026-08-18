@@ -11,5 +11,6 @@
   nixpkgs.config.allowUnfree = true;
   services.netbird.enable = true;
   services.openssh.enable = true;
+  time.timeZone = "America/Detroit";
   zramSwap.enable = true;
 }

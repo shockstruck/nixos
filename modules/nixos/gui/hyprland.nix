@@ -1,7 +1,20 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 {
   services.displayManager.gdm.enable = true;
   services.displayManager.defaultSession = "hyprland";
+
+  programs.dconf.profiles.gdm.databases = lib.mkBefore [
+    {
+      settings."org/gnome/desktop/peripherals/keyboard" = {
+        remember-numlock-state = true;
+        numlock-state = true;
+      };
+      locks = [
+        "/org/gnome/desktop/peripherals/keyboard/remember-numlock-state"
+        "/org/gnome/desktop/peripherals/keyboard/numlock-state"
+      ];
+    }
+  ];
 
   services.geoclue2.enable = true;
   services.accounts-daemon.enable = true;

@@ -18,6 +18,10 @@ in
   # The T500 is Turing (sm_75); do not compile CUDA packages for every GPU generation.
   nixpkgs.config.cudaCapabilities = [ "7.5" ];
 
+  # Ollama's restricted service cannot load UVM itself, so make the CUDA memory
+  # device available before its systemd-modules-load dependency completes.
+  boot.kernelModules = [ "nvidia_uvm" ];
+
   hardware.graphics = {
     enable = true;
     enable32Bit = true;

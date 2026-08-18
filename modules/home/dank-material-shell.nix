@@ -1,9 +1,44 @@
 { flake
 , lib
+, osConfig
 , pkgs
 , ...
 }:
 let
+  isLaptop = osConfig.networking.hostName == "laptop";
+  ollamaPackage = if isLaptop then pkgs.ollama-cuda else pkgs.ollama-rocm;
+
+  requiredSettingsFilter = ''
+    .useFahrenheit = true
+    | .useAutoLocation = false
+    | .showSeconds = true
+    | .showWorkspaceApps = true
+    | .groupWorkspaceApps = true
+    | .groupActiveWorkspaceApps = true
+    | .launcherLogoMode = "os"
+    | .dockLauncherEnabled = true
+    | .dockLauncherLogoMode = "os"
+    | .dockShowTrash = true
+    | .barConfigs = (
+        (.barConfigs // [])
+        | map(
+            if .id == "default" then
+              .leftWidgets = (
+                (.leftWidgets // [])
+                | if index("launcherButton") then . else ["launcherButton"] + . end
+              )
+              ${lib.optionalString isLaptop ''
+                | .rightWidgets = (
+                    (.rightWidgets // [])
+                    | if index("battery") then . else . + ["battery"] end
+                  )
+              ''}
+            else . end
+          )
+      )
+  '';
+  requiredSettingsFilterFile = pkgs.writeText "dms-required-settings.jq" requiredSettingsFilter;
+
   initialSettings = pkgs.writeText "dms-initial-settings.json" (builtins.toJSON {
     configVersion = 13;
     acLockTimeout = 300;
@@ -22,11 +57,19 @@ let
     dockAutoHide = true;
     dockSmartAutoHide = true;
     dockGroupByApp = true;
+    dockLauncherEnabled = true;
+    dockLauncherLogoMode = "os";
+    dockShowTrash = true;
+
+    showWorkspaceApps = true;
+    groupWorkspaceApps = true;
+    groupActiveWorkspaceApps = true;
+    launcherLogoMode = "os";
 
     clockFormat = "12h";
     clockDateFormat = "ddd, MM/dd";
     lockDateFormat = "dddd, MMMM d";
-    showSeconds = false;
+    showSeconds = true;
     padHours12Hour = false;
     useFahrenheit = true;
     useAutoLocation = false;
@@ -56,7 +99,7 @@ let
           "memUsage"
           "sathiAi"
           "notificationButton"
-          "battery"
+        ] ++ lib.optional isLaptop "battery" ++ [
           "controlCenterButton"
         ];
         spacing = 4;
@@ -192,7 +235,7 @@ in
 
       $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c '
         set -euo pipefail
-        ${pkgs.jq}/bin/jq ".useFahrenheit = true | .useAutoLocation = false" "$1" > "$1.tmp"
+        ${pkgs.jq}/bin/jq --from-file ${requiredSettingsFilterFile} "$1" > "$1.tmp"
         chmod 0600 "$1.tmp"
         mv "$1.tmp" "$1"
       ' _ "$settingsDir/settings.json"
@@ -231,7 +274,7 @@ in
     home.packages = with pkgs; [
       easyeffects
       nautilus
-      ollama
+      ollamaPackage
     ];
 
     xdg.mimeApps = {
