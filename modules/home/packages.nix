@@ -1,4 +1,7 @@
 { pkgs, ... }:
+let
+  paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
+in
 {
   # Nix packages to install to $HOME
   #
@@ -17,6 +20,7 @@
     gnome-disk-utility
     mission-center
     netbird-ui
+    paperweight
     proton-authenticator
     proton-pass
     proton-vpn
