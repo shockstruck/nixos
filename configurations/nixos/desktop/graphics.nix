@@ -11,7 +11,7 @@
   services.ollama = {
     enable = true;
     package = pkgs.ollama-rocm;
-    loadModels = [ "nemotron-3-nano:4b" ];
+    loadModels = [ "qwen3.5:9b" ];
     environmentVariables = {
       OLLAMA_CONTEXT_LENGTH = "4096";
       OLLAMA_FLASH_ATTENTION = "1";

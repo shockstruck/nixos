@@ -89,9 +89,9 @@ cache. The laptop CLI uses the same CUDA package. Its model loader downloads
 Q4_K_M release; Ollama is capped to a 4,096-token context so its weights and
 runtime cache fit the T500's 4 GB VRAM budget.
 
-The desktop runs the same boot-time service and model through Ollama's ROCm
-package, which natively supports its Radeon RX 7900 XT. Both services remain
-localhost-only.
+The desktop runs the same boot-time service through Ollama's ROCm package,
+which natively supports its Radeon RX 7900 XT, and preloads `qwen3.5:9b`.
+Both services remain localhost-only.
 
 The first boot can finish before the background model download completes. Check
 its progress or run the model with:
@@ -100,6 +100,7 @@ its progress or run the model with:
 systemctl status ollama-model-loader.service
 journalctl -u ollama-model-loader.service -f
 ollama run nemotron-3-nano:4b
+ollama run qwen3.5:9b
 ollama ps
 ```
 
