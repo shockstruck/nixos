@@ -7,6 +7,33 @@
 let
   isLaptop = osConfig.networking.hostName == "laptop";
   ollamaPackage = if isLaptop then pkgs.ollama-cuda else pkgs.ollama-rocm;
+  sharedPluginIds = [
+    "calculator"
+    "claudeCodeUsage"
+    "dankKDEConnect"
+    "dockerManager"
+    "quickCapture"
+    "wallpaperCarousel"
+  ];
+  enabledPluginIds = sharedPluginIds ++ lib.optional isLaptop "netbirdStatus";
+  requiredRightWidgets = [
+    "dockerManager"
+    "claudeCodeUsage"
+  ] ++ lib.optional isLaptop "netbirdStatus";
+  defaultControlCenterWidgets = [
+    { id = "volumeSlider"; enabled = true; width = 50; }
+    { id = "brightnessSlider"; enabled = true; width = 50; }
+    { id = "wifi"; enabled = true; width = 50; }
+    { id = "bluetooth"; enabled = true; width = 50; }
+    { id = "audioOutput"; enabled = true; width = 50; }
+    { id = "audioInput"; enabled = true; width = 50; }
+    { id = "nightMode"; enabled = true; width = 50; }
+    { id = "darkMode"; enabled = true; width = 50; }
+  ];
+  requiredControlCenterWidgets = [
+    { id = "plugin_quickCapture"; enabled = true; width = 50; }
+    { id = "plugin_dankKDEConnect"; enabled = true; width = 50; }
+  ] ++ lib.optional isLaptop { id = "plugin_netbirdStatus"; enabled = true; width = 50; };
 
   requiredSettingsFilter = ''
     .useFahrenheit = true
@@ -27,17 +54,27 @@ let
                 (.leftWidgets // [])
                 | if index("launcherButton") then . else ["launcherButton"] + . end
               )
-              ${lib.optionalString isLaptop ''
-                | .rightWidgets = (
-                    (.rightWidgets // [])
-                    | if index("battery") then . else . + ["battery"] end
-                  )
-              ''}
+              | .rightWidgets = (
+                  (.rightWidgets // [])
+                  | reduce ${(builtins.toJSON (requiredRightWidgets ++ lib.optional isLaptop "battery"))}[] as $widget (.;
+                      if index($widget) then . else . + [$widget] end
+                    )
+                )
             else . end
+          )
+      )
+    | .controlCenterWidgets = (
+        (.controlCenterWidgets // ${builtins.toJSON defaultControlCenterWidgets})
+        | reduce ${builtins.toJSON requiredControlCenterWidgets}[] as $widget (.;
+            if any(.[]; .id == $widget.id) then . else . + [$widget] end
           )
       )
   '';
   requiredSettingsFilterFile = pkgs.writeText "dms-required-settings.jq" requiredSettingsFilter;
+  requiredPluginSettingsFilter = lib.concatStringsSep "\n| " (
+    map (pluginId: ".${pluginId}.enabled = true") enabledPluginIds
+  );
+  requiredPluginSettingsFilterFile = pkgs.writeText "dms-required-plugin-settings.jq" requiredPluginSettingsFilter;
 
   initialSettings = pkgs.writeText "dms-initial-settings.json" (builtins.toJSON {
     configVersion = 13;
@@ -99,7 +136,7 @@ let
           "memUsage"
           "sathiAi"
           "notificationButton"
-        ] ++ lib.optional isLaptop "battery" ++ [
+        ] ++ requiredRightWidgets ++ lib.optional isLaptop "battery" ++ [
           "controlCenterButton"
         ];
         spacing = 4;
@@ -165,7 +202,7 @@ let
     -- Optional per-user keybind overrides managed by DMS.
   '';
 
-  initialPluginSettings = pkgs.writeText "dms-initial-plugin-settings.json" (builtins.toJSON {
+  initialPluginSettings = pkgs.writeText "dms-initial-plugin-settings.json" (builtins.toJSON ({
     sathiAi = {
       enabled = true;
       customProviders = [
@@ -182,14 +219,17 @@ let
       systemPrompt = "You are a helpful assistant. Answer concisely.";
       persistChatHistory = true;
     };
-  });
+  } // lib.genAttrs enabledPluginIds (_: { enabled = true; })));
 
   initialTerminal = pkgs.writeText "xdg-terminals.list" ''
     foot.desktop
   '';
 in
 {
-  imports = [ flake.inputs.dank-material-shell.homeModules.dank-material-shell ];
+  imports = [
+    flake.inputs.dank-material-shell.homeModules.dank-material-shell
+    flake.inputs.dms-plugin-registry.homeModules.default
+  ];
 
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     programs.dank-material-shell = {
@@ -205,10 +245,20 @@ in
       enableAudioWavelength = true;
       enableCalendarEvents = true;
 
-      # Keep plugin state writable so providers and chat preferences can be
-      # changed from DMS settings after the initial Ollama seed.
+      # Keep plugin state writable so plugin preferences can be changed from
+      # DMS settings after activation enforces the enabled plugin set.
       managePluginSettings = false;
-      plugins.sathiAi.src = flake.inputs.sathi-ai;
+      plugins = {
+        sathiAi.src = flake.inputs.sathi-ai;
+        calculator.enable = true;
+        claudeCodeUsage.enable = true;
+        dankKDEConnect.enable = true;
+        dockerManager.enable = true;
+        quickCapture.enable = true;
+        wallpaperCarousel.enable = true;
+      } // lib.optionalAttrs isLaptop {
+        netbirdStatus.enable = true;
+      };
     };
 
     # DMS owns these files after first activation. Home Manager only supplies
@@ -242,6 +292,13 @@ in
 
       $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c '
         set -euo pipefail
+        ${pkgs.jq}/bin/jq --from-file ${requiredPluginSettingsFilterFile} "$1" > "$1.tmp"
+        chmod 0600 "$1.tmp"
+        mv "$1.tmp" "$1"
+      ' _ "$settingsDir/plugin_settings.json"
+
+      $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c '
+        set -euo pipefail
         ${pkgs.jq}/bin/jq ".weatherLocation = \"Detroit, MI\" | .weatherCoordinates = \"42.3314,-83.0458\"" "$1" > "$1.tmp"
         chmod 0600 "$1.tmp"
         mv "$1.tmp" "$1"
@@ -272,9 +329,16 @@ in
     '';
 
     home.packages = with pkgs; [
+      curl
       easyeffects
+      imagemagick
+      img2pdf
       nautilus
       ollamaPackage
+      qt6.qt5compat
+      sshfs
+      tesseract
+      zbar
     ];
 
     xdg.mimeApps = {

@@ -13,6 +13,14 @@ home-manager configuration under `configurations/home`. The host trees under
 `configurations/nixos` contain only boot, hardware, graphics, power, and disk
 layout differences.
 
+## Activation
+
+Run `nix run` from the repository root on either workstation. The default
+`nixos-unified` activator reads `hostname -s`, selects the matching `desktop` or
+`laptop` configuration, and requests root privileges when needed. Explicit
+`nix run .#activate -- <host>` targeting is reserved for remote activation and
+requires that host's `nixos-unified.sshTarget` option.
+
 ## Desktop session
 
 Both workstations share one declarative Wayland session:
@@ -40,6 +48,9 @@ Both workstations share one declarative Wayland session:
   retained, but Dolphin and KDE System Settings are not installed.
 - **Input defaults** enable Num Lock in GDM and Hyprland on both hosts. The
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
+- **DMS plugins** are installed from the pinned official registry. Both hosts
+  enable Quick Capture, Phone Connect, Wallpaper Carousel, Calculator, Docker
+  Manager, and Claude Code Usage; the laptop also enables NetBird Status.
 - **Theme**: the first DMS session starts with its dark stock green theme and
   dynamic theming enabled. Runtime settings remain writable under
   `~/.config/DankMaterialShell`; activation only enforces the launcher OS logos,
@@ -48,8 +59,9 @@ Both workstations share one declarative Wayland session:
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
 
-> DMS and the Sathi.AI plugin are pinned as `dank-material-shell` and `sathi-ai`
-> in `flake.lock`; rebuild both hosts after updating either input.
+> DMS, its plugin registry, and Sathi.AI are pinned as `dank-material-shell`,
+> `dms-plugin-registry`, and `sathi-ai` in `flake.lock`; rebuild both hosts after
+> updating these inputs.
 
 ### Keybindings
 
@@ -79,15 +91,20 @@ Both workstations share one declarative Wayland session:
 `foot` is installed declaratively by the shared GUI module so the terminal
 binding works on every host.
 
+Shared CLI tooling includes Ansible, Crane, SOPS and age, Talos (`talosctl` and
+Talhelper), Kubernetes helpers (`kubectl`, Kubecolor, and Stern), Terraform,
+Flux, Helm, Helmfile, Kustomize, Task, MiniJinja CLI, Mise, and the 1Password
+CLI.
+
 ## Local AI
 
 The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
 It starts at boot after the T500 driver and preloaded NVIDIA UVM module are
-ready, selects its CUDA runner, and enables Flash Attention with an 8-bit KV
+ready, selects its CUDA runner, and enables Flash Attention with a 4-bit KV
 cache. The laptop CLI uses the same CUDA package. Its model loader downloads
 `nemotron-3-nano:4b` after networking becomes available. This is the 2.8 GB
-Q4_K_M release; Ollama is capped to a 4,096-token context so its weights and
-runtime cache fit the T500's 4 GB VRAM budget.
+Q4_K_M release; Ollama uses a 2,048-token context and 4-bit KV cache so its
+weights and runtime cache fit the T500's 4 GB VRAM budget.
 
 The desktop runs the same boot-time service through Ollama's ROCm package,
 which natively supports its Radeon RX 7900 XT, and preloads `qwen3.5:9b`.
@@ -103,6 +120,13 @@ ollama run nemotron-3-nano:4b
 ollama run qwen3.5:9b
 ollama ps
 ```
+
+## Containers
+
+Both workstations run the native Docker service and include Docker Compose.
+The workstation user belongs to the `docker` group so the DMS Docker Manager
+can monitor and control containers without an elevation prompt; this membership
+provides root-equivalent access through the Docker daemon.
 
 ## Hyprland plugins
 

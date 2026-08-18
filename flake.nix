@@ -23,6 +23,8 @@
     nixvim.inputs.flake-parts.follows = "flake-parts";
     dank-material-shell.url = "github:AvengeMedia/DankMaterialShell/v1.5.3";
     dank-material-shell.inputs.nixpkgs.follows = "nixpkgs";
+    dms-plugin-registry.url = "github:AvengeMedia/dms-plugin-registry";
+    dms-plugin-registry.inputs.nixpkgs.follows = "nixpkgs";
     sathi-ai.url = "github:ss44/sathi.ai/1.11.0";
     sathi-ai.flake = false;
     hypr-autoscroll.url = "github:estebanhiram/hypr-autoscroll";

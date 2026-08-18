@@ -114,13 +114,16 @@
     om.develop.default.readme = ''
       # Apply the configuration
 
-      Activate a host explicitly from the repository root. The activation wrapper
-      obtains root privileges itself, so do not run these commands with `sudo`.
+      Activate the current host from the repository root. The activation wrapper
+      selects the matching NixOS configuration from `hostname -s` and obtains
+      root privileges itself, so do not run this command with `sudo`.
 
       ```sh
-      nix run .#activate -- laptop
-      nix run .#activate -- desktop
+      nix run
       ```
+
+      Use `nix run .#activate -- <host>` only when explicitly targeting another
+      host configured with `nixos-unified.sshTarget`.
     '';
 
     # https://omnix.page/om/init.html#spec

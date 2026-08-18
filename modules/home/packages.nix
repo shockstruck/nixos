@@ -26,14 +26,30 @@
     vscodium
 
     # Unix tools
+    age
+    ansible
     bitwarden-cli
     cloudflared
+    crane
+    fluxcd
     gh
+    go-task
+    helmfile
     kubeconform
+    kubecolor
     kubectl
+    kubernetes-helm
+    kustomize
+    minijinja
+    mise
     ripgrep # Better `grep`
     fd
     sd
+    sops
+    stern
+    talhelper
+    talosctl
+    terraform
     tree
     gnumake
     yamllint
