@@ -1,4 +1,5 @@
-{ flake
+{ config
+, flake
 , lib
 , osConfig
 , pkgs
@@ -267,6 +268,17 @@ in
         netbirdStatus.enable = true;
       };
     };
+
+    # DMS scans directories only, so create real plugin directories with
+    # recursively linked files instead of one symlink per directory.
+    xdg.configFile = lib.genAttrs
+      (map (pluginId: "DankMaterialShell/plugins/${pluginId}") enabledPluginIds)
+      (_: { recursive = true; });
+
+    systemd.user.services.dms.Unit.X-Restart-Triggers =
+      map
+        (pluginId: toString config.programs.dank-material-shell.plugins.${pluginId}.src)
+        enabledPluginIds;
 
     # DMS owns these files after first activation. Home Manager only supplies
     # workstation defaults when no mutable settings exist yet.
