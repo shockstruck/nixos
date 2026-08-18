@@ -274,10 +274,24 @@ in
     xdg.configFile =
       lib.genAttrs
         (map (pluginId: "DankMaterialShell/plugins/${pluginId}") enabledPluginIds)
-        (_: { recursive = true; })
+        (_: {
+          force = true;
+          recursive = true;
+        })
       // {
         "mimeapps.list".force = true;
       };
+
+    home.activation.migrateDankMaterialShellPluginLinks =
+      lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ] ''
+        pluginsDir="$HOME/.config/DankMaterialShell/plugins"
+        for pluginId in ${lib.escapeShellArgs enabledPluginIds}; do
+          pluginPath="$pluginsDir/$pluginId"
+          if [[ -L "$pluginPath" ]]; then
+            $DRY_RUN_CMD rm "$pluginPath"
+          fi
+        done
+      '';
 
     systemd.user.services.dms.Unit.X-Restart-Triggers =
       map
@@ -350,6 +364,11 @@ in
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${initialTerminal} "$HOME/.config/xdg-terminals.list"
       fi
     '';
+
+    home.activation.restartDankMaterialShell =
+      lib.hm.dag.entryAfter [ "reloadSystemd" "seedDankMaterialShell" ] ''
+        $DRY_RUN_CMD ${pkgs.systemd}/bin/systemctl --user try-restart dms.service || true
+      '';
 
     home.packages = with pkgs; [
       curl
