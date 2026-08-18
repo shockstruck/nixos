@@ -20,25 +20,25 @@ Both workstations share one declarative Wayland session:
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
   XWayland. GDM stays as the only display manager and selects the `hyprland`
   session by default. The previous GNOME desktop is removed.
-- **end-4 dots-hyprland** is integrated through the `celesrenata/end-4-flakes`
-  NixOS and Home Manager modules. The complete Quickshell implementation and
-  package set are enabled in hybrid mode, while this repository remains the
-  source of truth for Hyprland and Fish. Its `quickshell.service` starts with
-  `hyprland-session.target`.
+- **DankMaterialShell** is integrated through its first-party Home Manager
+  module. DMS provides the bar, launcher, settings, clipboard, wallpaper,
+  notifications, power menu, media controls, and Sathi.AI chat, while this
+  repository remains the source of truth for Hyprland and Fish. Its
+  `dms.service` starts with `hyprland-session.target`.
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
   a monitor fallback (`preferred` mode, automatic placement, scale `1`), systemd
   graphical-session integration, the shared keybindings below, and the
   declarative Hyprland plugin load described under
   [Hyprland plugins](#hyprland-plugins).
-- **Theme**: the first end-4 session generates a dark, tonal-spot Material theme
-  from the green seed `#B6D086` without changing the wallpaper. Runtime theme
-  state remains writable under `~/.local/state/quickshell`.
+- **Theme**: the first DMS session starts with its dark stock green theme and
+  dynamic theming enabled. Runtime settings remain writable under
+  `~/.config/DankMaterialShell`.
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
 
-> The end-4 fork is under active development. Its exact revision is pinned as
-> `dots-hyprland` in `flake.lock`; rebuild both hosts after updating that input.
+> DMS and the Sathi.AI plugin are pinned as `dank-material-shell` and `sathi-ai`
+> in `flake.lock`; rebuild both hosts after updating either input.
 
 ### Keybindings
 
@@ -51,15 +51,17 @@ Both workstations share one declarative Wayland session:
 | `SUPER`+`←` `→` `↑` `↓` | Move focus |
 | `SUPER`+`1`…`5` | Switch to workspace 1-5 |
 | `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
-| `SUPER`+`Space` | Toggle the end-4 overview and app launcher |
-| `SUPER`+`S` | Open end-4 settings |
+| `SUPER`+`Space` | Toggle the DMS application launcher |
+| `SUPER`+`S` | Toggle DMS settings |
 | `SUPER`+`C` | Toggle the clipboard history |
 | `SUPER`+`W` | Open the wallpaper chooser |
-| `SUPER`+`SHIFT`+`E` | Toggle the session menu |
-| `SUPER`+`A` | Toggle the left AI sidebar |
-| `SUPER`+`N` | Toggle the right sidebar |
-| `SUPER`+`M` | Toggle media controls |
-| `SUPER`+`/` | Toggle the end-4 keybinding cheatsheet |
+| `SUPER`+`SHIFT`+`E` | Toggle the power menu |
+| `SUPER`+`A` | Toggle Sathi.AI chat |
+| `SUPER`+`N` | Toggle the control center |
+| `SUPER`+`M` | Toggle the media dashboard |
+| `SUPER`+`P` | Toggle the process list |
+| `SUPER`+`Tab` | Toggle the workspace overview |
+| `SUPER`+`/` | Toggle the DMS keybinding cheatsheet |
 | `SUPER`+`CTRL`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
 
 `foot` is installed declaratively by the shared GUI module so the terminal
@@ -146,11 +148,12 @@ nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
 nix flake check
 ```
 
-If the `dots-hyprland` input was just added or changed, refresh its lock graph
-first (non-activating):
+If a DMS input was just added or changed, refresh its lock graph first
+(non-activating):
 
 ```sh
-nix flake lock --update-input dots-hyprland
+nix flake lock --update-input dank-material-shell
+nix flake lock --update-input sathi-ai
 ```
 
 ## Apply changes

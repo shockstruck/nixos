@@ -31,7 +31,7 @@ in
           home = "/Users/${name}";
         } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         isNormalUser = true;
-        extraGroups = [ "wheel" "networkmanager" "video" "i2c" "ydotool" ];
+        extraGroups = [ "wheel" "networkmanager" "video" "i2c" ];
       }
     );
 

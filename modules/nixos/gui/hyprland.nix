@@ -1,26 +1,19 @@
-{ flake, pkgs, ... }:
+{ pkgs, ... }:
 {
-  imports = [
-    flake.inputs.dots-hyprland.nixosModules.default
-  ];
-
-  nixpkgs.overlays = [ flake.inputs.dots-hyprland.overlays.default ];
-
   services.displayManager.gdm.enable = true;
   services.displayManager.defaultSession = "hyprland";
 
   services.geoclue2.enable = true;
+  services.accounts-daemon.enable = true;
   services.flatpak.enable = true;
   services.gnome.gnome-keyring.enable = true;
-  services.touchegg.enable = true;
 
   hardware.bluetooth.enable = true;
   hardware.i2c.enable = true;
 
   programs.dconf.enable = true;
-  programs.hyprlock.enable = true;
   programs.kdeconnect.enable = true;
-  programs.ydotool.enable = true;
+  security.polkit.enable = true;
 
   programs.hyprland = {
     enable = true;
@@ -66,7 +59,7 @@
     pkgs.twemoji-color-font
   ];
 
-  # Terminal launched by the shared Hyprland binding. Quickshell and its
-  # feature dependencies are installed by the Home Manager module.
+  # Terminal launched by the shared Hyprland binding. DMS and its feature
+  # dependencies are installed by the Home Manager module.
   environment.systemPackages = [ pkgs.foot ];
 }

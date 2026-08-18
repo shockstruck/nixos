@@ -21,9 +21,10 @@
     nixvim.url = "github:nix-community/nixvim";
     nixvim.inputs.nixpkgs.follows = "nixpkgs";
     nixvim.inputs.flake-parts.follows = "flake-parts";
-    dots-hyprland.url = "github:celesrenata/end-4-flakes/upstream-sync-2026";
-    dots-hyprland.inputs.nixpkgs.follows = "nixpkgs";
-    dots-hyprland.inputs.home-manager.follows = "home-manager";
+    dank-material-shell.url = "github:AvengeMedia/DankMaterialShell/v1.5.3";
+    dank-material-shell.inputs.nixpkgs.follows = "nixpkgs";
+    sathi-ai.url = "github:ss44/sathi.ai/1.11.0";
+    sathi-ai.flake = false;
     hypr-autoscroll.url = "github:estebanhiram/hypr-autoscroll";
     hypr-autoscroll.flake = false;
   };

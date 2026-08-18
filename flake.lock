@@ -1,5 +1,27 @@
 {
   "nodes": {
+    "dank-material-shell": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785111455,
+        "narHash": "sha256-aTNuC9NDBnYAeEtFsleeUwmGX3AZlKOutbl+LQRPkmQ=",
+        "owner": "AvengeMedia",
+        "repo": "DankMaterialShell",
+        "rev": "069ddab041c738236a8910e4c39b65d9628d3018",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "ref": "v1.5.3",
+        "repo": "DankMaterialShell",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -20,27 +42,19 @@
         "type": "github"
       }
     },
-    "dots-hyprland": {
-      "inputs": {
-        "home-manager": [
-          "home-manager"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
+    "flake-compat": {
+      "flake": false,
       "locked": {
-        "lastModified": 1786836728,
-        "narHash": "sha256-rqPDlZ8pRqhHqFNKFbooPn1drGMUN1e3gZkbLHChhhk=",
-        "owner": "celesrenata",
-        "repo": "end-4-flakes",
-        "rev": "8c8881c21d8f1ca2e93505a5533fe85c0665f78a",
+        "lastModified": 1767039857,
+        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
+        "owner": "NixOS",
+        "repo": "flake-compat",
+        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
         "type": "github"
       },
       "original": {
-        "owner": "celesrenata",
-        "ref": "upstream-sync-2026",
-        "repo": "end-4-flakes",
+        "owner": "NixOS",
+        "repo": "flake-compat",
         "type": "github"
       }
     },
@@ -230,8 +244,8 @@
     },
     "root": {
       "inputs": {
+        "dank-material-shell": "dank-material-shell",
         "disko": "disko",
-        "dots-hyprland": "dots-hyprland",
         "flake-parts": "flake-parts",
         "home-manager": "home-manager",
         "hypr-autoscroll": "hypr-autoscroll",
@@ -240,7 +254,25 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-unified": "nixos-unified",
         "nixpkgs": "nixpkgs",
-        "nixvim": "nixvim"
+        "nixvim": "nixvim",
+        "sathi-ai": "sathi-ai"
+      }
+    },
+    "sathi-ai": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785891100,
+        "narHash": "sha256-xz/cgiQEypzRG54+fWkrIocB+40DWbWaRawGqWwcqA4=",
+        "owner": "ss44",
+        "repo": "sathi.ai",
+        "rev": "1d656040fb2a4a08656ac9bcd4df2dc859456e99",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ss44",
+        "ref": "1.11.0",
+        "repo": "sathi.ai",
+        "type": "github"
       }
     },
     "systems": {
