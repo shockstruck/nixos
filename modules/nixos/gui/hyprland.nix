@@ -1,7 +1,14 @@
-{ pkgs, ... }:
+{ flake, pkgs, ... }:
 {
-  services.displayManager.gdm.enable = true;
+  imports = [ flake.inputs.dank-material-shell.nixosModules.greeter ];
+
   services.displayManager.defaultSession = "hyprland";
+
+  programs.dank-material-shell.greeter = {
+    enable = true;
+    compositor.name = "hyprland";
+    configHome = "/home/kevin";
+  };
 
   services.geoclue2.enable = true;
   services.accounts-daemon.enable = true;

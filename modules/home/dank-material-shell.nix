@@ -5,6 +5,7 @@
 }:
 let
   initialSettings = pkgs.writeText "dms-initial-settings.json" (builtins.toJSON {
+    configVersion = 13;
     acLockTimeout = 300;
     batteryLockTimeout = 300;
     acMonitorTimeout = 330;
@@ -27,6 +28,8 @@ let
     lockDateFormat = "dddd, MMMM d";
     showSeconds = false;
     padHours12Hour = false;
+    useFahrenheit = true;
+    useAutoLocation = false;
 
     currentThemeName = "green";
     currentThemeCategory = "generic";
@@ -105,6 +108,20 @@ let
     ];
   });
 
+  initialSession = pkgs.writeText "dms-initial-session.json" (builtins.toJSON {
+    configVersion = 3;
+    weatherLocation = "Detroit, MI";
+    weatherCoordinates = "42.3314,-83.0458";
+  });
+
+  initialOutputs = pkgs.writeText "dms-initial-outputs.lua" ''
+    hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+  '';
+
+  initialUserBinds = pkgs.writeText "dms-initial-user-binds.lua" ''
+    -- Optional per-user keybind overrides managed by DMS.
+  '';
+
   initialPluginSettings = pkgs.writeText "dms-initial-plugin-settings.json" (builtins.toJSON {
     sathiAi = {
       enabled = true;
@@ -155,7 +172,11 @@ in
     # workstation defaults when no mutable settings exist yet.
     home.activation.seedDankMaterialShell = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       settingsDir="$HOME/.config/DankMaterialShell"
+      stateDir="''${XDG_STATE_HOME:-$HOME/.local/state}/DankMaterialShell"
+      hyprDmsDir="$HOME/.config/hypr/dms"
       $DRY_RUN_CMD mkdir -p "$settingsDir"
+      $DRY_RUN_CMD mkdir -p "$stateDir"
+      $DRY_RUN_CMD mkdir -p "$hyprDmsDir"
 
       if [[ ! -e "$settingsDir/settings.json" ]]; then
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0600 ${initialSettings} "$settingsDir/settings.json"
@@ -165,6 +186,43 @@ in
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0600 ${initialPluginSettings} "$settingsDir/plugin_settings.json"
       fi
 
+      if [[ ! -e "$stateDir/session.json" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0600 ${initialSession} "$stateDir/session.json"
+      fi
+
+      $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c '
+        set -euo pipefail
+        ${pkgs.jq}/bin/jq ".useFahrenheit = true | .useAutoLocation = false" "$1" > "$1.tmp"
+        chmod 0600 "$1.tmp"
+        mv "$1.tmp" "$1"
+      ' _ "$settingsDir/settings.json"
+
+      $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c '
+        set -euo pipefail
+        ${pkgs.jq}/bin/jq ".weatherLocation = \"Detroit, MI\" | .weatherCoordinates = \"42.3314,-83.0458\"" "$1" > "$1.tmp"
+        chmod 0600 "$1.tmp"
+        mv "$1.tmp" "$1"
+      ' _ "$stateDir/session.json"
+
+      if [[ ! -e "$hyprDmsDir/colors.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${flake.inputs.dank-material-shell}/core/internal/config/embedded/hypr-colors.lua "$hyprDmsDir/colors.lua"
+      fi
+      if [[ ! -e "$hyprDmsDir/outputs.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${initialOutputs} "$hyprDmsDir/outputs.lua"
+      fi
+      if [[ ! -e "$hyprDmsDir/layout.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${flake.inputs.dank-material-shell}/core/internal/config/embedded/hypr-layout.lua "$hyprDmsDir/layout.lua"
+      fi
+      if [[ ! -e "$hyprDmsDir/cursor.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${flake.inputs.dank-material-shell}/core/internal/config/embedded/hypr-cursor.lua "$hyprDmsDir/cursor.lua"
+      fi
+      if [[ ! -e "$hyprDmsDir/binds-user.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${initialUserBinds} "$hyprDmsDir/binds-user.lua"
+      fi
+      if [[ ! -e "$hyprDmsDir/windowrules.lua" ]]; then
+        $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${flake.inputs.dank-material-shell}/core/internal/config/embedded/hypr-windowrules.lua "$hyprDmsDir/windowrules.lua"
+      fi
+
       if [[ ! -e "$HOME/.config/xdg-terminals.list" ]]; then
         $DRY_RUN_CMD ${pkgs.coreutils}/bin/install -m 0644 ${initialTerminal} "$HOME/.config/xdg-terminals.list"
       fi
@@ -172,7 +230,6 @@ in
 
     home.packages = with pkgs; [
       easyeffects
-      nwg-displays
       ollama
       kdePackages.dolphin
       kdePackages.systemsettings

@@ -18,8 +18,8 @@ layout differences.
 Both workstations share one declarative Wayland session:
 
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
-  XWayland. GDM stays as the only display manager and selects the `hyprland`
-  session by default. The previous GNOME desktop is removed.
+  XWayland. greetd launches the pinned DMS Greeter for login and selects the
+  `hyprland` session by default. The previous GNOME desktop and GDM are removed.
 - **DankMaterialShell** is integrated through its first-party Home Manager
   module. DMS provides the bar, launcher, settings, clipboard, wallpaper,
   notifications, power menu, media controls, and Sathi.AI chat, while this
@@ -27,10 +27,15 @@ Both workstations share one declarative Wayland session:
   `dms.service` starts with `hyprland-session.target`.
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
-  a monitor fallback (`preferred` mode, automatic placement, scale `1`), systemd
-  graphical-session integration, the shared keybindings below, and the
-  declarative Hyprland plugin load described under
+  the Lua main config, systemd graphical-session integration, the shared
+  keybindings below, and the declarative Hyprland plugin load described under
   [Hyprland plugins](#hyprland-plugins).
+- **DMS compositor settings** remain writable under `~/.config/hypr/dms`. The
+  initial output uses preferred mode, automatic placement, and scale `1`; DMS
+  then owns its display, layout, color, cursor, shortcut, and window-rule Lua
+  fragments.
+- **Session locking** uses the native DMS lock screen; the DMS Greeter is only
+  responsible for boot and login.
 - **Theme**: the first DMS session starts with its dark stock green theme and
   dynamic theming enabled. Runtime settings remain writable under
   `~/.config/DankMaterialShell`.
@@ -60,6 +65,7 @@ Both workstations share one declarative Wayland session:
 | `SUPER`+`N` | Toggle the control center |
 | `SUPER`+`M` | Toggle the media dashboard |
 | `SUPER`+`P` | Toggle the process list |
+| `SUPER`+`D` | Open DMS settings for display configuration |
 | `SUPER`+`Tab` | Toggle the workspace overview |
 | `SUPER`+`/` | Toggle the DMS keybinding cheatsheet |
 | `SUPER`+`CTRL`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
@@ -70,9 +76,11 @@ binding works on every host.
 ## Local AI
 
 The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
-Its model loader downloads `nemotron-3-nano:4b` after networking becomes
-available. This is the 2.8 GB Q4_K_M release; Ollama is capped to a 4,096-token
-context so its weights and runtime cache fit the T500's 4 GB VRAM budget.
+The service waits for the T500, selects its CUDA runner, and enables Flash
+Attention with an 8-bit KV cache. Its model loader downloads
+`nemotron-3-nano:4b` after networking becomes available. This is the 2.8 GB
+Q4_K_M release; Ollama is capped to a 4,096-token context so its weights and
+runtime cache fit the T500's 4 GB VRAM budget.
 
 The first boot can finish before the background model download completes. Check
 its progress or run the model with:
@@ -81,6 +89,7 @@ its progress or run the model with:
 systemctl status ollama-model-loader.service
 journalctl -u ollama-model-loader.service -f
 ollama run nemotron-3-nano:4b
+ollama ps
 ```
 
 ## Hyprland plugins
