@@ -1,19 +1,14 @@
-{ flake, pkgs, ... }:
+{ pkgs, ... }:
 {
-  imports = [ flake.inputs.dank-material-shell.nixosModules.greeter ];
-
+  services.displayManager.gdm.enable = true;
   services.displayManager.defaultSession = "hyprland";
-
-  programs.dank-material-shell.greeter = {
-    enable = true;
-    compositor.name = "hyprland";
-    configHome = "/home/kevin";
-  };
 
   services.geoclue2.enable = true;
   services.accounts-daemon.enable = true;
   services.flatpak.enable = true;
   services.gnome.gnome-keyring.enable = true;
+  services.gvfs.enable = true;
+  services.udisks2.enable = true;
 
   hardware.bluetooth.enable = true;
   hardware.i2c.enable = true;

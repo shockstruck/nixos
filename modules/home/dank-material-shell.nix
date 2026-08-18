@@ -230,10 +230,14 @@ in
 
     home.packages = with pkgs; [
       easyeffects
+      nautilus
       ollama
-      kdePackages.dolphin
-      kdePackages.systemsettings
     ];
+
+    xdg.mimeApps = {
+      enable = true;
+      defaultApplications."inode/directory" = "org.gnome.Nautilus.desktop";
+    };
 
     services.easyeffects.enable = true;
   };

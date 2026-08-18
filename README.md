@@ -18,8 +18,8 @@ layout differences.
 Both workstations share one declarative Wayland session:
 
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
-  XWayland. greetd launches the pinned DMS Greeter for login and selects the
-  `hyprland` session by default. The previous GNOME desktop and GDM are removed.
+  XWayland. GDM stays as the display manager and selects the `hyprland` session
+  by default. The previous GNOME desktop is removed.
 - **DankMaterialShell** is integrated through its first-party Home Manager
   module. DMS provides the bar, launcher, settings, clipboard, wallpaper,
   notifications, power menu, media controls, and Sathi.AI chat, while this
@@ -30,12 +30,11 @@ Both workstations share one declarative Wayland session:
   the Lua main config, systemd graphical-session integration, the shared
   keybindings below, and the declarative Hyprland plugin load described under
   [Hyprland plugins](#hyprland-plugins).
-- **DMS compositor settings** remain writable under `~/.config/hypr/dms`. The
+- **DMS display settings** remain writable under `~/.config/hypr/dms`. The
   initial output uses preferred mode, automatic placement, and scale `1`; DMS
-  then owns its display, layout, color, cursor, shortcut, and window-rule Lua
-  fragments.
-- **Session locking** uses the native DMS lock screen; the DMS Greeter is only
-  responsible for boot and login.
+  owns its display, layout, color, cursor, shortcut, and window-rule Lua
+  fragments while GDM remains the login greeter.
+- **Session locking** uses the native DMS lock screen.
 - **Theme**: the first DMS session starts with its dark stock green theme and
   dynamic theming enabled. Runtime settings remain writable under
   `~/.config/DankMaterialShell`.
