@@ -271,9 +271,13 @@ in
 
     # DMS scans directories only, so create real plugin directories with
     # recursively linked files instead of one symlink per directory.
-    xdg.configFile = lib.genAttrs
-      (map (pluginId: "DankMaterialShell/plugins/${pluginId}") enabledPluginIds)
-      (_: { recursive = true; });
+    xdg.configFile =
+      lib.genAttrs
+        (map (pluginId: "DankMaterialShell/plugins/${pluginId}") enabledPluginIds)
+        (_: { recursive = true; })
+      // {
+        "mimeapps.list".force = true;
+      };
 
     systemd.user.services.dms.Unit.X-Restart-Triggers =
       map
@@ -364,6 +368,7 @@ in
       enable = true;
       defaultApplications."inode/directory" = "org.gnome.Nautilus.desktop";
     };
+    xdg.dataFile."applications/mimeapps.list".force = true;
 
     services.easyeffects.enable = true;
   };

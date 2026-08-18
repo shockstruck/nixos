@@ -14,6 +14,7 @@
     firefox
     github-desktop
     gnome-calendar
+    gnome-disk-utility
     mission-center
     netbird-ui
     proton-authenticator
