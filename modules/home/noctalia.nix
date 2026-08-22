@@ -95,13 +95,13 @@ in
         #
         # DMS plugins with NO Noctalia builtin — sathiAi (Ollama chat),
         # claudeCodeUsage, dockerManager, dankKDEConnect (KDE Connect),
-        # netbirdStatus (laptop), quickCapture — are NOT wired here. Removing DMS
-        # (SHOA-1004, 2890bc3) already dropped them, which conflicts with parent
-        # Q4 ("removal loses no functionality"). The accept-loss-vs-rebuild-as-
-        # Noctalia-plugin decision is surfaced to the parent/founder on SHOA-1008
-        # before any of these are dropped for good or rebuilt; under a "rebuild"
-        # outcome the plugin widget ids slot into `bar.main.end` at the marked
-        # positions. Do not add plugin bar entries before that decision lands.
+        # netbirdStatus (laptop), quickCapture — are intentionally DROPPED.
+        # Removing DMS (SHOA-1004, 2890bc3) already dropped them; the founder
+        # reviewed the accept-loss-vs-rebuild-as-Noctalia-plugin decision on
+        # SHOA-1008 and accepted the loss for all six (rebuild none). They are
+        # therefore not wired here and no plugin bar entries exist below. If any
+        # are ever wanted back, that is a new founder-approved Quickshell/QML
+        # plugin issue — not a change to this module's parity baseline.
 
         # wallpaperCarousel parity: rotate wallpapers from the wallpaper
         # directory. Interval/order keep Noctalia defaults (30 min, random).
@@ -111,18 +111,18 @@ in
         # the Noctalia v5.0.0-beta.9 builtin registry (src/shell/bar/
         # widget_factory.cpp). network/bluetooth/volume/brightness/session are
         # intentionally omitted from the bar — as in DMS they live in the
-        # control-center panel, not the bar. Slots for the not-yet-decided
-        # plugins are noted inline.
+        # control-center panel, not the bar. The DMS plugin bar widgets
+        # (sathiAi/dockerManager/claudeCodeUsage/netbirdStatus) are dropped per
+        # the accepted SHOA-1008 decision, so they are absent from `end`.
         bar.main = {
           # DMS left: launcherButton, workspaceSwitcher, focusedWindow.
           start = [ "launcher" "workspaces" "active_window" ];
           # DMS center: music, clock, weather.
           center = [ "media" "clock" "weather" ];
-          # DMS right: systemTray, clipboard, cpuUsage, memUsage, <sathiAi>,
-          # notificationButton, <dockerManager>, <claudeCodeUsage>,
-          # <netbirdStatus (laptop)>, battery, controlCenterButton. The <...>
-          # entries are the no-builtin plugins pending the product decision and
-          # would be inserted here (in that order) under a "rebuild" outcome.
+          # DMS right (builtin-covered subset): systemTray, clipboard, cpuUsage,
+          # memUsage, notificationButton, battery, controlCenterButton. The DMS
+          # plugin widgets that sat here (sathiAi, dockerManager, claudeCodeUsage,
+          # netbirdStatus) are dropped — see the parity note above.
           end = [
             "tray"
             "clipboard"
