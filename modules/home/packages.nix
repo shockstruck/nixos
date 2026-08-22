@@ -1,6 +1,7 @@
 { pkgs, ... }:
 let
   paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
+  splayer-next = pkgs.callPackage ../../packages/splayer-next.nix { };
   niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
 in
 {
