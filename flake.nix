@@ -22,16 +22,27 @@
     niri-flake.url = "github:sodiboo/niri-flake";
     niri-flake.inputs.nixpkgs.follows = "nixpkgs";
 
+    # stasis: Rust Wayland idle manager. Replaces swayidle as the single idle
+    # manager (SHOA-1002); its Home Manager module provides `services.stasis`,
+    # wired in modules/home/idle.nix.
+    stasis.url = "github:saltnpepper97/stasis/v1.5.1";
+    stasis.inputs.nixpkgs.follows = "nixpkgs";
+    stasis.inputs.flake-parts.follows = "flake-parts";
+
     # Software inputs
     nix-index-database.url = "github:nix-community/nix-index-database";
     nix-index-database.inputs.nixpkgs.follows = "nixpkgs";
     nixvim.url = "github:nix-community/nixvim";
     nixvim.inputs.nixpkgs.follows = "nixpkgs";
     nixvim.inputs.flake-parts.follows = "flake-parts";
-    dank-material-shell.url = "github:AvengeMedia/DankMaterialShell/v1.5.3";
-    dank-material-shell.inputs.nixpkgs.follows = "nixpkgs";
-    dms-plugin-registry.url = "github:AvengeMedia/dms-plugin-registry";
-    dms-plugin-registry.inputs.nixpkgs.follows = "nixpkgs";
+    # Noctalia V5 shell (Quickshell/QML) — a single configurable Wayland shell
+    # layer (bar, launcher, control center, notifications, lock, OSD, wallpaper)
+    # replacing DankMaterialShell (SHOA-1004 / parent SHOA-997 C1). Its
+    # `homeModules.default` provides the `programs.noctalia` Home-Manager
+    # interface consumed by modules/home/noctalia.nix; the systemd user service
+    # binds to graphical-session.target, which niri-flake's user services satisfy.
+    noctalia.url = "github:noctalia-dev/noctalia-shell/v5.0.0-beta.9";
+    noctalia.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   # Wired using https://nixos-unified.org/guide/autowiring

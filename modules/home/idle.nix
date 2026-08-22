@@ -1,64 +1,106 @@
-# swayidle — idle daemon that makes swaylock the workstation's overall
-# locker (SHOA-993), adapted for niri (SHOA-997).
+# stasis — Wayland idle manager (saltnpepper97/stasis) that makes swaylock the
+# workstation's single, effective locker (SHOA-1002, replacing swayidle).
 #
-# swayidle owns all idle behaviour so there is a single idle manager:
-#   - any `loginctl lock-session` (manual Super+L, DMS power menu, remote)
-#     raises the systemd-logind `lock` signal, which swayidle handles by
-#     running swaylock
-#   - idle timeout locks the session (via `loginctl lock-session`, which in
-#     turn runs swaylock through the `lock` handler)
-#   - before sleep locks
-#   - screen blanks (niri `power-off-monitors`) and suspends on the same
-#     timings the Hyprland build used (300 s lock / 330 s blank / 1800 s
-#     suspend). niri restores the monitors automatically on input, so no
-#     explicit power-on resume command is required.
+# stasis owns all idle behaviour so there is exactly one idle manager. It runs
+# a deterministic, sequential timer plan mirroring the previous swayidle timings
+# (SHOA-993/997): lock at 300 s, blank the monitors at 330 s, suspend at 1800 s
+# (all absolute from idle start). Because stasis step timeouts are *relative to
+# the previous step firing* (see stasis(5) — "Seconds relative to the previous
+# enabled step firing"), the blank/suspend timeouts below are offsets:
+#   lock_screen   300               -> 300 s absolute
+#   blank_display  30 (after lock)  -> 330 s absolute
+#   suspend      1470 (after blank) -> 1800 s absolute
 #
-# This replaces the Hyprland-specific hypridle (`hyprctl dispatch dpms`,
-# `hyprland-session.target`), which does not evaluate under niri. swaylock
-# and its PAM entry are unchanged (see swaylock.nix + modules/nixos/gui/
-# niri.nix). DankMaterialShell's competing lock/idle stays disabled in
+# Locking semantics are preserved with swaylock as the only locker:
+#   - idle timeout locks via the `lock_screen` step running swaylock
+#   - pre-sleep (lid close / `systemctl suspend`, including stasis's own suspend
+#     step) locks via `prepare_sleep_command`, which fires on logind
+#     PrepareForSleep(true) — this replaces swayidle's `before-sleep` handler and
+#     requires `enable_loginctl_integration true`
+#   - the swaylock invocations are guarded by `pidof swaylock` so repeated
+#     triggers (manual Mod+L, idle, pre-sleep) never stack a second locker
+#
+# Unlike swayidle, stasis does NOT run a locker in response to an external
+# `loginctl lock-session` (it only tracks logind LockedHint). The manual lock
+# bind therefore spawns swaylock directly (Mod+L in modules/home/niri.nix now
+# points at the same guarded locker instead of `loginctl lock-session`).
+#
+# The stasis Home Manager module is provided by the upstream flake input
+# (`flake.inputs.stasis.homeModules.default`, wired in flake.nix). swaylock and
+# its PAM entry are unchanged (see swaylock.nix + modules/nixos/gui/niri.nix).
+# DankMaterialShell's competing lock/idle stays disabled in
 # dank-material-shell.nix so the two idle managers do not fight.
 { pkgs
 , lib
 , config
+, flake
 , ...
 }:
 let
-  swaylock = "${pkgs.procps}/bin/pidof swaylock || ${pkgs.swaylock-effects}/bin/swaylock";
-  loginctl = "${pkgs.systemd}/bin/loginctl";
-  systemctl = "${pkgs.systemd}/bin/systemctl";
+  # Guarded swaylock launcher: a no-op when a locker is already running, so the
+  # idle step, the pre-sleep hook, and the manual Mod+L bind all converge on a
+  # single swaylock instance (matches the old swayidle `pidof swaylock ||` guard).
+  lockScript = pkgs.writeShellScript "swaylock-guarded" ''
+    ${pkgs.procps}/bin/pidof swaylock >/dev/null 2>&1 || exec ${config.programs.swaylock.package}/bin/swaylock
+  '';
   niri = "${config.programs.niri.package}/bin/niri";
+  systemctl = "${pkgs.systemd}/bin/systemctl";
 in
 {
+  imports = [ flake.inputs.stasis.homeModules.default ];
+
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-    services.swayidle = {
+    services.stasis = {
       enable = true;
-      systemdTarget = "graphical-session.target";
 
-      events = [
-        # `loginctl lock-session` (manual Super+L, DMS power menu, or the
-        # idle timeout below) and pre-sleep both run swaylock.
-        { event = "lock"; command = swaylock; }
-        { event = "before-sleep"; command = "${loginctl} lock-session"; }
-      ];
+      # RUNE configuration (written to ~/.config/stasis/stasis.rune). Absolute
+      # store paths are used for every command so the service PATH is irrelevant.
+      extraConfig = ''
+        @description "ShockStruck idle plan (SHOA-1002) — single manager, swaylock locker"
 
-      timeouts = [
-        # Lock after 5 minutes idle (mooniri/DMS prior lock timing).
-        {
-          timeout = 300;
-          command = "${loginctl} lock-session";
-        }
-        # Blank the display shortly after the lock triggers.
-        {
-          timeout = 330;
-          command = "${niri} msg action power-off-monitors";
-        }
-        # Suspend after 30 minutes idle (DMS prior suspend timing).
-        {
-          timeout = 1800;
-          command = "${systemctl} suspend";
-        }
-      ];
+        default:
+          # Subscribe to logind PrepareForSleep so `prepare_sleep_command` fires
+          # before an externally-initiated (or stasis-initiated) suspend.
+          enable_loginctl_integration true
+
+          # Honor session-bus idle inhibitors (browsers, video calls, portal
+          # clients). This is the one intentional upgrade over swayidle, which
+          # only honored the Wayland idle-inhibit protocol; timings and the
+          # locker are otherwise preserved.
+          enable_dbus_inhibit true
+
+          # No audio-based inhibition — keep swayidle's pure-timer semantics
+          # (the Wayland idle-inhibit protocol is still honored regardless).
+          monitor_media false
+
+          # Keep the absolute timings exact (no per-step debounce offset).
+          debounce_seconds 0
+
+          # Lock before sleep (lid close, `systemctl suspend`, or the suspend
+          # step below), mirroring swayidle's before-sleep handler.
+          prepare_sleep_command "${lockScript}"
+
+          # Lock after 5 minutes idle.
+          lock_screen:
+            timeout 300
+            command "${lockScript}"
+          end
+
+          # Blank the monitors 30 s after the lock (330 s absolute). niri powers
+          # the outputs back on automatically on input, so no resume command is
+          # required.
+          blank_display:
+            timeout 30
+            command "${niri} msg action power-off-monitors"
+          end
+
+          # Suspend at 1800 s absolute (1470 s after the blank step fired).
+          suspend:
+            timeout 1470
+            command "${systemctl} suspend"
+          end
+        end
+      '';
     };
   };
 }

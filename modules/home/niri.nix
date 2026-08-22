@@ -3,6 +3,21 @@
 , pkgs
 , ...
 }:
+let
+  # Run-or-raise helper (SHOA-1001). Packaged in ../../packages/niri-ror.nix
+  # and also added to home.packages there (modules/home/packages.nix) so it's
+  # on $PATH standalone; called by absolute store path here so the binds
+  # below don't depend on PATH ordering.
+  niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
+
+  # Guarded swaylock launcher (SHOA-1002). stasis no longer runs a locker in
+  # response to `loginctl lock-session` (it only tracks logind LockedHint), so
+  # the manual lock bind spawns swaylock directly. Identical to the guard in
+  # modules/home/idle.nix, so both converge on a single swaylock instance.
+  lockScript = pkgs.writeShellScript "swaylock-guarded" ''
+    ${pkgs.procps}/bin/pidof swaylock >/dev/null 2>&1 || exec ${config.programs.swaylock.package}/bin/swaylock
+  '';
+in
 {
   # The niri-flake Home Manager settings/actions API (`programs.niri.settings`,
   # `config.lib.niri.actions`) is injected into this home configuration by the
@@ -42,8 +57,15 @@
         };
 
         # XWayland via xwayland-satellite (see modules/nixos/gui/niri.nix).
+        # Vicinae's launcher CLI (`vicinae toggle`, bound below) talks to this
+        # daemon over IPC, so the server has to be running before the bind is
+        # used; nixpkgs ships a systemd user unit for it but wiring that up
+        # is out of scope here, so it's started the same way as
+        # xwayland-satellite instead (mirrors extra/vicinae.service's
+        # `vicinae server --replace` ExecStart upstream).
         spawn-at-startup = [
           { command = [ "xwayland-satellite" ]; }
+          { command = [ "vicinae" "server" "--replace" ]; }
         ];
 
         binds = with config.lib.niri.actions; {
@@ -57,8 +79,31 @@
             hotkey-overlay.title = "Windows: Close active window";
           };
           "Mod+L" = {
-            action = spawn "loginctl" "lock-session";
+            # swaylock directly (guarded) — stasis does not lock on
+            # `loginctl lock-session`, only tracks LockedHint (SHOA-1002).
+            action = spawn "${lockScript}";
             hotkey-overlay.title = "Session: Lock screen";
+          };
+          # Vicinae launcher (SHOA-1000). Mod+Space is already DMS's
+          # spotlight toggle, so Vicinae gets its own mnemonic bind; the
+          # `vicinae server --replace` daemon is started via
+          # spawn-at-startup above.
+          "Mod+V" = {
+            action = spawn "vicinae" "toggle";
+            hotkey-overlay.title = "Applications: Toggle Vicinae launcher";
+          };
+
+          # --- Run-or-raise (niri-ror; SHOA-1001) ---
+          # Focuses the app's existing window (cycling through matches) if
+          # one is already open, otherwise launches it. See
+          # https://github.com/boomskats/niri-ror for the matching rules.
+          "Mod+T" = {
+            action = spawn (lib.getExe niri-ror) "--app-id" "kitty" "--app-name" "Terminal" "--command" "kitty";
+            hotkey-overlay.title = "Applications: Run-or-raise terminal";
+          };
+          "Mod+B" = {
+            action = spawn (lib.getExe niri-ror) "--app-id" "brave-browser" "--app-name" "Browser" "--command" "brave";
+            hotkey-overlay.title = "Applications: Run-or-raise browser";
           };
 
           # --- Column / window focus (scrollable-tiling) ---
@@ -124,47 +169,46 @@
           "Mod+Shift+WheelScrollDown".action = move-column-right;
           "Mod+Shift+WheelScrollUp".action = move-column-left;
 
-          # --- DankMaterialShell IPC (shell/bar/launcher) ---
+          # --- Noctalia IPC (shell/bar/launcher; SHOA-1007) ---
+          # Migrated from the removed DankMaterialShell `dms ipc call …` binds
+          # (SHOA-1004) to the Noctalia V5 CLI (`noctalia msg <verb>`; mainProgram
+          # = `noctalia`, placed on $PATH by programs.noctalia). Verbs verified
+          # against noctalia-shell v5.0.0-beta.9 src/cli/schema_msg.h and
+          # docs.noctalia.dev/noctalia/ipc/surfaces (panel ids: launcher,
+          # clipboard, wallpaper, session, control-center).
           "Mod+Space" = {
-            action = spawn "dms" "ipc" "call" "spotlight" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "launcher";
             hotkey-overlay.title = "Shell: Toggle application launcher";
           };
           "Mod+S" = {
-            action = spawn "dms" "ipc" "call" "settings" "toggle";
+            action = spawn "noctalia" "msg" "settings-toggle";
             hotkey-overlay.title = "Shell: Toggle settings";
           };
           "Mod+C" = {
-            action = spawn "dms" "ipc" "call" "clipboard" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "clipboard";
             hotkey-overlay.title = "Shell: Toggle clipboard history";
           };
           "Mod+W" = {
-            action = spawn "dms" "ipc" "call" "dankdash" "wallpaper";
+            action = spawn "noctalia" "msg" "panel-toggle" "wallpaper";
             hotkey-overlay.title = "Shell: Choose wallpaper";
           };
           "Mod+Shift+E" = {
-            action = spawn "dms" "ipc" "call" "powermenu" "toggle";
-            hotkey-overlay.title = "Shell: Toggle power menu";
-          };
-          "Mod+A" = {
-            action = spawn "dms" "ipc" "call" "widget" "toggle" "sathiAi";
-            hotkey-overlay.title = "Shell: Toggle AI chat";
+            action = spawn "noctalia" "msg" "panel-toggle" "session";
+            hotkey-overlay.title = "Shell: Toggle session menu";
           };
           "Mod+N" = {
-            action = spawn "dms" "ipc" "call" "control-center" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "control-center";
             hotkey-overlay.title = "Shell: Toggle control center";
           };
-          "Mod+M" = {
-            action = spawn "dms" "ipc" "call" "dash" "toggle" "media";
-            hotkey-overlay.title = "Shell: Toggle media dashboard";
-          };
-          "Mod+P" = {
-            action = spawn "dms" "ipc" "call" "processlist" "toggle";
-            hotkey-overlay.title = "Shell: Toggle process list";
-          };
           "Mod+D" = {
-            action = spawn "dms" "ipc" "call" "settings" "open";
-            hotkey-overlay.title = "Utilities: Configure displays";
+            action = spawn "noctalia" "msg" "settings-toggle";
+            hotkey-overlay.title = "Utilities: Toggle settings (display config)";
           };
+          # Deferred to SHOA-1004b — no direct Noctalia V5 IPC equivalent yet, so
+          # the former Mod+A (dms widget sathiAi / AI chat), Mod+M (dms media
+          # dashboard), and Mod+P (dms processlist) binds are removed here rather
+          # than pointed at a dead verb. Their replacement surfaces are decided in
+          # the C10 plugin-parity follow-up.
           # Native niri overview replaces the Hyprland `dms ipc call hypr
           # toggleOverview` shim; the cheatsheet uses niri's hotkey overlay
           # in place of `dms ipc call hypr toggleBinds`.
@@ -177,42 +221,46 @@
             hotkey-overlay.title = "Shell: Show keybind cheatsheet";
           };
 
-          # --- Media / brightness keys (usable while locked) ---
+          # --- Media / brightness keys (usable while locked; SHOA-1007) ---
+          # Migrated to `noctalia msg` (verbs per the note above). Volume keeps the
+          # explicit 5-unit step to match the old DMS increment; brightness-up/-down
+          # omit an arg because their first positional is <target> (monitor/backlight
+          # device), not <step> — so Noctalia's configured brightness step applies.
           "XF86AudioRaiseVolume" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "increment" "5";
+            action = spawn "noctalia" "msg" "volume-up" "5";
           };
           "XF86AudioLowerVolume" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "decrement" "5";
+            action = spawn "noctalia" "msg" "volume-down" "5";
           };
           "XF86AudioMute" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "mute";
+            action = spawn "noctalia" "msg" "volume-mute";
           };
           "XF86AudioMicMute" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "micmute";
+            action = spawn "noctalia" "msg" "mic-mute";
           };
           "XF86MonBrightnessUp" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "brightness" "increment" "5";
+            action = spawn "noctalia" "msg" "brightness-up";
           };
           "XF86MonBrightnessDown" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "brightness" "decrement" "5";
+            action = spawn "noctalia" "msg" "brightness-down";
           };
           "XF86AudioPlay" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "playPause";
+            action = spawn "noctalia" "msg" "media" "toggle";
           };
           "XF86AudioNext" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "next";
+            action = spawn "noctalia" "msg" "media" "next";
           };
           "XF86AudioPrev" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "previous";
+            action = spawn "noctalia" "msg" "media" "previous";
           };
 
           # --- Exit niri ---

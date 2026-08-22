@@ -1,6 +1,8 @@
 { pkgs, ... }:
 let
   paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
+  splayer-next = pkgs.callPackage ../../packages/splayer-next.nix { };
+  niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
 in
 {
   # Nix packages to install to $HOME
@@ -19,6 +21,7 @@ in
     gnome-calendar
     gnome-disk-utility
     mission-center
+    obsidian
     netbird-ui
     paperweight
     proton-authenticator
@@ -27,8 +30,10 @@ in
     protonmail-bridge-gui
     protonmail-desktop
     runelite
+    splayer-next
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
+    vicinae
     vscodium
 
     # Unix tools
@@ -48,6 +53,8 @@ in
     kustomize
     minijinja
     mise
+    niri-ror # Run-or-raise helper for niri (SHOA-1001); bound in modules/home/niri.nix
+    ranger # Terminal file manager
     ripgrep # Better `grep`
     fd
     sd

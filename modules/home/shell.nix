@@ -1,4 +1,8 @@
 { config, lib, pkgs, ... }:
+let
+  # Eldritch palette source of truth (modules/home/theme/eldritch.nix, SHOA-999 C7).
+  e = config.theme.eldritch;
+in
 {
   home.activation.migrateZshHistory = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     oldHistory="${config.home.homeDirectory}/.zsh_history"
@@ -35,8 +39,9 @@
   # (that file is produced by `p10k configure` and is ~600 lines of mostly
   # default segment plumbing). This keeps the same left/right prompt
   # elements mooniri actually customized (context, dir, vcs / status,
-  # command_execution_time, background_jobs, time) and the same
-  # tokyonight-moon-derived palette, with instant-prompt intentionally left
+  # command_execution_time, background_jobs, time) recolored with the shared
+  # Eldritch palette (SHOA-997 C3, sourced from config.theme.eldritch) in place
+  # of the original tokyonight-moon set, with instant-prompt intentionally left
   # off (see initExtra comment below) so no p10k-instant-prompt cache
   # sourcing snippet is required at the very top of .zshrc.
   home.file.".p10k.zsh".text = ''
@@ -61,17 +66,19 @@
       typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
       typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
 
-      # tokyonight-moon-derived palette (matches mooniri's .p10k.zsh)
-      typeset -g P10K_COLOR_TEXT="#c8d3f5"
-      typeset -g P10K_COLOR_OVERLAY1="#545c7e"
-      typeset -g P10K_COLOR_BLUE="#82aaff"
-      typeset -g P10K_COLOR_LAVENDER="#c099ff"
-      typeset -g P10K_COLOR_SKY="#86e1fc"
-      typeset -g P10K_COLOR_TEAL="#4fd6be"
-      typeset -g P10K_COLOR_GREEN="#c3e88d"
-      typeset -g P10K_COLOR_YELLOW="#ffc777"
-      typeset -g P10K_COLOR_PEACH="#ff966c"
-      typeset -g P10K_COLOR_RED="#ff757f"
+      # Eldritch palette (config.theme.eldritch, modules/home/theme/eldritch.nix).
+      # Segment logic below is unchanged (SHOA-991); only these knob values
+      # change from the original tokyonight-moon set to the shared Eldritch hex.
+      typeset -g P10K_COLOR_TEXT="${e.foreground}"
+      typeset -g P10K_COLOR_OVERLAY1="${e.comment}"
+      typeset -g P10K_COLOR_BLUE="${e.blue}"
+      typeset -g P10K_COLOR_LAVENDER="${e.purple}"
+      typeset -g P10K_COLOR_SKY="${e.cyan}"
+      typeset -g P10K_COLOR_TEAL="${e.green}"
+      typeset -g P10K_COLOR_GREEN="${e.green}"
+      typeset -g P10K_COLOR_YELLOW="${e.yellow}"
+      typeset -g P10K_COLOR_PEACH="${e.orange}"
+      typeset -g P10K_COLOR_RED="${e.red}"
 
       typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND=$P10K_COLOR_PEACH
       typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=$P10K_COLOR_YELLOW
