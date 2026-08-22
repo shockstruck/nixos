@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "root": {
-      "inputs": {
-        "dank-material-shell": "dank-material-shell",
-        "disko": "disko",
-        "dms-plugin-registry": "dms-plugin-registry",
-        "flake-parts": "flake-parts",
-        "home-manager": "home-manager",
-        "niri-flake": "niri-flake",
-        "nix-darwin": "nix-darwin",
-        "nix-index-database": "nix-index-database",
-        "nixos-hardware": "nixos-hardware",
-        "nixos-unified": "nixos-unified",
-        "nixpkgs": "nixpkgs",
-        "nixvim": "nixvim"
-      }
-    },
     "dank-material-shell": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -333,6 +317,47 @@
       "original": {
         "owner": "nix-community",
         "repo": "nixvim",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "dank-material-shell": "dank-material-shell",
+        "disko": "disko",
+        "dms-plugin-registry": "dms-plugin-registry",
+        "flake-parts": "flake-parts",
+        "home-manager": "home-manager",
+        "niri-flake": "niri-flake",
+        "nix-darwin": "nix-darwin",
+        "nix-index-database": "nix-index-database",
+        "nixos-hardware": "nixos-hardware",
+        "nixos-unified": "nixos-unified",
+        "nixpkgs": "nixpkgs",
+        "nixvim": "nixvim",
+        "stasis": "stasis"
+      }
+    },
+    "stasis": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786798494,
+        "narHash": "sha256-kNgoBdJBBa8+aOshVc9LXtikwv1ar5ldI85uOOdlJ2M=",
+        "owner": "saltnpepper97",
+        "repo": "stasis",
+        "rev": "f17d1a09e0e43e16af4412599a9e96a7266f82aa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "saltnpepper97",
+        "ref": "v1.5.1",
+        "repo": "stasis",
         "type": "github"
       }
     },

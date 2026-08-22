@@ -90,7 +90,7 @@ let
 
   initialSettings = pkgs.writeText "dms-initial-settings.json" (builtins.toJSON {
     configVersion = 13;
-    # Idle + locking are owned by swayidle + swaylock (SHOA-993/997). Zeroing
+    # Idle + locking are owned by stasis + swaylock (SHOA-1002). Zeroing
     # DMS's idle timeouts and disabling its loginctl lock integration hands
     # the locker role entirely to swaylock so the two idle managers do not
     # fight (see modules/home/idle.nix + swaylock.nix).

@@ -22,6 +22,13 @@
     niri-flake.url = "github:sodiboo/niri-flake";
     niri-flake.inputs.nixpkgs.follows = "nixpkgs";
 
+    # stasis: Rust Wayland idle manager. Replaces swayidle as the single idle
+    # manager (SHOA-1002); its Home Manager module provides `services.stasis`,
+    # wired in modules/home/idle.nix.
+    stasis.url = "github:saltnpepper97/stasis/v1.5.1";
+    stasis.inputs.nixpkgs.follows = "nixpkgs";
+    stasis.inputs.flake-parts.follows = "flake-parts";
+
     # Software inputs
     nix-index-database.url = "github:nix-community/nix-index-database";
     nix-index-database.inputs.nixpkgs.follows = "nixpkgs";
