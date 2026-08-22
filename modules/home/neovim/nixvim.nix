@@ -1,14 +1,18 @@
 # Neovim configuration managed using https://github.com/nix-community/nixvim
 {
   # Theme
-  colorschemes.tokyonight.enable = true;
+  colorschemes.tokyonight = {
+    enable = true;
+    settings.style = "moon";
+  };
 
   # Settings
   opts = {
     expandtab = true;
-    shiftwidth = 2;
+    shiftwidth = 4;
     smartindent = true;
-    tabstop = 2;
+    tabstop = 4;
+    softtabstop = 4;
     number = true;
     clipboard = "unnamedplus";
   };
@@ -74,6 +78,62 @@
       };
     };
     lazygit.enable = true;
+
+    # Start screen (mirrors mooniri's snacks dashboard header; this nixvim
+    # pin's `plugins.snacks` module has no `dashboard` sub-option, so
+    # `plugins.alpha` is used as the equivalent start-screen plugin).
+    alpha = {
+      enable = true;
+      settings.layout = [
+        {
+          type = "padding";
+          val = 2;
+        }
+        {
+          type = "text";
+          val = [
+            "███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗"
+            "████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║"
+            "██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║"
+            "██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║"
+            "██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║"
+            "╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝"
+            "Powered by LazyVim"
+          ];
+          opts = {
+            position = "center";
+            hl = "Keyword";
+          };
+        }
+        {
+          type = "padding";
+          val = 2;
+        }
+        {
+          type = "group";
+          val = [
+            {
+              type = "button";
+              val = "  New file";
+              on_press.__raw = "function() vim.cmd[[ene]] end";
+              opts.shortcut = "n";
+            }
+            {
+              type = "button";
+              val = "  Find file";
+              on_press.__raw = "function() require('telescope.builtin').find_files() end";
+              opts.shortcut = "f";
+            }
+            {
+              type = "button";
+              val = "  Quit Neovim";
+              on_press.__raw = "function() vim.cmd[[qa]] end";
+              opts.shortcut = "q";
+            }
+          ];
+        }
+      ];
+    };
   };
   keymaps = [
     # Open lazygit within nvim. 
