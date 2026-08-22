@@ -15,6 +15,13 @@
     nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
     nixos-unified.url = "github:srid/nixos-unified";
 
+    # niri: scrollable-tiling Wayland compositor. niri-flake provides the
+    # typed `programs.niri.settings` API and `config.lib.niri.actions` bind
+    # DSL that DankMaterialShell's first-class niri home module targets
+    # (nixpkgs' `programs.niri` has no Home-Manager settings interface).
+    niri-flake.url = "github:sodiboo/niri-flake";
+    niri-flake.inputs.nixpkgs.follows = "nixpkgs";
+
     # Software inputs
     nix-index-database.url = "github:nix-community/nix-index-database";
     nix-index-database.inputs.nixpkgs.follows = "nixpkgs";

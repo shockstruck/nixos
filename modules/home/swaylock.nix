@@ -7,10 +7,10 @@
 # `indicator-radius`, `indicator-thickness`), so we install
 # `swaylock-effects` rather than upstream swaylock.
 #
-# `services.hypridle` (see hypridle.nix) is what invokes this on idle,
+# `services.swayidle` (see idle.nix) is what invokes this on idle,
 # before-sleep, and on any `loginctl lock-session` — making swaylock the
 # single, effective locker. NixOS PAM wiring for authentication lives in
-# `modules/nixos/gui/hyprland.nix` (`security.pam.services.swaylock`);
+# `modules/nixos/gui/niri.nix` (`security.pam.services.swaylock`);
 # without it swaylock can lock but never unlock.
 { pkgs
 , lib
