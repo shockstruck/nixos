@@ -50,6 +50,14 @@ let
     | .dockShowTrash = true
     | .cursorSettings.theme = "Adwaita"
     | .cursorSettings.size = 24
+    | .loginctlLockIntegration = false
+    | .lockBeforeSuspend = false
+    | .acLockTimeout = 0
+    | .batteryLockTimeout = 0
+    | .acMonitorTimeout = 0
+    | .batteryMonitorTimeout = 0
+    | .acSuspendTimeout = 0
+    | .batterySuspendTimeout = 0
     | .barConfigs = (
         (.barConfigs // [])
         | map(
@@ -82,14 +90,18 @@ let
 
   initialSettings = pkgs.writeText "dms-initial-settings.json" (builtins.toJSON {
     configVersion = 13;
-    acLockTimeout = 300;
-    batteryLockTimeout = 300;
-    acMonitorTimeout = 330;
-    batteryMonitorTimeout = 330;
-    acSuspendTimeout = 1800;
-    batterySuspendTimeout = 1800;
-    lockBeforeSuspend = true;
-    loginctlLockIntegration = true;
+    # Idle + locking are owned by hypridle + swaylock (SHOA-993). Zeroing
+    # DMS's idle timeouts and disabling its loginctl lock integration hands
+    # the locker role entirely to swaylock so the two idle managers do not
+    # fight (see modules/home/hypridle.nix + swaylock.nix).
+    acLockTimeout = 0;
+    batteryLockTimeout = 0;
+    acMonitorTimeout = 0;
+    batteryMonitorTimeout = 0;
+    acSuspendTimeout = 0;
+    batterySuspendTimeout = 0;
+    lockBeforeSuspend = false;
+    loginctlLockIntegration = false;
 
     fontFamily = "Google Sans Flex";
     monoFontFamily = "JetBrainsMono Nerd Font";
