@@ -1,19 +1,19 @@
 { config
-, flake
 , lib
 , pkgs
 , ...
 }:
 {
-  imports = [
-    # niri-flake Home Manager module: provides `programs.niri.settings`
-    # (typed KDL generation, validated against the niri package) and the
-    # `config.lib.niri.actions` bind DSL used below. DankMaterialShell's niri
-    # home module (imported in dank-material-shell.nix) layers its
-    # matugen-driven theme includes on top of these settings.
-    flake.inputs.niri-flake.homeModules.niri
-  ];
-
+  # The niri-flake Home Manager settings/actions API (`programs.niri.settings`,
+  # `config.lib.niri.actions`) is injected into this home configuration by the
+  # niri-flake NixOS module (`home-manager.sharedModules`, wired in
+  # modules/nixos/gui/niri.nix), so this module does NOT import
+  # `homeModules.niri` — doing so would re-declare `programs.niri.package` and
+  # fail evaluation. niri itself is enabled and installed at the system layer;
+  # here we only author the compositor settings. Its config.kdl writer
+  # activates automatically once `settings` are set. DankMaterialShell's niri
+  # home module (imported in dank-material-shell.nix) layers its matugen theme
+  # includes on top of these settings.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     home.pointerCursor = {
       enable = true;
@@ -23,8 +23,6 @@
     };
 
     programs.niri = {
-      enable = true;
-
       # Colors, layout, cursor, outputs, window-rules, alt-tab and wallpaper
       # blur are owned by DankMaterialShell's matugen includes
       # (`dms/*.kdl`, wired in dank-material-shell.nix). This module owns
