@@ -78,6 +78,73 @@ in
           auto_locate = false;
           address = "Detroit, MI";
         };
+
+        # ── DMS plugin/widget parity (SHOA-1008 / folds parent C10) ──────────
+        #
+        # The removed DMS module ran a set of plugins/widgets. Noctalia covers
+        # the following DMS plugins with first-class builtins, so they need no
+        # plugin port — only the settings/bar wiring below:
+        #   - calculator     → launcher provider [shell.launcher.providers.
+        #                       calculator], on by default (global search), so no
+        #                       extra config is needed for parity.
+        #   - clipboard      → the `clipboard` bar widget (below) + shell
+        #                       clipboard, on by default (shell.clipboard_enabled).
+        #   - wallpaperCarousel → [wallpaper.automation] (enabled below).
+        #   - system monitor → [system.monitor] (enabled by default) surfaced by
+        #                       the `sysmon` bar widget (cpu/mem instances below).
+        #
+        # DMS plugins with NO Noctalia builtin — sathiAi (Ollama chat),
+        # claudeCodeUsage, dockerManager, dankKDEConnect (KDE Connect),
+        # netbirdStatus (laptop), quickCapture — are NOT wired here. Removing DMS
+        # (SHOA-1004, 2890bc3) already dropped them, which conflicts with parent
+        # Q4 ("removal loses no functionality"). The accept-loss-vs-rebuild-as-
+        # Noctalia-plugin decision is surfaced to the parent/founder on SHOA-1008
+        # before any of these are dropped for good or rebuilt; under a "rebuild"
+        # outcome the plugin widget ids slot into `bar.main.end` at the marked
+        # positions. Do not add plugin bar entries before that decision lands.
+
+        # wallpaperCarousel parity: rotate wallpapers from the wallpaper
+        # directory. Interval/order keep Noctalia defaults (30 min, random).
+        wallpaper.automation.enabled = true;
+
+        # Bar parity with the DMS "Main Bar" (barConfigs.default). Widget ids are
+        # the Noctalia v5.0.0-beta.9 builtin registry (src/shell/bar/
+        # widget_factory.cpp). network/bluetooth/volume/brightness/session are
+        # intentionally omitted from the bar — as in DMS they live in the
+        # control-center panel, not the bar. Slots for the not-yet-decided
+        # plugins are noted inline.
+        bar.main = {
+          # DMS left: launcherButton, workspaceSwitcher, focusedWindow.
+          start = [ "launcher" "workspaces" "active_window" ];
+          # DMS center: music, clock, weather.
+          center = [ "media" "clock" "weather" ];
+          # DMS right: systemTray, clipboard, cpuUsage, memUsage, <sathiAi>,
+          # notificationButton, <dockerManager>, <claudeCodeUsage>,
+          # <netbirdStatus (laptop)>, battery, controlCenterButton. The <...>
+          # entries are the no-builtin plugins pending the product decision and
+          # would be inserted here (in that order) under a "rebuild" outcome.
+          end = [
+            "tray"
+            "clipboard"
+            "cpu" # sysmon (cpu_usage) — see [widget.cpu] below
+            "mem" # sysmon (ram_pct)  — see [widget.mem] below
+            "notifications"
+            "battery" # builtin; auto-hides on machines without a battery
+            "control-center"
+          ];
+        };
+
+        # Two named `sysmon` instances give DMS cpuUsage/memUsage parity (the
+        # single sysmon widget selects its metric via `stat`). Referenced by the
+        # "cpu"/"mem" bar entries above.
+        widget.cpu = {
+          type = "sysmon";
+          stat = "cpu_usage";
+        };
+        widget.mem = {
+          type = "sysmon";
+          stat = "ram_pct";
+        };
       };
 
       # Standard Eldritch palette (eldritchtheme/eldritch base16) mapped onto
