@@ -27,7 +27,8 @@ in
     protonmail-bridge-gui
     protonmail-desktop
     runelite
-    vesktop
+    # Official Discord client with the Vencord mod injected (replaces vesktop).
+    (discord.override { withVencord = true; })
     vscodium
 
     # Unix tools

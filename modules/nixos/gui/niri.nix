@@ -1,7 +1,25 @@
-{ lib, pkgs, ... }:
+{ flake, lib, pkgs, ... }:
 {
+  imports = [
+    # niri-flake NixOS module. Provides `programs.niri`, registers the niri
+    # wayland session with the display manager, wires xdg portals, polkit,
+    # gnome-keyring, and the swaylock PAM entry. Predates and disables the
+    # nixpkgs `programs.niri` module to avoid conflicts.
+    flake.inputs.niri-flake.nixosModules.niri
+  ];
+
+  programs.niri.enable = true;
+  # Use nixpkgs' maintained niri package rather than niri-flake's own
+  # `make-niri`. The pinned niri-flake build references `libdisplay-info_0_2`,
+  # which this repo's newer nixpkgs has removed, and the module builds niri
+  # against the system nixpkgs — so overriding the package here (which also
+  # propagates to the Home Manager side via the module's mkForce) is what
+  # keeps evaluation working. niri-flake is still used for its typed
+  # `programs.niri.settings` / `config.lib.niri.actions` interface.
+  programs.niri.package = pkgs.niri;
+
   services.displayManager.gdm.enable = true;
-  services.displayManager.defaultSession = "hyprland";
+  services.displayManager.defaultSession = "niri";
 
   programs.dconf.profiles.gdm.databases = lib.mkBefore [
     {
@@ -32,13 +50,10 @@
 
   # PAM stack for swaylock (SHOA-993). The Home Manager-installed
   # swaylock-effects cannot authenticate — and therefore cannot unlock —
-  # without this service entry, so it is required to avoid a lockout.
+  # without this service entry, so it is required to avoid a lockout. The
+  # niri-flake module also declares this; the merge is a no-op but it is kept
+  # here as an explicit, self-documenting guarantee.
   security.pam.services.swaylock = { };
-
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
 
   programs.steam = {
     enable = true;
@@ -79,7 +94,10 @@
     pkgs.twemoji-color-font
   ];
 
-  # Terminal launched by the shared Hyprland binding. DMS and its feature
-  # dependencies are installed by the Home Manager module.
-  environment.systemPackages = [ pkgs.foot ];
+  # XWayland support under niri is provided out-of-process by
+  # xwayland-satellite (niri has no built-in XWayland). It is spawned by the
+  # niri session (see modules/home/niri.nix `spawn-at-startup`) on the default
+  # DISPLAY, which X11 clients read to find the rootless X server.
+  environment.systemPackages = [ pkgs.xwayland-satellite ];
+  environment.sessionVariables.DISPLAY = ":0";
 }
