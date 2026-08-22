@@ -84,6 +84,8 @@ in
     jq.enable = true;
     # Install btop https://github.com/aristocratos/btop
     btop.enable = true;
+    # Better `ls` (mooniri zsh aliases in shell.nix invoke `eza` directly).
+    eza.enable = true;
     # Tmate terminal sharing.
     tmate = {
       enable = true;
