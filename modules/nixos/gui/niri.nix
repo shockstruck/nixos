@@ -9,6 +9,14 @@
   ];
 
   programs.niri.enable = true;
+  # Use nixpkgs' maintained niri package rather than niri-flake's own
+  # `make-niri`. The pinned niri-flake build references `libdisplay-info_0_2`,
+  # which this repo's newer nixpkgs has removed, and the module builds niri
+  # against the system nixpkgs — so overriding the package here (which also
+  # propagates to the Home Manager side via the module's mkForce) is what
+  # keeps evaluation working. niri-flake is still used for its typed
+  # `programs.niri.settings` / `config.lib.niri.actions` interface.
+  programs.niri.package = pkgs.niri;
 
   services.displayManager.gdm.enable = true;
   services.displayManager.defaultSession = "niri";
