@@ -90,15 +90,20 @@
           "Mod+7".action = focus-workspace 7;
           "Mod+8".action = focus-workspace 8;
           "Mod+9".action = focus-workspace 9;
-          "Mod+Shift+1".action = move-column-to-workspace 1;
-          "Mod+Shift+2".action = move-column-to-workspace 2;
-          "Mod+Shift+3".action = move-column-to-workspace 3;
-          "Mod+Shift+4".action = move-column-to-workspace 4;
-          "Mod+Shift+5".action = move-column-to-workspace 5;
-          "Mod+Shift+6".action = move-column-to-workspace 6;
-          "Mod+Shift+7".action = move-column-to-workspace 7;
-          "Mod+Shift+8".action = move-column-to-workspace 8;
-          "Mod+Shift+9".action = move-column-to-workspace 9;
+          # niri-flake's typed actions (config.lib.niri.actions, generated
+          # from niri's binds.rs) expose only the relative
+          # move-column-to-workspace-{down,up}; the indexed variant is
+          # dispatched through the niri CLI instead so Mod+Shift+N parity
+          # with the previous Hyprland keymap is preserved.
+          "Mod+Shift+1".action = spawn "niri" "msg" "action" "move-column-to-workspace" "1";
+          "Mod+Shift+2".action = spawn "niri" "msg" "action" "move-column-to-workspace" "2";
+          "Mod+Shift+3".action = spawn "niri" "msg" "action" "move-column-to-workspace" "3";
+          "Mod+Shift+4".action = spawn "niri" "msg" "action" "move-column-to-workspace" "4";
+          "Mod+Shift+5".action = spawn "niri" "msg" "action" "move-column-to-workspace" "5";
+          "Mod+Shift+6".action = spawn "niri" "msg" "action" "move-column-to-workspace" "6";
+          "Mod+Shift+7".action = spawn "niri" "msg" "action" "move-column-to-workspace" "7";
+          "Mod+Shift+8".action = spawn "niri" "msg" "action" "move-column-to-workspace" "8";
+          "Mod+Shift+9".action = spawn "niri" "msg" "action" "move-column-to-workspace" "9";
 
           # --- Column composition / sizing ---
           "Mod+BracketLeft".action = consume-or-expel-window-left;
@@ -209,11 +214,6 @@
             allow-when-locked = true;
             action = spawn "dms" "ipc" "call" "mpris" "previous";
           };
-
-          # --- Screenshots ---
-          "Print".action = screenshot;
-          "Ctrl+Print".action = screenshot-screen;
-          "Alt+Print".action = screenshot-window;
 
           # --- Exit niri ---
           "Ctrl+Alt+Delete".action = quit;
