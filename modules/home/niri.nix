@@ -169,47 +169,46 @@ in
           "Mod+Shift+WheelScrollDown".action = move-column-right;
           "Mod+Shift+WheelScrollUp".action = move-column-left;
 
-          # --- DankMaterialShell IPC (shell/bar/launcher) ---
+          # --- Noctalia IPC (shell/bar/launcher; SHOA-1007) ---
+          # Migrated from the removed DankMaterialShell `dms ipc call …` binds
+          # (SHOA-1004) to the Noctalia V5 CLI (`noctalia msg <verb>`; mainProgram
+          # = `noctalia`, placed on $PATH by programs.noctalia). Verbs verified
+          # against noctalia-shell v5.0.0-beta.9 src/cli/schema_msg.h and
+          # docs.noctalia.dev/noctalia/ipc/surfaces (panel ids: launcher,
+          # clipboard, wallpaper, session, control-center).
           "Mod+Space" = {
-            action = spawn "dms" "ipc" "call" "spotlight" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "launcher";
             hotkey-overlay.title = "Shell: Toggle application launcher";
           };
           "Mod+S" = {
-            action = spawn "dms" "ipc" "call" "settings" "toggle";
+            action = spawn "noctalia" "msg" "settings-toggle";
             hotkey-overlay.title = "Shell: Toggle settings";
           };
           "Mod+C" = {
-            action = spawn "dms" "ipc" "call" "clipboard" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "clipboard";
             hotkey-overlay.title = "Shell: Toggle clipboard history";
           };
           "Mod+W" = {
-            action = spawn "dms" "ipc" "call" "dankdash" "wallpaper";
+            action = spawn "noctalia" "msg" "panel-toggle" "wallpaper";
             hotkey-overlay.title = "Shell: Choose wallpaper";
           };
           "Mod+Shift+E" = {
-            action = spawn "dms" "ipc" "call" "powermenu" "toggle";
-            hotkey-overlay.title = "Shell: Toggle power menu";
-          };
-          "Mod+A" = {
-            action = spawn "dms" "ipc" "call" "widget" "toggle" "sathiAi";
-            hotkey-overlay.title = "Shell: Toggle AI chat";
+            action = spawn "noctalia" "msg" "panel-toggle" "session";
+            hotkey-overlay.title = "Shell: Toggle session menu";
           };
           "Mod+N" = {
-            action = spawn "dms" "ipc" "call" "control-center" "toggle";
+            action = spawn "noctalia" "msg" "panel-toggle" "control-center";
             hotkey-overlay.title = "Shell: Toggle control center";
           };
-          "Mod+M" = {
-            action = spawn "dms" "ipc" "call" "dash" "toggle" "media";
-            hotkey-overlay.title = "Shell: Toggle media dashboard";
-          };
-          "Mod+P" = {
-            action = spawn "dms" "ipc" "call" "processlist" "toggle";
-            hotkey-overlay.title = "Shell: Toggle process list";
-          };
           "Mod+D" = {
-            action = spawn "dms" "ipc" "call" "settings" "open";
-            hotkey-overlay.title = "Utilities: Configure displays";
+            action = spawn "noctalia" "msg" "settings-toggle";
+            hotkey-overlay.title = "Utilities: Toggle settings (display config)";
           };
+          # Deferred to SHOA-1004b — no direct Noctalia V5 IPC equivalent yet, so
+          # the former Mod+A (dms widget sathiAi / AI chat), Mod+M (dms media
+          # dashboard), and Mod+P (dms processlist) binds are removed here rather
+          # than pointed at a dead verb. Their replacement surfaces are decided in
+          # the C10 plugin-parity follow-up.
           # Native niri overview replaces the Hyprland `dms ipc call hypr
           # toggleOverview` shim; the cheatsheet uses niri's hotkey overlay
           # in place of `dms ipc call hypr toggleBinds`.
@@ -222,42 +221,46 @@ in
             hotkey-overlay.title = "Shell: Show keybind cheatsheet";
           };
 
-          # --- Media / brightness keys (usable while locked) ---
+          # --- Media / brightness keys (usable while locked; SHOA-1007) ---
+          # Migrated to `noctalia msg` (verbs per the note above). Volume keeps the
+          # explicit 5-unit step to match the old DMS increment; brightness-up/-down
+          # omit an arg because their first positional is <target> (monitor/backlight
+          # device), not <step> — so Noctalia's configured brightness step applies.
           "XF86AudioRaiseVolume" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "increment" "5";
+            action = spawn "noctalia" "msg" "volume-up" "5";
           };
           "XF86AudioLowerVolume" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "decrement" "5";
+            action = spawn "noctalia" "msg" "volume-down" "5";
           };
           "XF86AudioMute" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "mute";
+            action = spawn "noctalia" "msg" "volume-mute";
           };
           "XF86AudioMicMute" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "audio" "micmute";
+            action = spawn "noctalia" "msg" "mic-mute";
           };
           "XF86MonBrightnessUp" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "brightness" "increment" "5";
+            action = spawn "noctalia" "msg" "brightness-up";
           };
           "XF86MonBrightnessDown" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "brightness" "decrement" "5";
+            action = spawn "noctalia" "msg" "brightness-down";
           };
           "XF86AudioPlay" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "playPause";
+            action = spawn "noctalia" "msg" "media" "toggle";
           };
           "XF86AudioNext" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "next";
+            action = spawn "noctalia" "msg" "media" "next";
           };
           "XF86AudioPrev" = {
             allow-when-locked = true;
-            action = spawn "dms" "ipc" "call" "mpris" "previous";
+            action = spawn "noctalia" "msg" "media" "previous";
           };
 
           # --- Exit niri ---
