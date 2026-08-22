@@ -1,6 +1,7 @@
 { pkgs, ... }:
 let
   paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
+  niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
 in
 {
   # Nix packages to install to $HOME
@@ -51,6 +52,7 @@ in
     kustomize
     minijinja
     mise
+    niri-ror # Run-or-raise helper for niri (SHOA-1001); bound in modules/home/niri.nix
     ranger # Terminal file manager
     ripgrep # Better `grep`
     fd

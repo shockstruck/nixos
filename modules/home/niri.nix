@@ -3,6 +3,21 @@
 , pkgs
 , ...
 }:
+let
+  # Run-or-raise helper (SHOA-1001). Packaged in ../../packages/niri-ror.nix
+  # and also added to home.packages there (modules/home/packages.nix) so it's
+  # on $PATH standalone; called by absolute store path here so the binds
+  # below don't depend on PATH ordering.
+  niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
+
+  # Guarded swaylock launcher (SHOA-1002). stasis no longer runs a locker in
+  # response to `loginctl lock-session` (it only tracks logind LockedHint), so
+  # the manual lock bind spawns swaylock directly. Identical to the guard in
+  # modules/home/idle.nix, so both converge on a single swaylock instance.
+  lockScript = pkgs.writeShellScript "swaylock-guarded" ''
+    ${pkgs.procps}/bin/pidof swaylock >/dev/null 2>&1 || exec ${config.programs.swaylock.package}/bin/swaylock
+  '';
+in
 {
   # The niri-flake Home Manager settings/actions API (`programs.niri.settings`,
   # `config.lib.niri.actions`) is injected into this home configuration by the
@@ -64,7 +79,9 @@
             hotkey-overlay.title = "Windows: Close active window";
           };
           "Mod+L" = {
-            action = spawn "loginctl" "lock-session";
+            # swaylock directly (guarded) — stasis does not lock on
+            # `loginctl lock-session`, only tracks LockedHint (SHOA-1002).
+            action = spawn "${lockScript}";
             hotkey-overlay.title = "Session: Lock screen";
           };
           # Vicinae launcher (SHOA-1000). Mod+Space is already DMS's
@@ -74,6 +91,19 @@
           "Mod+V" = {
             action = spawn "vicinae" "toggle";
             hotkey-overlay.title = "Applications: Toggle Vicinae launcher";
+          };
+
+          # --- Run-or-raise (niri-ror; SHOA-1001) ---
+          # Focuses the app's existing window (cycling through matches) if
+          # one is already open, otherwise launches it. See
+          # https://github.com/boomskats/niri-ror for the matching rules.
+          "Mod+T" = {
+            action = spawn (lib.getExe niri-ror) "--app-id" "kitty" "--app-name" "Terminal" "--command" "kitty";
+            hotkey-overlay.title = "Applications: Run-or-raise terminal";
+          };
+          "Mod+B" = {
+            action = spawn (lib.getExe niri-ror) "--app-id" "brave-browser" "--app-name" "Browser" "--command" "brave";
+            hotkey-overlay.title = "Applications: Run-or-raise browser";
           };
 
           # --- Column / window focus (scrollable-tiling) ---
