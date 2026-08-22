@@ -30,6 +30,11 @@
   programs.kdeconnect.enable = true;
   security.polkit.enable = true;
 
+  # PAM stack for swaylock (SHOA-993). The Home Manager-installed
+  # swaylock-effects cannot authenticate — and therefore cannot unlock —
+  # without this service entry, so it is required to avoid a lockout.
+  security.pam.services.swaylock = { };
+
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;

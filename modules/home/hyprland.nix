@@ -58,6 +58,7 @@ in
 
         hl.bind("SUPER + Return", hl.dsp.exec_cmd("foot"), described("Applications: Open terminal"))
         hl.bind("SUPER + Q", hl.dsp.window.close(), described("Windows: Close active window"))
+        hl.bind("SUPER + L", hl.dsp.exec_cmd("loginctl lock-session"), described("Session: Lock screen"))
 
         hl.bind("SUPER + left", hl.dsp.focus({ direction = "l" }), described("Windows: Focus left"))
         hl.bind("SUPER + right", hl.dsp.focus({ direction = "r" }), described("Windows: Focus right"))
