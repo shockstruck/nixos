@@ -116,22 +116,6 @@
         "type": "github"
       }
     },
-    "hypr-autoscroll": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1785009857,
-        "narHash": "sha256-0tr35AEm24ertylt+g6TCjDADRp4yQpeu6j+vNO77Uc=",
-        "owner": "estebanhiram",
-        "repo": "hypr-autoscroll",
-        "rev": "301508bf19d2bd29993a0fca32b4b8abcf64aabb",
-        "type": "github"
-      },
-      "original": {
-        "owner": "estebanhiram",
-        "repo": "hypr-autoscroll",
-        "type": "github"
-      }
-    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -269,7 +253,6 @@
         "dms-plugin-registry": "dms-plugin-registry",
         "flake-parts": "flake-parts",
         "home-manager": "home-manager",
-        "hypr-autoscroll": "hypr-autoscroll",
         "nix-darwin": "nix-darwin",
         "nix-index-database": "nix-index-database",
         "nixos-hardware": "nixos-hardware",

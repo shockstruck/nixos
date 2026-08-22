@@ -86,7 +86,6 @@ Both workstations share one declarative Wayland session:
 | `SUPER`+`D` | Open DMS settings for display configuration |
 | `SUPER`+`Tab` | Toggle the workspace overview |
 | `SUPER`+`/` | Toggle the DMS keybinding cheatsheet |
-| `SUPER`+`CTRL`+`A` | Toggle hypr-autoscroll middle-button autoscroll |
 
 `foot` is installed declaratively by the shared GUI module so the terminal
 binding works on every host.
@@ -128,53 +127,6 @@ The workstation user belongs to the `docker` group so the DMS Docker Manager
 can monitor and control containers without an elevation prompt; this membership
 provides root-equivalent access through the Docker daemon.
 
-## Hyprland plugins
-
-`hypr-autoscroll` is a Hyprland compositor plugin (Windows-style middle-click
-autoscroll) packaged from source in `packages/hypr-autoscroll.nix` and loaded
-declaratively for every host through Home Manager. It is **not** installed with
-`hyprpm`, the upstream setup script, or any mutable per-user plugin cache; the
-build artifact is the single `lib/libhypr-autoscroll.so` Home Manager loads from
-the Nix store.
-
-- **Purpose**: enables middle-button autoscroll; `direct_activation = false` keeps
-  the mode off by default so it only starts when toggled.
-- **SUPER+CTRL+A**: toggles middle-button autoscroll mode on and off
-  (`hypr-autoscroll:middle-mode, toggle`) without replacing the AI sidebar
-  binding.
-- **ABI sensitivity**: the plugin compiles against the exact configured Hyprland
-  package (`config.wayland.windowManager.hyprland.finalPackage`). Hyprland's
-  plugin ABI is unstable, so every Hyprland or input change must rebuild and
-  re-validate the plugin; a version skew fails the build rather than loading a
-  mismatched `.so`.
-- **Pinned rebuild**: the source is pinned through the non-flake `hypr-autoscroll`
-  input (`github:estebanhiram/hypr-autoscroll`) whose exact revision and NAR hash
-  live in `flake.lock`. After editing the input, refresh only its lock graph
-  (non-activating):
-
-  ```sh
-  nix flake lock --update-input hypr-autoscroll
-  ```
-
-- **Validation**: evaluate and build both hosts without activating anything:
-
-  ```sh
-  nix eval .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
-  nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
-  nix build --no-link .#nixosConfigurations.desktop.config.system.build.toplevel
-  nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
-  nix flake check
-  ```
-
-- **Rollout**: source-only. Land the accepted diff once, then rebuild one host at
-  a time (`sudo nixos-rebuild switch --flake .#HOST`).
-- **Rollback**: revert the integration commit and rebuild the affected host. A
-  failed plugin load must not be worked around with mutable `hyprpm` state.
-
-  ```sh
-  git revert <integration-commit>
-  sudo nixos-rebuild switch --flake .#HOST
-  ```
 
 ## Validate
 
