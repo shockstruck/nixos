@@ -19,6 +19,7 @@ in
     gnome-calendar
     gnome-disk-utility
     mission-center
+    obsidian
     netbird-ui
     paperweight
     proton-authenticator
@@ -48,6 +49,7 @@ in
     kustomize
     minijinja
     mise
+    ranger # Terminal file manager
     ripgrep # Better `grep`
     fd
     sd
