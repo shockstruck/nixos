@@ -23,6 +23,14 @@ in
   };
 
   config = {
+    # zsh must be enabled system-wide so it is added to /etc/shells and the
+    # system /etc/zshrc + /etc/zprofile (Nix PATH / profile plumbing) are
+    # generated. home-manager's programs.zsh.enable only writes the per-user
+    # zsh config; it does NOT make zsh the login shell. Without this + the
+    # per-user `shell` below, kitty (which inherits the login shell) opens bash
+    # and the zsh + powerlevel10k config never loads (SHOA-1017).
+    programs.zsh.enable = true;
+
     # For home-manager to work.
     # https://github.com/nix-community/home-manager/issues/4026#issuecomment-1565487545
     users.users = mapListToAttrs config.myusers (name:
@@ -32,6 +40,8 @@ in
         } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         isNormalUser = true;
         extraGroups = [ "wheel" "networkmanager" "video" "i2c" "docker" ];
+        # Login shell -> zsh so kitty/login sessions get zsh + p10k, not bash.
+        shell = pkgs.zsh;
       }
     );
 
