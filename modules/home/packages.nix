@@ -28,6 +28,7 @@ in
     protonmail-bridge-gui
     protonmail-desktop
     runelite
+    splayer-next
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
     vicinae
