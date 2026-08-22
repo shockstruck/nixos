@@ -42,8 +42,15 @@
         };
 
         # XWayland via xwayland-satellite (see modules/nixos/gui/niri.nix).
+        # Vicinae's launcher CLI (`vicinae toggle`, bound below) talks to this
+        # daemon over IPC, so the server has to be running before the bind is
+        # used; nixpkgs ships a systemd user unit for it but wiring that up
+        # is out of scope here, so it's started the same way as
+        # xwayland-satellite instead (mirrors extra/vicinae.service's
+        # `vicinae server --replace` ExecStart upstream).
         spawn-at-startup = [
           { command = [ "xwayland-satellite" ]; }
+          { command = [ "vicinae" "server" "--replace" ]; }
         ];
 
         binds = with config.lib.niri.actions; {
@@ -59,6 +66,14 @@
           "Mod+L" = {
             action = spawn "loginctl" "lock-session";
             hotkey-overlay.title = "Session: Lock screen";
+          };
+          # Vicinae launcher (SHOA-1000). Mod+Space is already DMS's
+          # spotlight toggle, so Vicinae gets its own mnemonic bind; the
+          # `vicinae server --replace` daemon is started via
+          # spawn-at-startup above.
+          "Mod+V" = {
+            action = spawn "vicinae" "toggle";
+            hotkey-overlay.title = "Applications: Toggle Vicinae launcher";
           };
 
           # --- Column / window focus (scrollable-tiling) ---

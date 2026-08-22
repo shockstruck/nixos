@@ -30,6 +30,7 @@ in
     runelite
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
+    vicinae
     vscodium
 
     # Unix tools
