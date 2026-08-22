@@ -1,9 +1,13 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
+let
+  # Eldritch palette source of truth (modules/home/theme/eldritch.nix).
+  e = config.theme.eldritch;
+in
 {
-  # Ported from mooniri (revaljonathan/mooniri) config/kitty/kitty.conf +
-  # config/kitty/current-theme.conf (Tokyo Night Moon). Static theme only —
-  # matugen/petalslinger dynamic-theming includes are intentionally not
-  # ported.
+  # Ported from mooniri (revaljonathan/mooniri) config/kitty/kitty.conf. The
+  # colors are driven by the shared Eldritch palette (SHOA-997 C7) rather than
+  # the original static Tokyo Night Moon set. matugen/petalslinger
+  # dynamic-theming includes are intentionally not ported.
   home.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 
   programs.kitty = {
@@ -30,50 +34,47 @@
       repaint_delay = 8;
       input_delay = 0;
       window_padding_width = 8;
-      cursor = "#ffb8c4";
+      cursor = e.base05;
       tab_title_template = "{title}";
 
       cursor_trail = 10;
       cursor_trail_decay = "0.1 0.9";
       cursor_trail_start_threshold = 0;
 
-      # Tokyo Night Moon theme (config/kitty/current-theme.conf)
-      background = "#222436";
-      foreground = "#c8d3f5";
-      selection_background = "#ffb8c4";
-      selection_foreground = "#1e2030";
-      url_color = "#4fd6be";
-      cursor_text_color = "#222436";
+      # Eldritch theme (modules/home/theme/eldritch.nix).
+      background = e.base00;
+      foreground = e.base05;
+      selection_background = e.base02;
+      selection_foreground = e.base00;
+      url_color = e.base0C;
+      cursor_text_color = e.base00;
 
-      active_tab_background = "#82aaff";
-      active_tab_foreground = "#1e2030";
-      inactive_tab_background = "#2f334d";
-      inactive_tab_foreground = "#545c7e";
+      active_tab_background = e.base0D;
+      active_tab_foreground = e.base00;
+      inactive_tab_background = e.base01;
+      inactive_tab_foreground = e.base04;
 
-      active_border_color = "#82aaff";
-      inactive_border_color = "#2f334d";
+      active_border_color = e.base0D;
+      inactive_border_color = e.base01;
 
-      color0 = "#1b1d2b";
-      color1 = "#ff757f";
-      color2 = "#c3e88d";
-      color3 = "#ffc777";
-      color4 = "#82aaff";
-      color5 = "#c099ff";
-      color6 = "#86e1fc";
-      color7 = "#828bb8";
+      # Standard base16 ANSI mapping.
+      color0 = e.base00;
+      color1 = e.base08;
+      color2 = e.base0B;
+      color3 = e.base0A;
+      color4 = e.base0D;
+      color5 = e.base0E;
+      color6 = e.base0C;
+      color7 = e.base05;
 
-      color8 = "#444a73";
-      color9 = "#ff8d94";
-      color10 = "#c7fb6d";
-      color11 = "#ffd8ab";
-      color12 = "#9ab8ff";
-      color13 = "#fca7ea";
-      color14 = "#b2ebff";
-      color15 = "#c8d3f5";
-
-      color16 = "#ff966c";
-      color17 = "#c53b53";
-      color18 = "#fca7ea";
+      color8 = e.base03;
+      color9 = e.base08;
+      color10 = e.base0B;
+      color11 = e.base0A;
+      color12 = e.base0D;
+      color13 = e.base0E;
+      color14 = e.base0C;
+      color15 = e.base07;
     };
 
     keybindings = {
