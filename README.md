@@ -28,40 +28,28 @@ Both workstations share one declarative Wayland session:
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
   XWayland. GDM stays as the display manager and selects the `hyprland` session
   by default. The previous GNOME desktop is removed.
-- **DankMaterialShell** is integrated through its first-party Home Manager
-  module. DMS provides the bar, launcher, settings, clipboard, wallpaper,
-  notifications, power menu, media controls, and Sathi.AI chat, while this
-  repository remains the source of truth for Hyprland and Fish. Its
-  `dms.service` starts with `hyprland-session.target`.
+- **Noctalia** (`modules/home/noctalia.nix`) is the shell: it provides the bar,
+  launcher, settings, clipboard, wallpaper, and control center. It starts as a
+  systemd user service bound to `graphical-session.target`, which the Hyprland
+  session satisfies, so no compositor `exec-once` entry is needed.
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
-  the Lua main config, systemd graphical-session integration, the shared
-  keybindings below, and the declarative Hyprland plugin load described under
-  [Hyprland plugins](#hyprland-plugins).
-- **DMS display settings** remain writable under `~/.config/hypr/dms`. The
-  initial output uses preferred mode, automatic placement, and scale `1`; DMS
-  owns its display, layout, color, cursor, shortcut, and window-rule Lua
-  fragments while GDM remains the login greeter. The laptop bar includes the
-  battery widget.
-- **Session locking** uses the native DMS lock screen.
+  the Lua main config, systemd graphical-session integration, and the shared
+  keybindings below.
+- **Session locking** is **hypridle → swaylock** (`modules/home/hypridle.nix`
+  and `modules/home/swaylock.nix`): lock after 300 s idle, blank the display
+  (DPMS) after 330 s, suspend after 1800 s. hypridle is the single idle manager,
+  and Noctalia's own lock screen is disabled so the two never fight.
 - **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
 - **Input defaults** enable Num Lock in GDM and Hyprland on both hosts. The
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
-- **DMS plugins** are installed from the pinned official registry. Both hosts
-  enable Quick Capture, Phone Connect, Wallpaper Carousel, Calculator, Docker
-  Manager, and Claude Code Usage; the laptop also enables NetBird Status.
-- **Theme**: the first DMS session starts with its dark stock green theme and
-  dynamic theming enabled. Runtime settings remain writable under
-  `~/.config/DankMaterialShell`; activation only enforces the launcher OS logos,
-  dock launcher and trash, workspace app grouping, clock seconds, and weather
-  units/location. Both hosts use the `America/Detroit` timezone.
+- **Theme**: Noctalia runs the Eldritch palette in dark mode
+  (`~/.config/noctalia/palettes/eldritch.json`), with a 12-hour clock and
+  weather set to Detroit, MI in Fahrenheit. Both hosts use the `America/Detroit`
+  timezone.
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
-
-> DMS and its plugin registry are pinned as `dank-material-shell` and
-> `dms-plugin-registry` in `flake.lock`; rebuild both hosts after updating these
-> inputs.
 
 ### Keybindings
 
@@ -69,26 +57,25 @@ Both workstations share one declarative Wayland session:
 
 | Binding | Action |
 | --- | --- |
-| `SUPER`+`Return` | Launch `foot` |
+| `SUPER`+`Return` | Launch `kitty` |
 | `SUPER`+`Q` | Close the focused window |
+| `SUPER`+`L` | Lock the session (hypridle → swaylock) |
 | `SUPER`+`←` `→` `↑` `↓` | Move focus |
 | `SUPER`+`1`…`5` | Switch to workspace 1-5 |
 | `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
-| `SUPER`+`Space` | Toggle the DMS application launcher |
-| `SUPER`+`S` | Toggle DMS settings |
+| `SUPER`+`Space` | Toggle the Noctalia application launcher |
+| `SUPER`+`S` | Toggle Noctalia settings |
 | `SUPER`+`C` | Toggle the clipboard history |
 | `SUPER`+`W` | Open the wallpaper chooser |
-| `SUPER`+`SHIFT`+`E` | Toggle the power menu |
-| `SUPER`+`A` | Toggle Sathi.AI chat |
+| `SUPER`+`SHIFT`+`E` | Toggle the session menu |
 | `SUPER`+`N` | Toggle the control center |
-| `SUPER`+`M` | Toggle the media dashboard |
-| `SUPER`+`P` | Toggle the process list |
-| `SUPER`+`D` | Open DMS settings for display configuration |
-| `SUPER`+`Tab` | Toggle the workspace overview |
-| `SUPER`+`/` | Toggle the DMS keybinding cheatsheet |
+| `SUPER`+`D` | Open Noctalia settings for display configuration |
+| `XF86` media and brightness keys | Volume, mute, media, and brightness control |
 
-`foot` is installed declaratively by the shared GUI module so the terminal
-binding works on every host.
+The media and brightness keys are bound through `noctalia msg` and keep working
+while the session is locked. `kitty` is installed by the shared home-manager
+configuration (`modules/home/kitty.nix`), so the terminal binding works on every
+host.
 
 Shared CLI tooling includes Ansible, Crane, SOPS and age, Talos (`talosctl` and
 Talhelper), Kubernetes helpers (`kubectl`, Kubecolor, and Stern), Terraform,
@@ -123,9 +110,8 @@ ollama ps
 ## Containers
 
 Both workstations run the native Docker service and include Docker Compose.
-The workstation user belongs to the `docker` group so the DMS Docker Manager
-can monitor and control containers without an elevation prompt; this membership
-provides root-equivalent access through the Docker daemon.
+The workstation user belongs to the `docker` group, which provides
+root-equivalent access through the Docker daemon.
 
 
 ## Validate
@@ -145,12 +131,11 @@ nix build --no-link .#nixosConfigurations.laptop.config.system.build.toplevel
 nix flake check
 ```
 
-If a DMS input was just added or changed, refresh its lock graph first
+If a Noctalia input was just added or changed, refresh its lock graph first
 (non-activating):
 
 ```sh
-nix flake lock --update-input dank-material-shell
-nix flake lock --update-input sathi-ai
+nix flake lock --update-input noctalia
 ```
 
 ## Apply changes
