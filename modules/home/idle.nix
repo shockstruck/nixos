@@ -2,7 +2,7 @@
 # shell-native lock screen (noctalialock) as the workstation's single, effective
 # locker (SHOA-1002 replacing swayidle; SHOA-1026 replacing the standalone
 # locker; restored for the Hyprland compositor in SHOA-1040, replacing the
-# interim hypridle + swaylock stack SHOA-993/1037).
+# interim hypridle + previous locker stack SHOA-993/1037).
 #
 # stasis owns all idle behaviour so there is exactly one idle manager. It runs
 # a deterministic, sequential timer plan mirroring the hypridle timings
@@ -24,7 +24,7 @@
 #     requires `enable_loginctl_integration true`
 #   - the lock IPC is idempotent (Noctalia's LockScreen::lock() is a no-op while
 #     already active), so repeated triggers (manual SUPER+L, idle, pre-sleep)
-#     never stack a second locker — the old pidof-swaylock guard is gone with it
+#     never stack a second locker — the old locker PID guard is gone with it
 #   - DPMS is restored on wake via the `dpms` step's `resume_command`
 #     (replacing hypridle's `after_sleep_cmd` / listener `on-resume`)
 #
