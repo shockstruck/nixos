@@ -27,9 +27,9 @@
   programs.kdeconnect.enable = true;
   security.polkit.enable = true;
 
-  # Hyprland compositor (SHOA-1037, reverting the niri swap SHOA-997). Enabled
+  # Hyprland compositor (SHOA-1037, reverting the compositor swap SHOA-997). Enabled
   # via the built-in nixpkgs module, which provides built-in XWayland (no
-  # out-of-process xwayland-satellite is required, unlike niri). The Home
+  # out-of-process xwayland-satellite is required, unlike the previous compositor). The Home
   # Manager side is authored in modules/home/hyprland.nix. No per-locker PAM
   # entry is needed: Noctalia's lock screen authenticates via the standard
   # `login` PAM service (SHOA-1026/1040), so the removed legacy locker PAM entry has

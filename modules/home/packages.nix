@@ -2,7 +2,6 @@
 let
   paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
   splayer-next = pkgs.callPackage ../../packages/splayer-next.nix { };
-  niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
 in
 {
   # Nix packages to install to $HOME
@@ -30,7 +29,9 @@ in
     protonmail-bridge-gui
     protonmail-desktop
     runelite
+    signal-desktop
     splayer-next
+    telegram-desktop
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
     vicinae
@@ -53,7 +54,6 @@ in
     kustomize
     minijinja
     mise
-    niri-ror # Run-or-raise helper (niri-era, SHOA-1001); currently unbound under Hyprland (SHOA-1037)
     ranger # Terminal file manager
     ripgrep # Better `grep`
     fd

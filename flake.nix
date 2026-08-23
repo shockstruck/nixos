@@ -16,18 +16,18 @@
     nixos-unified.url = "github:srid/nixos-unified";
 
     # Compositor: Hyprland is the Wayland compositor (SHOA-1037, reverting the
-    # niri swap SHOA-997). It is enabled at the system layer via the built-in
+    # compositor swap SHOA-997). It is enabled at the system layer via the built-in
     # nixpkgs `programs.hyprland` module (modules/nixos/gui/hyprland.nix) and
     # configured for Home Manager via the built-in `wayland.windowManager.hyprland`
     # module (modules/home/hyprland.nix) — neither needs a dedicated flake input,
-    # so the previous `niri-flake` input is gone. Idle is owned by stasis
+    # so the previous compositor flake input is gone. Idle is owned by stasis
     # (modules/home/idle.nix, input below), whose RUNE plan drives Noctalia's
-    # native lock screen (SHOA-1040, restoring the niri-era stasis manager
-    # SHOA-1002 in place of hypridle + the legacy Wayland locker). Noctalia (below) is kept as
+    # native lock screen (SHOA-1040, restoring the SHOA-1002 stasis manager
+    # in place of hypridle + the legacy Wayland locker). Noctalia (below) is kept as
     # the shell across the swap.
 
     # stasis: Rust Wayland idle manager. The single idle manager (SHOA-1040,
-    # restoring the niri-era SHOA-1002); its Home Manager module provides
+    # restoring the SHOA-1002 stasis manager); its Home Manager module provides
     # `services.stasis`, wired in modules/home/idle.nix, and its RUNE plan runs
     # Noctalia's native lock screen via `noctalia msg session lock`.
     stasis.url = "github:saltnpepper97/stasis/v1.5.1";

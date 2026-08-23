@@ -3,14 +3,14 @@
 , ...
 }:
 {
-  # Hyprland Home Manager compositor config (SHOA-1037, reverting the niri swap
-  # SHOA-997). Restored from the pre-niri Hyprland setup (git ad2aea6,
+  # Hyprland Home Manager compositor config (SHOA-1037, reverting the compositor swap
+  # SHOA-997). Restored from the pre-swap Hyprland setup (git ad2aea6,
   # modules/home/hyprland.nix) with three deliberate reconciliations so it works
   # with the kept Noctalia shell instead of the removed DankMaterialShell:
   #
   #   1. Shell IPC binds are remapped from the removed DMS `dms ipc call …`
   #      shims to the Noctalia V5 CLI (`noctalia msg <verb>`). The verb mapping
-  #      is the one validated during the niri migration (SHOA-1007) against
+  #      is the one validated during the compositor migration (SHOA-1007) against
   #      noctalia-shell v5.0.0-beta.9 — see the per-bind comments below.
   #   2. The `require("dms.*")` lua seeding block at the end of the old config
   #      is dropped: those includes (colors/outputs/layout/cursor/binds/
@@ -20,7 +20,7 @@
   #      (modules/home/noctalia.nix) and cursor by home.pointerCursor below.
   #   3. The hypr-autoscroll plugin (and its SUPER+CTRL+A middle-mode toggle)
   #      is NOT restored: the founder explicitly requested dropping it during
-  #      the Hyprland→niri swap (SHOA-997, "drop the hypr-autoscroll Hyprland
+  #      the compositor swap (SHOA-997, "drop the hypr-autoscroll Hyprland
   #      plugin"), so that removal decision stands here.
   #
   # Idle/DPMS is owned by stasis (modules/home/idle.nix); locking is Noctalia's
@@ -57,8 +57,8 @@
 
       # Explicit monitor rule pinning scale to 1.0 (SHOA-1050). Hyprland
       # auto-scales unconfigured monitors from EDID PPI (getDefaultScale:
-      # PPI > 200 -> 2.0, PPI > 140 -> 1.5, else 1.0); niri defaults every
-      # output to 1.0, so without this the post-swap UI renders oversized.
+      # PPI > 200 -> 2.0, PPI > 140 -> 1.5, else 1.0); the previous compositor
+      # defaulted every output to 1.0, so without this the post-swap UI renders oversized.
       settings.monitor = [
         {
           output = "";
@@ -74,7 +74,7 @@
         end
 
         -- Terminal: kitty (the shared workstation terminal since SHOA-991;
-        -- replaces the pre-niri `foot` bind, which is no longer installed).
+        -- replaces the pre-swap `foot` bind, which is no longer installed).
         hl.bind("SUPER + Return", hl.dsp.exec_cmd("kitty"), described("Applications: Open terminal"))
         hl.bind("SUPER + Q", hl.dsp.window.close(), described("Windows: Close active window"))
         hl.bind("SUPER + L", hl.dsp.exec_cmd("noctalia msg session lock"), described("Session: Lock screen"))
@@ -108,7 +108,7 @@
         hl.bind("SUPER + N", hl.dsp.exec_cmd("noctalia msg panel-toggle control-center"), described("Shell: Toggle control center"))
         hl.bind("SUPER + D", hl.dsp.exec_cmd("noctalia msg settings-toggle"), described("Utilities: Toggle settings (display config)"))
 
-        -- The pre-niri Hyprland keymap also bound SUPER+A (dms sathiAi / AI chat),
+        -- The pre-swap Hyprland keymap also bound SUPER+A (dms sathiAi / AI chat),
         -- SUPER+M (dms media dashboard), SUPER+P (dms processlist), SUPER+Tab
         -- (dms hypr toggleOverview) and SUPER+/ (dms hypr toggleBinds). Those
         -- called DankMaterialShell surfaces that Noctalia V5 has no equivalent
