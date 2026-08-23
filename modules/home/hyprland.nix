@@ -55,6 +55,19 @@
         };
       };
 
+      # Explicit monitor rule pinning scale to 1.0 (SHOA-1050). Hyprland
+      # auto-scales unconfigured monitors from EDID PPI (getDefaultScale:
+      # PPI > 200 -> 2.0, PPI > 140 -> 1.5, else 1.0); niri defaults every
+      # output to 1.0, so without this the post-swap UI renders oversized.
+      settings.monitor = [
+        {
+          output = "";
+          mode = "preferred";
+          position = "auto";
+          scale = 1;
+        }
+      ];
+
       extraConfig = ''
         local function described(description)
           return { description = description }
