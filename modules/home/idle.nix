@@ -116,5 +116,17 @@ in
         end
       '';
     };
+
+    # SHOA-1064: stasis rewrites/migrates its own config at runtime (see
+    # upstream src/config/migrate.rs — backup+replace), turning HM's managed
+    # symlink into a real file. On the next `nixos-rebuild switch` HM's
+    # backupFileExtension ("hm-backup", myusers.nix:51) tries to back that file
+    # up, but a stale stasis.rune.hm-backup from a prior activation makes the
+    # backup un-clobberable and activation hard-fails — and keeps failing.
+    # force = true tells HM to overwrite the in-the-way file directly (no
+    # backup), which HM's own error suggests. HM regenerates stasis.rune
+    # deterministically from extraConfig, so nothing worth backing up is lost,
+    # no *.hm-backup accumulates, and the rebuild is self-healing.
+    xdg.configFile."stasis/stasis.rune".force = true;
   };
 }
