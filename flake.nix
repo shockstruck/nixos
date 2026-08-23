@@ -20,10 +20,19 @@
     # nixpkgs `programs.hyprland` module (modules/nixos/gui/hyprland.nix) and
     # configured for Home Manager via the built-in `wayland.windowManager.hyprland`
     # module (modules/home/hyprland.nix) — neither needs a dedicated flake input,
-    # so the previous `niri-flake` input is gone. Idle/DPMS is owned by the
-    # built-in `services.hypridle` Home Manager module (modules/home/hypridle.nix),
-    # which likewise needs no flake input, so the niri-era `stasis` input is also
-    # gone. Noctalia (below) is kept as the shell across the swap.
+    # so the previous `niri-flake` input is gone. Idle is owned by stasis
+    # (modules/home/idle.nix, input below), whose RUNE plan drives Noctalia's
+    # native lock screen (SHOA-1040, restoring the niri-era stasis manager
+    # SHOA-1002 in place of hypridle + swaylock). Noctalia (below) is kept as
+    # the shell across the swap.
+
+    # stasis: Rust Wayland idle manager. The single idle manager (SHOA-1040,
+    # restoring the niri-era SHOA-1002); its Home Manager module provides
+    # `services.stasis`, wired in modules/home/idle.nix, and its RUNE plan runs
+    # Noctalia's native lock screen via `noctalia msg session lock`.
+    stasis.url = "github:saltnpepper97/stasis/v1.5.1";
+    stasis.inputs.nixpkgs.follows = "nixpkgs";
+    stasis.inputs.flake-parts.follows = "flake-parts";
 
     # Software inputs
     nix-index-database.url = "github:nix-community/nix-index-database";

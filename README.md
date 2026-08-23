@@ -26,8 +26,9 @@ requires that host's `nixos-unified.sshTarget` option.
 Both workstations share one declarative Wayland session:
 
 - **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
-  XWayland. GDM stays as the display manager and selects the `hyprland` session
-  by default. The previous GNOME desktop is removed.
+  XWayland. The **Noctalia greeter** (greetd; nixpkgs
+  `services.displayManager.noctalia-greeter`) is the display manager and selects
+  the `hyprland` session. The previous GNOME desktop and GDM are removed.
 - **Noctalia** (`modules/home/noctalia.nix`) is the shell: it provides the bar,
   launcher, settings, clipboard, wallpaper, and control center. It starts as a
   systemd user service bound to `graphical-session.target`, which the Hyprland
@@ -36,14 +37,17 @@ Both workstations share one declarative Wayland session:
   auto-imported by `modules/home` and therefore shared by every host. It provides
   the Lua main config, systemd graphical-session integration, and the shared
   keybindings below.
-- **Session locking** is **hypridle → swaylock** (`modules/home/hypridle.nix`
-  and `modules/home/swaylock.nix`): lock after 300 s idle, blank the display
-  (DPMS) after 330 s, suspend after 1800 s. hypridle is the single idle manager,
-  and Noctalia's own lock screen is disabled so the two never fight.
+- **Session locking** is **stasis → Noctalia native lock** (`modules/home/idle.nix`):
+  lock after 300 s idle, blank the display (DPMS) after 330 s, suspend after
+  1800 s. stasis is the single idle manager; its RUNE plan drives Noctalia's
+  shell-native lock screen (`noctalia msg session lock`), which is enabled via
+  `programs.noctalia.settings.lockscreen.enabled`.
 - **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
-- **Input defaults** enable Num Lock in GDM and Hyprland on both hosts. The
+- **Input defaults** enable Num Lock in the Hyprland session on both hosts. The
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
+  (Greeter-screen Num Lock is not covered — the Noctalia greeter has no numlock
+  toggle.)
 - **Theme**: Noctalia runs the Eldritch palette in dark mode
   (`~/.config/noctalia/palettes/eldritch.json`), with a 12-hour clock and
   weather set to Detroit, MI in Fahrenheit. Both hosts use the `America/Detroit`
@@ -59,7 +63,7 @@ Both workstations share one declarative Wayland session:
 | --- | --- |
 | `SUPER`+`Return` | Launch `kitty` |
 | `SUPER`+`Q` | Close the focused window |
-| `SUPER`+`L` | Lock the session (hypridle → swaylock) |
+| `SUPER`+`L` | Lock the session (stasis / Noctalia native lock) |
 | `SUPER`+`←` `→` `↑` `↓` | Move focus |
 | `SUPER`+`1`…`5` | Switch to workspace 1-5 |
 | `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
@@ -137,6 +141,8 @@ If a Noctalia input was just added or changed, refresh its lock graph first
 ```sh
 nix flake lock --update-input noctalia
 ```
+
+The same applies to the stasis input (`nix flake lock --update-input stasis`).
 
 ## Apply changes
 

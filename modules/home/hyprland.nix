@@ -23,9 +23,11 @@
   #      the Hyprland→niri swap (SHOA-997, "drop the hypr-autoscroll Hyprland
   #      plugin"), so that removal decision stands here.
   #
-  # Idle/DPMS and locking are owned by hypridle + swaylock
-  # (modules/home/hypridle.nix); the SUPER+L bind below triggers
-  # `loginctl lock-session`, which hypridle's lock_cmd turns into swaylock.
+  # Idle/DPMS is owned by stasis (modules/home/idle.nix); locking is Noctalia's
+  # shell-native lock screen (SHOA-1040, replacing hypridle + swaylock
+  # SHOA-993/1037). The SUPER+L bind below runs `noctalia msg session lock`
+  # directly: stasis does not lock on `loginctl lock-session` (it only tracks
+  # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     home.pointerCursor = {
       enable = true;
@@ -62,7 +64,7 @@
         -- replaces the pre-niri `foot` bind, which is no longer installed).
         hl.bind("SUPER + Return", hl.dsp.exec_cmd("kitty"), described("Applications: Open terminal"))
         hl.bind("SUPER + Q", hl.dsp.window.close(), described("Windows: Close active window"))
-        hl.bind("SUPER + L", hl.dsp.exec_cmd("loginctl lock-session"), described("Session: Lock screen"))
+        hl.bind("SUPER + L", hl.dsp.exec_cmd("noctalia msg session lock"), described("Session: Lock screen"))
 
         hl.bind("SUPER + left", hl.dsp.focus({ direction = "l" }), described("Windows: Focus left"))
         hl.bind("SUPER + right", hl.dsp.focus({ direction = "r" }), described("Windows: Focus right"))

@@ -220,7 +220,32 @@
         "nixos-unified": "nixos-unified",
         "nixpkgs": "nixpkgs",
         "nixvim": "nixvim",
-        "noctalia": "noctalia"
+        "noctalia": "noctalia",
+        "stasis": "stasis"
+      }
+    },
+    "stasis": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786798494,
+        "narHash": "sha256-kNgoBdJBBa8+aOshVc9LXtikwv1ar5ldI85uOOdlJ2M=",
+        "owner": "saltnpepper97",
+        "repo": "stasis",
+        "rev": "f17d1a09e0e43e16af4412599a9e96a7266f82aa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "saltnpepper97",
+        "ref": "v1.5.1",
+        "repo": "stasis",
+        "type": "github"
       }
     },
     "systems": {

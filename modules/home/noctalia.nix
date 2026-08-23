@@ -10,10 +10,10 @@
 # compositor exec-once entry is required (this mirrors how DMS was started via
 # systemd, so the shell is not double-launched).
 #
-# Idle + locking stay delegated to hypridle + swaylock (SHOA-993/1037,
-# hypridle.nix):
-# Noctalia's own lock screen is disabled so the two idle managers do not fight
-# (the previous DMS module made the same handoff via its zeroed idle timeouts).
+# Idle is delegated to stasis (SHOA-1040, modules/home/idle.nix), which runs
+# Noctalia's shell-native lock screen via `noctalia msg session lock`; its own
+# idle behaviours default off, so the two idle managers do not fight (the
+# previous DMS module made the same handoff via its zeroed idle timeouts).
 #
 # Theming consumes the standard Eldritch palette module from C7
 # (SHOA-999, theme/eldritch.nix): the exact eldritchtheme/eldritch base16 values
@@ -66,11 +66,13 @@ in
           custom_palette = "eldritch";
         };
 
-        # Locking is owned by swaylock (driven by hypridle; SHOA-993/1037).
-        # Disable Noctalia's built-in lock screen so there is a single locker.
-        # Noctalia's own idle behaviours default to disabled, so hypridle remains
-        # the single idle manager.
-        lockscreen.enabled = false;
+        # Locking is Noctalia-native (SHOA-1040), driven by stasis
+        # (modules/home/idle.nix) and the Hyprland SUPER+L bind: `noctalia msg
+        # session lock` authenticates via the always-present `login` PAM service
+        # and is idempotent while a lock is active. Noctalia's own idle
+        # behaviours default to disabled, so stasis remains the single idle
+        # manager.
+        lockscreen.enabled = true;
 
         # Weather parity with the previous DMS session (Detroit, °F).
         weather = {

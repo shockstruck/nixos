@@ -1,20 +1,17 @@
-{ lib, pkgs, ... }:
+{ pkgs, ... }:
 {
-  services.displayManager.gdm.enable = true;
-  services.displayManager.defaultSession = "hyprland";
-
-  programs.dconf.profiles.gdm.databases = lib.mkBefore [
-    {
-      settings."org/gnome/desktop/peripherals/keyboard" = {
-        remember-numlock-state = true;
-        numlock-state = true;
-      };
-      locks = [
-        "/org/gnome/desktop/peripherals/keyboard/remember-numlock-state"
-        "/org/gnome/desktop/peripherals/keyboard/numlock-state"
-      ];
-    }
-  ];
+  # Noctalia greeter (greetd) is the display manager (SHOA-1040, replacing GDM):
+  # nixpkgs' `services.displayManager.noctalia-greeter` module enables greetd
+  # and the auto-created `greeter` user, and the greeter selects the `hyprland`
+  # session. Adwaita cursor matches home.pointerCursor (modules/home/hyprland.nix).
+  services.displayManager.noctalia-greeter = {
+    enable = true;
+    cursorTheme = {
+      package = pkgs.adwaita-icon-theme;
+      name = "Adwaita";
+    };
+    settings.keyboard.layout = "us";
+  };
 
   services.geoclue2.enable = true;
   services.accounts-daemon.enable = true;
@@ -30,16 +27,13 @@
   programs.kdeconnect.enable = true;
   security.polkit.enable = true;
 
-  # PAM stack for swaylock (SHOA-993). The Home Manager-installed
-  # swaylock-effects cannot authenticate — and therefore cannot unlock —
-  # without this service entry, so it is required to avoid a lockout.
-  security.pam.services.swaylock = { };
-
   # Hyprland compositor (SHOA-1037, reverting the niri swap SHOA-997). Enabled
-  # via the built-in nixpkgs module, which registers the `hyprland` Wayland
-  # session with GDM and provides built-in XWayland (no out-of-process
-  # xwayland-satellite is required, unlike niri). The Home Manager side is
-  # authored in modules/home/hyprland.nix.
+  # via the built-in nixpkgs module, which provides built-in XWayland (no
+  # out-of-process xwayland-satellite is required, unlike niri). The Home
+  # Manager side is authored in modules/home/hyprland.nix. No per-locker PAM
+  # entry is needed: Noctalia's lock screen authenticates via the standard
+  # `login` PAM service (SHOA-1026/1040), so the removed swaylock PAM entry has
+  # no replacement.
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
