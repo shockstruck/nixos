@@ -45,6 +45,11 @@ in
       }
     );
 
+    # Move any pre-existing unmanaged dotfile aside on activation instead of
+    # hard-failing (e.g. a hand-authored ~/.config/stasis/stasis.rune). Matches
+    # HM's own guidance and the darwin example's precedent.
+    home-manager.backupFileExtension = "hm-backup";
+
     # Enable home-manager for our user
     home-manager.users = mapListToAttrs config.myusers (name: {
       imports = [ (self + /configurations/home/${name}.nix) ];
