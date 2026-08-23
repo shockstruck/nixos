@@ -10,12 +10,13 @@ let
   # below don't depend on PATH ordering.
   niri-ror = pkgs.callPackage ../../packages/niri-ror.nix { };
 
-  # Guarded swaylock launcher (SHOA-1002). stasis no longer runs a locker in
+  # noctalialock launcher (SHOA-1026). stasis no longer runs a locker in
   # response to `loginctl lock-session` (it only tracks logind LockedHint), so
-  # the manual lock bind spawns swaylock directly. Identical to the guard in
-  # modules/home/idle.nix, so both converge on a single swaylock instance.
-  lockScript = pkgs.writeShellScript "swaylock-guarded" ''
-    ${pkgs.procps}/bin/pidof swaylock >/dev/null 2>&1 || exec ${config.programs.swaylock.package}/bin/swaylock
+  # the manual lock bind spawns Noctalia's shell-native lock screen directly.
+  # Identical to the script in modules/home/idle.nix, so both converge on the
+  # same noctalialock invocation (idempotent while a lock is active).
+  lockScript = pkgs.writeShellScript "noctalialock" ''
+    exec ${config.programs.noctalia.package}/bin/noctalia msg session lock
   '';
 in
 {
@@ -79,7 +80,7 @@ in
             hotkey-overlay.title = "Windows: Close active window";
           };
           "Mod+L" = {
-            # swaylock directly (guarded) — stasis does not lock on
+            # noctalialock directly — stasis does not lock on
             # `loginctl lock-session`, only tracks LockedHint (SHOA-1002).
             action = spawn "${lockScript}";
             hotkey-overlay.title = "Session: Lock screen";

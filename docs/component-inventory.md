@@ -59,7 +59,7 @@ resolve to their `default.nix`.
 | `direnv.nix` | direnv setup |
 | `gc.nix` | Home-manager garbage collection |
 | `git.nix` | Git config |
-| `idle.nix` | Idle management via `services.stasis` (stasis v1.5.1) |
+| `idle.nix` | Idle management via `services.stasis` (stasis v1.5.1); drives the noctalialock lock (SHOA-1026) |
 | `kitty.nix` | Kitty terminal config |
 | `me.nix` | User config |
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
@@ -69,7 +69,7 @@ resolve to their `default.nix`.
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service) |
 | `packages.nix` | `home.packages` list + `programs.*` (see below) |
 | `shell.nix` | Shell config (zsh, p10k, eza aliases) |
-| `swaylock.nix` | Swaylock config |
+| ~~`swaylock.nix`~~ (removed, SHOA-1026) | Locking moved to Noctalia's built-in lock screen (noctalialock): `idle.nix` + niri Mod+L run `noctalia msg session lock`; PAM via the standard `login` service |
 | `theme/default.nix` | Aggregates theme modules → `./eldritch.nix` |
 | `work.nix` | Work-specific config |
 

@@ -9,9 +9,12 @@
 # entry is required (this mirrors how DMS was started via systemd, not niri
 # spawn, so the shell is not double-launched).
 #
-# Idle + locking stay delegated to stasis + swaylock (SHOA-1002, idle.nix):
-# Noctalia's own lock screen is disabled so the two idle managers do not fight
-# (the previous DMS module made the same handoff via its zeroed idle timeouts).
+# Idle stays delegated to stasis (SHOA-1002, idle.nix); locking is now owned by
+# Noctalia's built-in lock screen (noctalialock, SHOA-1026): stasis runs
+# `noctalia msg session lock` on idle and before sleep, and the niri Mod+L bind
+# runs the same invocation. The former standalone locker module and its PAM
+# entry are removed; noctalialock authenticates via the standard `login` PAM
+# service.
 #
 # Theming consumes the standard Eldritch palette module from C7
 # (SHOA-999, theme/eldritch.nix): the exact eldritchtheme/eldritch base16 values
@@ -63,11 +66,14 @@ in
           custom_palette = "eldritch";
         };
 
-        # Locking is owned by swaylock (driven by stasis; SHOA-1002). Disable
-        # Noctalia's built-in lock screen so there is a single locker. Noctalia's
-        # own idle behaviours default to disabled, so stasis remains the single
+        # Noctalia's built-in lock screen (noctalialock) is the workstation's
+        # single locker (SHOA-1026): stasis triggers `noctalia msg session lock`
+        # on idle and before sleep (idle.nix), and the niri Mod+L bind runs the
+        # same invocation. Enabling the lock screen is required for the IPC lock
+        # verb and for the ext-session-lock surface to engage. Noctalia's own
+        # idle behaviours default to disabled, so stasis remains the single
         # idle manager.
-        lockscreen.enabled = false;
+        lockscreen.enabled = true;
 
         # Weather parity with the previous DMS session (Detroit, °F).
         weather = {

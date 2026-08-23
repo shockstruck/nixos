@@ -1,5 +1,7 @@
-# stasis — Wayland idle manager (saltnpepper97/stasis) that makes swaylock the
-# workstation's single, effective locker (SHOA-1002, replacing swayidle).
+# stasis — Wayland idle manager (saltnpepper97/stasis) that drives Noctalia's
+# shell-native lock screen (noctalialock) as the workstation's single, effective
+# locker (SHOA-1002 replacing swayidle; SHOA-1026 replacing the standalone
+# locker).
 #
 # stasis owns all idle behaviour so there is exactly one idle manager. It runs
 # a deterministic, sequential timer plan mirroring the previous swayidle timings
@@ -11,24 +13,27 @@
 #   blank_display  30 (after lock)  -> 330 s absolute
 #   suspend      1470 (after blank) -> 1800 s absolute
 #
-# Locking semantics are preserved with swaylock as the only locker:
-#   - idle timeout locks via the `lock_screen` step running swaylock
+# Locking semantics are preserved with noctalialock as the only locker:
+#   - idle timeout locks via the `lock_screen` step running
+#     `noctalia msg session lock` (Noctalia's ext-session-lock lock screen)
 #   - pre-sleep (lid close / `systemctl suspend`, including stasis's own suspend
 #     step) locks via `prepare_sleep_command`, which fires on logind
 #     PrepareForSleep(true) — this replaces swayidle's `before-sleep` handler and
 #     requires `enable_loginctl_integration true`
-#   - the swaylock invocations are guarded by `pidof swaylock` so repeated
-#     triggers (manual Mod+L, idle, pre-sleep) never stack a second locker
+#   - the lock IPC is idempotent (Noctalia's LockScreen::lock() is a no-op while
+#     already active), so repeated triggers (manual Mod+L, idle, pre-sleep) never
+#     stack a second locker — the old PID guard is gone with it
 #
 # Unlike swayidle, stasis does NOT run a locker in response to an external
 # `loginctl lock-session` (it only tracks logind LockedHint). The manual lock
-# bind therefore spawns swaylock directly (Mod+L in modules/home/niri.nix now
-# points at the same guarded locker instead of `loginctl lock-session`).
+# bind therefore spawns the locker directly (Mod+L in modules/home/niri.nix now
+# points at the same noctalialock invocation).
 #
 # The stasis Home Manager module is provided by the upstream flake input
-# (`flake.inputs.stasis.homeModules.default`, wired in flake.nix). swaylock and
-# its PAM entry are unchanged (see swaylock.nix + modules/nixos/gui/niri.nix).
-# DankMaterialShell's competing lock/idle stays disabled in
+# (`flake.inputs.stasis.homeModules.default`, wired in flake.nix). The previous
+# standalone locker and its PAM entry are removed (SHOA-1026): noctalialock
+# authenticates through the standard `login` PAM service, so no per-locker PAM
+# entry is required. DankMaterialShell's competing lock/idle stays disabled in
 # dank-material-shell.nix so the two idle managers do not fight.
 { pkgs
 , lib
@@ -37,11 +42,14 @@
 , ...
 }:
 let
-  # Guarded swaylock launcher: a no-op when a locker is already running, so the
-  # idle step, the pre-sleep hook, and the manual Mod+L bind all converge on a
-  # single swaylock instance (matches the old swayidle `pidof swaylock ||` guard).
-  lockScript = pkgs.writeShellScript "swaylock-guarded" ''
-    ${pkgs.procps}/bin/pidof swaylock >/dev/null 2>&1 || exec ${config.programs.swaylock.package}/bin/swaylock
+  # noctalialock launcher (SHOA-1026): Noctalia's shell-native lock screen
+  # (ext-session-lock-v1), invoked via the shell's IPC CLI. The idle step, the
+  # pre-sleep hook, and the manual Mod+L bind all converge on this single
+  # invocation; Noctalia's lock is idempotent while a lock is active, so the
+  # old PID guard is no longer needed. Absolute store path so the stasis
+  # service PATH is irrelevant.
+  lockScript = pkgs.writeShellScript "noctalialock" ''
+    exec ${config.programs.noctalia.package}/bin/noctalia msg session lock
   '';
   niri = "${config.programs.niri.package}/bin/niri";
   systemctl = "${pkgs.systemd}/bin/systemctl";
@@ -56,7 +64,7 @@ in
       # RUNE configuration (written to ~/.config/stasis/stasis.rune). Absolute
       # store paths are used for every command so the service PATH is irrelevant.
       extraConfig = ''
-        @description "ShockStruck idle plan (SHOA-1002) — single manager, swaylock locker"
+        @description "ShockStruck idle plan (SHOA-1002) — single manager, noctalialock locker"
 
         default:
           # Subscribe to logind PrepareForSleep so `prepare_sleep_command` fires
