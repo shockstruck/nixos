@@ -53,7 +53,7 @@ in
     kustomize
     minijinja
     mise
-    niri-ror # Run-or-raise helper for niri (SHOA-1001); bound in modules/home/niri.nix
+    niri-ror # Run-or-raise helper (niri-era, SHOA-1001); currently unbound under Hyprland (SHOA-1037)
     ranger # Terminal file manager
     ripgrep # Better `grep`
     fd

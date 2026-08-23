@@ -4,12 +4,14 @@
 # Noctalia is a single Quickshell/QML shell layer that owns the common desktop
 # surfaces (bar, launcher, control center, notifications, OSD, wallpaper). It is
 # started as a systemd user service bound to `config.wayland.systemd.target`
-# (defaults to graphical-session.target). niri-flake's user services satisfy
-# graphical-session.target, so niri launches Noctalia — no niri spawn-at-startup
-# entry is required (this mirrors how DMS was started via systemd, not niri
-# spawn, so the shell is not double-launched).
+# (defaults to graphical-session.target). The Hyprland session
+# (`wayland.windowManager.hyprland.systemd.enable`, modules/home/hyprland.nix)
+# satisfies graphical-session.target, so Hyprland launches Noctalia — no
+# compositor exec-once entry is required (this mirrors how DMS was started via
+# systemd, so the shell is not double-launched).
 #
-# Idle + locking stay delegated to stasis + swaylock (SHOA-1002, idle.nix):
+# Idle + locking stay delegated to hypridle + swaylock (SHOA-993/1037,
+# hypridle.nix):
 # Noctalia's own lock screen is disabled so the two idle managers do not fight
 # (the previous DMS module made the same handoff via its zeroed idle timeouts).
 #
@@ -37,9 +39,10 @@ in
     programs.noctalia = {
       enable = true;
 
-      # systemd user service on graphical-session.target (niri-flake satisfies
-      # it), so Noctalia autostarts under niri. `package` is defaulted by the
-      # upstream homeModules.default to the flake's noctalia package.
+      # systemd user service on graphical-session.target (the Hyprland session
+      # satisfies it), so Noctalia autostarts under Hyprland. `package` is
+      # defaulted by the upstream homeModules.default to the flake's noctalia
+      # package.
       systemd.enable = true;
 
       # Validate config.toml against the shell's schema at build time; a schema
@@ -63,10 +66,10 @@ in
           custom_palette = "eldritch";
         };
 
-        # Locking is owned by swaylock (driven by stasis; SHOA-1002). Disable
-        # Noctalia's built-in lock screen so there is a single locker. Noctalia's
-        # own idle behaviours default to disabled, so stasis remains the single
-        # idle manager.
+        # Locking is owned by swaylock (driven by hypridle; SHOA-993/1037).
+        # Disable Noctalia's built-in lock screen so there is a single locker.
+        # Noctalia's own idle behaviours default to disabled, so hypridle remains
+        # the single idle manager.
         lockscreen.enabled = false;
 
         # Weather parity with the previous DMS session (Detroit, °F).
