@@ -23,7 +23,7 @@
     # so the previous `niri-flake` input is gone. Idle is owned by stasis
     # (modules/home/idle.nix, input below), whose RUNE plan drives Noctalia's
     # native lock screen (SHOA-1040, restoring the niri-era stasis manager
-    # SHOA-1002 in place of hypridle + swaylock). Noctalia (below) is kept as
+    # SHOA-1002 in place of hypridle + the legacy Wayland locker). Noctalia (below) is kept as
     # the shell across the swap.
 
     # stasis: Rust Wayland idle manager. The single idle manager (SHOA-1040,

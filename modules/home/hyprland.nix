@@ -24,7 +24,7 @@
   #      plugin"), so that removal decision stands here.
   #
   # Idle/DPMS is owned by stasis (modules/home/idle.nix); locking is Noctalia's
-  # shell-native lock screen (SHOA-1040, replacing hypridle + swaylock
+  # shell-native lock screen (SHOA-1040, replacing hypridle + the legacy Wayland locker
   # SHOA-993/1037). The SUPER+L bind below runs `noctalia msg session lock`
   # directly: stasis does not lock on `loginctl lock-session` (it only tracks
   # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.

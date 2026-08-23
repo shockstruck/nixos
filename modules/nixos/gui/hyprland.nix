@@ -32,7 +32,7 @@
   # out-of-process xwayland-satellite is required, unlike niri). The Home
   # Manager side is authored in modules/home/hyprland.nix. No per-locker PAM
   # entry is needed: Noctalia's lock screen authenticates via the standard
-  # `login` PAM service (SHOA-1026/1040), so the removed swaylock PAM entry has
+  # `login` PAM service (SHOA-1026/1040), so the removed legacy locker PAM entry has
   # no replacement.
   programs.hyprland = {
     enable = true;
