@@ -84,6 +84,21 @@ in
       "ctrl+shift+down" = "neighboring_window down";
       "ctrl+tab" = "next_tab";
       "ctrl+grave" = "previous_tab";
+
+      # Font-size zoom + page scroll bindings, ported from
+      # s1devist1/my-linux-hp config/kitty/kitty.conf (SHOA-1058). Only the
+      # keybindings are ported; the source theme/transparency/font/`shell fish`
+      # are not (the curated Eldritch baseline above stays).
+      "ctrl+plus" = "change_font_size all +1";
+      "ctrl+equal" = "change_font_size all +1";
+      "ctrl+kp_add" = "change_font_size all +1";
+      "ctrl+minus" = "change_font_size all -1";
+      "ctrl+underscore" = "change_font_size all -1";
+      "ctrl+kp_subtract" = "change_font_size all -1";
+      "ctrl+0" = "change_font_size all 0";
+      "ctrl+kp_0" = "change_font_size all 0";
+      "page_up" = "scroll_page_up";
+      "page_down" = "scroll_page_down";
     };
   };
 }

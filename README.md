@@ -32,7 +32,12 @@ Both workstations share one declarative Wayland session:
 - **Noctalia** (`modules/home/noctalia.nix`) is the shell: it provides the bar,
   launcher, settings, clipboard, wallpaper, and control center. It starts as a
   systemd user service bound to `graphical-session.target`, which the Hyprland
-  session satisfies, so no compositor `exec-once` entry is needed.
+  session satisfies, so no compositor `exec-once` entry is needed. Wallpapers
+  (ported from s1devist1/my-linux-hp via `packages/wallpapers.nix`) are rotated
+  by its wallpaper automation.
+- **Fastfetch** (`modules/home/fastfetch.nix`) renders the NGR boxed layout
+  (`ngr1.txt` logo) with the Eldritch palette; the Noctalia "Game Mode" desktop
+  button runs `fastfetch`.
 - **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
   auto-imported by `modules/home` and therefore shared by every host. It provides
   the Lua main config, systemd graphical-session integration, and the shared

@@ -31,6 +31,9 @@
 let
   # Single source of truth for the palette (SHOA-999 theme/eldritch.nix).
   p = config.theme.eldritch;
+
+  # Wallpaper collection ported from s1devist1/my-linux-hp (SHOA-1058).
+  wallpapers = pkgs.callPackage ../../packages/wallpapers.nix { };
 in
 {
   imports = [ flake.inputs.noctalia.homeModules.default ];
@@ -56,6 +59,22 @@ in
           font_family = "Google Sans Flex";
           time_format = "{:%I:%M %p}"; # 12-hour clock (DMS clockFormat = "12h")
           date_format = "%a, %m/%d"; # DMS clockDateFormat = "ddd, MM/dd"
+
+          # my-linux-hp port (SHOA-1058) — shell additions; niri_overview_*
+          # and app_icon_color intentionally not ported (Hyprland session,
+          # not niri; source icon color kept default).
+          corner_radius_scale = 1.5;
+          password_style = "random";
+          polkit_agent = true;
+          screen_time_enabled = true;
+          launcher.app_grid = true;
+          panel = {
+            transparency_mode = "glass";
+            session_placement = "floating";
+            session_position = "center";
+            open_near_click_control_center = true;
+          };
+          screen_corners.enabled = true;
         };
 
         # Active theme = the standard Eldritch palette from C7, exported below as
@@ -110,7 +129,272 @@ in
 
         # wallpaperCarousel parity: rotate wallpapers from the wallpaper
         # directory. Interval/order keep Noctalia defaults (30 min, random).
-        wallpaper.automation.enabled = true;
+        # my-linux-hp port (SHOA-1058) wallpaper keys; paths re-pointed at
+        # the pa-wallpapers package store path.
+        wallpaper = {
+          automation.enabled = true; # wallpaperCarousel parity (see above)
+          directory = "${wallpapers}/share/wallpapers";
+          default.path = "${wallpapers}/share/wallpapers/MacTahoe-day.jpeg"; # placeholder choice — noted for founder
+          edge_smoothness = 0.3;
+          transition_duration = 2000;
+          transition_on_startup = true;
+        };
+
+        # ── my-linux-hp port (SHOA-1058, source local/state/noctalia/
+        #    settings.toml) ────────────────────────────────────────────────
+        #
+        # Ported from s1devist1/my-linux-hp local/state/noctalia/settings.toml
+        # (SHOA-1058). Schema-verified against noctalia-shell v5.0.0-beta.9;
+        # keys not valid in beta.9 were dropped (see child spec),
+        # machine-specific paths (avatar, launcher image, absolute wallpaper
+        # paths) are not ported, idle.* is intentionally NOT ported (stasis
+        # owns idle per SHOA-1040), and the Nord theme/bar layout are NOT
+        # ported (Eldritch + DMS-parity bar are the curated SHOA-999/1008
+        # baseline).
+        accessibility.ui_scale = 1.15;
+        audio.enable_sounds = true;
+        battery.warning_threshold = 15;
+        brightness.minimum_brightness = 0.1;
+        control_center = {
+          sidebar_section = "full";
+          width = 800;
+        };
+        notification.background_opacity = 0.51;
+        osd = {
+          background_opacity = 0.3;
+          scale = 1.2;
+        };
+        dock = {
+          enabled = true;
+          background_opacity = 0.0;
+          border = "#5A5959";
+          border_width = 1.0;
+          cross_axis_padding = 0;
+          item_spacing = 0;
+          main_axis_padding = 8;
+          margin_edge = 8;
+          radius = 23;
+          reserve_space = false;
+          show_dots = true;
+          smart_auto_hide = true;
+          active_scale = 1.2;
+          inactive_opacity = 1.0;
+          launcher_position = "start";
+          # Adapted to this repo's app set (source list was GNOME/Flatpak-specific).
+          pinned = [ "firefox" "kitty" "obsidian" "org.telegram.desktop" "discord" "signal" ];
+        };
+
+        # Widget settings (all verified against beta.9 widget definitions).
+        widget.active_window.display = "text_only";
+        widget.battery.display_mode = "graphic";
+        widget.network.show_label = false;
+        widget.privacy.hide_inactive = true;
+        widget.screenshot.enabled = false;
+        widget.spacer_2 = {
+          type = "spacer";
+          length = 5;
+        };
+        widget.workspaces = {
+          style = "focus_hint";
+          active_pill_size = 2.5;
+        };
+
+        # Desktop widgets (ported from the source [desktop_widgets]; coords
+        # are the source's — cx linearly scaled by 1920/2066.8 = 0.93 and
+        # rounded, cy unchanged, targeting the eDP-1 1920x1080 laptop panel;
+        # positions are runtime-adjustable in Noctalia's widget editor).
+        # schema_version dropped (state bookkeeping), the "Read" button
+        # dropped (machine-specific PDF path), "Game Mode" kept (needs
+        # pkgs.fastfetch — modules/home/fastfetch.nix). Widget ids verbatim.
+        desktop_widgets = {
+          enabled = true;
+          grid = {
+            visible = true;
+            cell_size = 16;
+            major_interval = 4;
+          };
+          widget_order = [
+            "desktop-widget-0000000000000002"
+            "desktop-widget-0000000000000004"
+            "desktop-widget-0000000000000005"
+            "desktop-widget-0000000000000006"
+            "desktop-widget-0000000000000007"
+            "desktop-widget-0000000000000008"
+            "desktop-widget-0000000000000009"
+          ];
+          widget = {
+            "desktop-widget-0000000000000002" = {
+              # sysmon: CPU
+              type = "sysmon";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 144.0;
+              box_width = 224.0;
+              cx = 1443.0;
+              cy = 140.0;
+              settings = {
+                background_opacity = 0.5;
+                background_radius = 25;
+                stat = "cpu_usage";
+                stat2 = "cpu_temp";
+              };
+            };
+            "desktop-widget-0000000000000004" = {
+              # sysmon: RAM
+              type = "sysmon";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 144.0;
+              box_width = 224.0;
+              cx = 1662.0;
+              cy = 140.0;
+              settings = {
+                background_opacity = 0.5;
+                background_radius = 25;
+                stat = "ram_pct";
+                stat2 = "swap_pct";
+              };
+            };
+            "desktop-widget-0000000000000005" = {
+              # media player
+              type = "media_player";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 176.0;
+              box_width = 464.0;
+              cx = 1550.0;
+              cy = 316.0;
+              settings = {
+                background_color = "surface";
+                background_opacity = 0.5;
+                background_padding = 10;
+                background_radius = 25;
+              };
+            };
+            "desktop-widget-0000000000000006" = {
+              # volume
+              type = "volume";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 144.0;
+              box_width = 320.0;
+              cx = 1483.0;
+              cy = 492.0;
+              settings = {
+                background_opacity = 0.5;
+                background_padding = 10;
+                background_radius = 25;
+                device = "output";
+              };
+            };
+            "desktop-widget-0000000000000007" = {
+              # calendar
+              type = "calendar";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 304.0;
+              box_width = 320.0;
+              cx = 1483.0;
+              cy = 732.0;
+              settings = {
+                background_opacity = 0.5;
+                background_radius = 25;
+                font_family = "";
+                show_events = false;
+                show_week_numbers = false;
+              };
+            };
+            "desktop-widget-0000000000000008" = {
+              # audio visualizer
+              type = "audio_visualizer";
+              output = "eDP-1";
+              rotation = 1.5707963705062866;
+              box_height = 128.0;
+              box_width = 464.0;
+              cx = 1706.0;
+              cy = 652.0;
+              settings = {
+                background = true;
+                background_color = "surface";
+                background_opacity = 0.5;
+                background_padding = 10;
+                background_radius = 25;
+                bands = 16;
+                centered = true;
+                color_1 = "primary";
+                color_2 = "hover";
+                mirrored = true;
+                show_when_idle = true;
+              };
+            };
+            "desktop-widget-0000000000000009" = {
+              # Game Mode button
+              type = "button";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 48.0;
+              box_width = 144.0;
+              cx = 1689.0;
+              cy = 932.0;
+              settings = {
+                background = true;
+                command = "kitty --hold fastfetch";
+                glyph = "device-gamepad-3-filled";
+                label = "Game Mode";
+                variant = "primary";
+              };
+            };
+          };
+        };
+
+        # Lockscreen widgets (ported from the source [lockscreen_widgets];
+        # login_box + clock; ids verbatim).
+        lockscreen_widgets = {
+          enabled = true;
+          widget_order = [ "lockscreen-login-box@eDP-1" "lockscreen-widget-0000000000000001" ];
+          widget = {
+            "lockscreen-login-box@eDP-1" = {
+              type = "login_box";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 196.0;
+              box_width = 810.0;
+              cx = 960.0;
+              cy = 906.0;
+              settings = {
+                background_color = "surface_variant";
+                background_opacity = 0.7;
+                background_radius = 18.0;
+                center_password_text = true;
+                input_opacity = 1.0;
+                input_radius = 16.0;
+                layout = "regular";
+                show_caps_lock = true;
+                show_keyboard_layout = true;
+                show_login_button = true;
+                show_media = true;
+                show_session_buttons = true;
+                show_unlock_hint = true;
+                show_weather = true;
+              };
+            };
+            "lockscreen-widget-0000000000000001" = {
+              type = "clock";
+              output = "eDP-1";
+              rotation = 0.0;
+              box_height = 224.0;
+              box_width = 304.0;
+              cx = 960.0;
+              cy = 380.0;
+              settings = {
+                background_opacity = 0.0;
+                center_text = true;
+                clock_style = "digital";
+                color = "on_primary";
+              };
+            };
+          };
+        };
 
         # Bar parity with the DMS "Main Bar" (barConfigs.default). Widget ids are
         # the Noctalia v5.0.0-beta.9 builtin registry (src/shell/bar/
