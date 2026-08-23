@@ -69,7 +69,7 @@ resolve to their `default.nix`.
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service) |
 | `packages.nix` | `home.packages` list + `programs.*` (see below) |
 | `shell.nix` | Shell config (zsh, p10k, eza aliases) |
-| ~~`swaylock.nix`~~ (removed, SHOA-1026) | Locking moved to Noctalia's built-in lock screen (noctalialock): `idle.nix` + niri Mod+L run `noctalia msg session lock`; PAM via the standard `login` service |
+| ~~locker module~~ (removed, SHOA-1026) | Locking moved to Noctalia's built-in lock screen (noctalialock): `idle.nix` + niri Mod+L run `noctalia msg session lock`; PAM via the standard `login` service |
 | `theme/default.nix` | Aggregates theme modules → `./eldritch.nix` |
 | `work.nix` | Work-specific config |
 
