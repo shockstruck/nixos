@@ -20,9 +20,11 @@ in
     gnome-calendar
     gnome-disk-utility
     mission-center
+    nautilus
     obsidian
     netbird-ui
     paperweight
+    papers
     proton-authenticator
     proton-pass
     proton-vpn
