@@ -30,7 +30,9 @@ in
     protonmail-bridge-gui
     protonmail-desktop
     runelite
+    signal-desktop
     splayer-next
+    telegram-desktop
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
     vicinae
