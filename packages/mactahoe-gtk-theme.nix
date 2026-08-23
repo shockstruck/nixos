@@ -8,7 +8,7 @@ stdenvNoCC.mkDerivation {
     owner = "vinceliuice";
     repo = "MacTahoe-gtk-theme";
     rev = "2026-08-08";
-    hash = "sha256-SdfFDX1G2PEy90l1y55V7QfwwAi10aOZOsVYjB4RR6k";
+    hash = "sha256-UEJZFXCVox3KCTZqSeOILumKCbUIeDTzcbLjimtotEI=";
   };
 
   nativeBuildInputs = [ sassc glib libxml2 gtk3 getent which ];
