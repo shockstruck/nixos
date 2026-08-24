@@ -20,6 +20,7 @@ in
     github-desktop
     gnome-calendar
     gnome-disk-utility
+    lmstudio
     mission-center
     nautilus
     obsidian
