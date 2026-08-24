@@ -45,14 +45,19 @@ in
   # off (see initExtra comment below) so no p10k-instant-prompt cache
   # sourcing snippet is required at the very top of .zshrc.
   home.file.".p10k.zsh".text = ''
-    # Minimal powerlevel10k config -- NixOS-native equivalent of mooniri's
-    # `p10k configure`-generated .p10k.zsh. See modules/home/shell.nix.
+    # Lean-style powerlevel10k config -- NixOS-native equivalent of the upstream
+    # `p10k configure` lean preset (SHOA-1072), recolored with the shared Eldritch
+    # palette (config.theme.eldritch, modules/home/theme/eldritch.nix) in place of
+    # the preset's 256-color defaults. Instant prompt is intentionally left off
+    # (see initExtra) so no top-of-.zshrc cache snippet is required.
     () {
       emulate -L zsh -o extended_glob
       unset -m '(POWERLEVEL9K_*|DEFAULT_USER)~POWERLEVEL9K_GITSTATUS_DIR'
       [[ $ZSH_VERSION == (5.<1->*|<6->.*) ]] || return
 
-      typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir vcs)
+      # Two-line lean prompt: line 1 = context/dir/vcs (left) + status/time (right);
+      # line 2 = the lean prompt char.
+      typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir vcs newline prompt_char)
       typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
         status
         command_execution_time
@@ -61,14 +66,30 @@ in
       )
 
       typeset -g POWERLEVEL9K_MODE=nerdfont-v3
+      typeset -g POWERLEVEL9K_ICON_PADDING=none
       typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
       typeset -g POWERLEVEL9K_INSTANT_PROMPT=off
       typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
       typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
 
+      # Lean look (upstream config/p10k-lean.zsh): transparent segment backgrounds,
+      # no powerline separators, single-space subsegment separators, no surrounding
+      # whitespace, and no multiline connectors.
+      typeset -g POWERLEVEL9K_BACKGROUND=
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_{LEFT,RIGHT}_WHITESPACE=
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SUBSEGMENT_SEPARATOR=' '
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SEGMENT_SEPARATOR=
+      typeset -g POWERLEVEL9K_ICON_BEFORE_CONTENT=true
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX=
+      typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX=
+      typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX=
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_SUFFIX=
+      typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_SUFFIX=
+      typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_SUFFIX=
+      typeset -g POWERLEVEL9K_LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL=
+      typeset -g POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL=
+
       # Eldritch palette (config.theme.eldritch, modules/home/theme/eldritch.nix).
-      # Segment logic below is unchanged (SHOA-991); only these knob values
-      # change from the original tokyonight-moon set to the shared Eldritch hex.
       typeset -g P10K_COLOR_TEXT="${e.foreground}"
       typeset -g P10K_COLOR_OVERLAY1="${e.comment}"
       typeset -g P10K_COLOR_BLUE="${e.blue}"
@@ -95,10 +116,12 @@ in
       typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=$P10K_COLOR_YELLOW
       typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=$'\uF126 '
 
-      typeset -g POWERLEVEL9K_STATUS_OK=true
+      # Lean relies on prompt_char color for success/error, so the right-prompt
+      # status icon is off for the plain OK/ERROR case.
+      typeset -g POWERLEVEL9K_STATUS_OK=false
       typeset -g POWERLEVEL9K_STATUS_OK_FOREGROUND=$P10K_COLOR_GREEN
       typeset -g POWERLEVEL9K_STATUS_OK_VISUAL_IDENTIFIER_EXPANSION='✔'
-      typeset -g POWERLEVEL9K_STATUS_ERROR=true
+      typeset -g POWERLEVEL9K_STATUS_ERROR=false
       typeset -g POWERLEVEL9K_STATUS_ERROR_FOREGROUND=$P10K_COLOR_RED
       typeset -g POWERLEVEL9K_STATUS_ERROR_VISUAL_IDENTIFIER_EXPANSION='✘'
 
@@ -112,10 +135,19 @@ in
       typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_VIINS_FOREGROUND=$P10K_COLOR_RED
       typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_VIINS_CONTENT_EXPANSION='❯'
       typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_VIINS_CONTENT_EXPANSION='❯'
+      # prompt_char sits alone on line 2: no connectors around it.
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL=
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL=
 
       (( ! $+functions[p10k] )) || p10k reload
     }
   '';
+
+  # Single systemd-managed ssh-agent for the login session (SHOA-1072). Provides
+  # one persistent agent + SSH_AUTH_SOCK so no per-shell `eval $(ssh-agent)` is
+  # needed (which would spawn duplicate agents). Key loading is done by the zsh
+  # init hook in programs.zsh.initExtra below.
+  services.ssh-agent.enable = true;
 
   programs = {
     atuin = {
@@ -273,6 +305,29 @@ in
 
         fuck() { sudo $(fc -ln -1) }
         f() { eval $(thefuck $(fc -ln -1)); }
+
+        # --- SHOA-1072: auto-load SSH keys into the persistent (systemd) agent ---
+        # services.ssh-agent runs one agent per login session and exports
+        # SSH_AUTH_SOCK, so keys are added once; later shells find them already
+        # loaded and skip (idempotent -- no duplicate agents or repeated adds).
+        # All output is suppressed and askpass is forced to a no-op, so a
+        # passphrase-protected key can never print or block during zsh init;
+        # p10k instant prompt therefore stays warning-free even if later enabled.
+        () {
+          emulate -L zsh
+          [[ -o interactive ]] || return
+          (( $+commands[ssh-add] )) || return
+          ssh-add -l >/dev/null 2>&1 && return   # agent already has keys -> skip
+          local key
+          for key in ~/.ssh/*(N.); do
+            case ''${key:t} in
+              (*.pub|known_hosts*|config|authorized_keys*|environment|*.tmp*) continue ;;
+            esac
+            ssh-keygen -l -f "$key" >/dev/null 2>&1 || continue   # skip non-keys
+            SSH_ASKPASS=''${commands[false]} SSH_ASKPASS_REQUIRE=force DISPLAY= \
+              ssh-add "$key" </dev/null >/dev/null 2>&1
+          done
+        }
       '';
     };
 
