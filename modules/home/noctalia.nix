@@ -93,10 +93,16 @@ in
         # manager.
         lockscreen.enabled = true;
 
-        # Weather parity with the previous DMS session (Detroit, °F).
+        # Weather + measurement units (SHOA-1073). Noctalia's ONLY unit key is
+        # `weather.unit`; it is compared literally against "imperial"
+        # (WeatherService::useImperial, noctalia-shell v5.0.0-beta.9 / rev
+        # a064c063). "imperial" drives Fahrenheit temperature, mph wind speed,
+        # and feet elevation together; the default "metric" gives °C / km/h / m.
+        # The prior "fahrenheit" value was a no-op (it != "imperial", so it
+        # silently rendered °C). US/imperial units for Detroit.
         weather = {
           enabled = true;
-          unit = "fahrenheit";
+          unit = "imperial";
         };
         location = {
           auto_locate = false;
