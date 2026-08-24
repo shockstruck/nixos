@@ -11,9 +11,14 @@
 
   services.fprintd.enable = true;
 
-  # Keep sudo's password prompt immediate; GDM handles fingerprint login through
-  # its dedicated parallel PAM service.
-  security.pam.services.sudo.fprintAuth = false;
+  # Fingerprint auth (founder-directed, SHOA-1075). With services.fprintd.enable,
+  # NixOS makes fprint a *sufficient* PAM factor for the greetd/Noctalia login
+  # (GDM was retired in SHOA-1040) and polkit, so a swipe unlocks but the password
+  # prompt still works as fallback — no lockout. The founder also asked for
+  # fingerprint at sudo, so enable it here; it stays a sufficient factor, so sudo
+  # falls back to the password when no finger is enrolled or the swipe fails.
+  # Enroll with `fprintd-enroll` (see README) before relying on it.
+  security.pam.services.sudo.fprintAuth = true;
 
   systemd.services.keyboard-backlight-default = {
     description = "Enable the ThinkPad keyboard backlight after boot";

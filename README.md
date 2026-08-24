@@ -95,11 +95,12 @@ CLI.
 
 The `laptop` host enables fingerprint authentication with fprintd
 (`configurations/nixos/laptop/hardware.nix:12`). The fingerprint is a
-**sufficient** PAM factor for login (greetd) and polkit prompts, with the
-password fallback preserved — there is no lockout, and the password always
-remains a working alternative. **sudo is intentionally password-only**
-(`hardware.nix:16`), so privileged commands always prompt for the password
-regardless of enrolled fingerprints.
+**sufficient** PAM factor for login (greetd), polkit prompts, **and sudo**
+(`hardware.nix:16`, founder-directed), with the password fallback preserved —
+there is no lockout, and the password always remains a working alternative. Because
+fingerprint is a *sufficient* (not required) factor, sudo falls back to the
+password whenever no finger is enrolled yet or a swipe fails, so you are never
+locked out. Enroll a finger (below) before relying on fingerprint for sudo.
 
 ### Enrollment (run on the laptop)
 
