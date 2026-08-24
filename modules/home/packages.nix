@@ -15,6 +15,7 @@ in
     bitwarden-desktop
     bolt-launcher
     brave
+    ente-auth
     firefox
     github-desktop
     gnome-calendar
