@@ -91,6 +91,65 @@ Talhelper), Kubernetes helpers (`kubectl`, Kubecolor, and Stern), Terraform,
 Flux, Helm, Helmfile, Kustomize, Task, MiniJinja CLI, Mise, and the 1Password
 CLI.
 
+## Biometric fingerprint auth & Bitwarden unlock
+
+The `laptop` host enables fingerprint authentication with fprintd
+(`configurations/nixos/laptop/hardware.nix:12`). The fingerprint is a
+**sufficient** PAM factor for login (greetd) and polkit prompts, with the
+password fallback preserved — there is no lockout, and the password always
+remains a working alternative. **sudo is intentionally password-only**
+(`hardware.nix:16`), so privileged commands always prompt for the password
+regardless of enrolled fingerprints.
+
+### Enrollment (run on the laptop)
+
+The NixOS fprintd module installs `pkgs.fprintd`, so `fprintd-enroll`,
+`fprintd-verify`, `fprintd-list`, and `fprintd-delete` are available on the
+host:
+
+```sh
+# Enroll the default finger; keep swiping when prompted until it completes.
+fprintd-enroll
+
+# Enroll a specific finger instead (see `fprintd-enroll --help` for names).
+fprintd-enroll -f right-index-finger
+
+# Test the enrolled fingerprint.
+fprintd-verify
+
+# List enrolled fingers for your user.
+fprintd-list $USER
+
+# Remove all enrolled fingers for your user.
+fprintd-delete $USER
+```
+
+### Bitwarden fingerprint unlock
+
+Bitwarden Desktop is the native nixpkgs `bitwarden-desktop` package
+(`modules/home/packages.nix`). Per the official guide — Bitwarden Help,
+[_Unlock with Biometrics_](https://bitwarden.com/help/biometrics/) (Linux tab):
+
+1. Log in to the Bitwarden desktop app with your master password or PIN first.
+2. Go to **File → Settings → Security** and check **Unlock with system
+   authentication**; confirm the update when prompted.
+3. After enabling, you still log in with your master password or PIN on app
+   start; biometrics then unlock the vault. The polkit prompt authenticates via
+   the system PAM stack (fingerprint, with password fallback).
+
+> **Flatpak-only caveat**: the manual `com.bitwarden.Bitwarden.policy` copy to
+> `/usr/share/polkit-1/actions/` in the Bitwarden doc applies only to the
+> Flatpak build and does **not** apply here — we use the native nixpkgs package,
+> which ships the polkit policy. The polkit agent is provided by Noctalia
+> (`modules/home/noctalia.nix`, `polkit_agent = true`) with
+> `security.polkit.enable = true` (`modules/nixos/gui/hyprland.nix`).
+
+### Confirm on the host
+
+- The laptop must physically have a `libfprint`-supported fingerprint reader.
+- Whether the Noctalia greeter surfaces the fingerprint prompt at the login
+  screen is confirmed on-device; password login always works regardless.
+
 ## Local AI
 
 The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
