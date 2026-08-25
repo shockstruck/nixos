@@ -173,6 +173,10 @@ in
         control_center = {
           sidebar_section = "full";
           width = 800;
+          # 12-hour clock (SHOA-1028 sweep): calendar tab event times bypass
+          # shell.time_format upstream (CalendarTab default "%H:%M", rev
+          # a064c063) — this key is their only config surface.
+          calendar.event_time_format = "%I:%M %p";
         };
         notification.background_opacity = 0.51;
         osd = {
@@ -406,6 +410,9 @@ in
                 center_text = true;
                 clock_style = "digital";
                 color = "on_primary";
+                # 12-hour format (SHOA-1095); DesktopWidgetFactory defaults
+                # to "{:%H:%M}" (24h) when unset.
+                format = "{:%I:%M %p}";
               };
             };
           };
@@ -448,6 +455,13 @@ in
         widget.mem = {
           type = "sysmon";
           stat = "ram_pct";
+        };
+
+        # Bar clock 12-hour format (SHOA-1095). The clock widget does not read
+        # shell.time_format; its own `format` key (example.toml [widget.clock],
+        # default "{:%H:%M}") is what renders the bar time.
+        widget.clock = {
+          format = "{:%I:%M %p}";
         };
       };
 
