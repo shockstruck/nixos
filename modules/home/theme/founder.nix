@@ -110,7 +110,10 @@ in
   options.theme.founder = lib.mkOption {
     type = lib.types.attrsOf (lib.types.attrsOf (lib.types.oneOf [
       lib.types.str
-      (lib.types.attrsOf (lib.types.attrsOf lib.types.str))
+      (lib.types.attrsOf (lib.types.oneOf [
+        lib.types.str
+        (lib.types.attrsOf lib.types.str)
+      ]))
     ]));
     readOnly = true;
     description = ''
