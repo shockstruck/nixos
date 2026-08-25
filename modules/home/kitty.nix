@@ -1,12 +1,13 @@
 { pkgs, config, ... }:
 let
-  # Eldritch palette source of truth (modules/home/theme/eldritch.nix).
-  e = config.theme.eldritch;
+  # Founder palette dark terminal colors, source of truth
+  # (modules/home/theme/founder.nix, SHOA-1094).
+  f = config.theme.founder.dark;
 in
 {
   # Ported from mooniri (revaljonathan/mooniri) config/kitty/kitty.conf. The
-  # colors are driven by the shared Eldritch palette (SHOA-997 C7) rather than
-  # the original static Tokyo Night Moon set. matugen/petalslinger
+  # colors are driven by the founder palette (SHOA-1094, theme/founder.nix)
+  # rather than the original static Tokyo Night Moon set. matugen/petalslinger
   # dynamic-theming includes are intentionally not ported.
   home.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 
@@ -34,47 +35,47 @@ in
       repaint_delay = 8;
       input_delay = 0;
       window_padding_width = 8;
-      cursor = e.base05;
+      cursor = f.terminal.cursor;
       tab_title_template = "{title}";
 
       cursor_trail = 10;
       cursor_trail_decay = "0.1 0.9";
       cursor_trail_start_threshold = 0;
 
-      # Eldritch theme (modules/home/theme/eldritch.nix).
-      background = e.base00;
-      foreground = e.base05;
-      selection_background = e.base02;
-      selection_foreground = e.base00;
-      url_color = e.base0C;
-      cursor_text_color = e.base00;
+      # Founder palette dark terminal colors (modules/home/theme/founder.nix).
+      background = f.terminal.background;
+      foreground = f.terminal.foreground;
+      selection_background = f.terminal.selectionBg;
+      selection_foreground = f.terminal.selectionFg;
+      url_color = f.mTertiary;
+      cursor_text_color = f.terminal.cursorText;
 
-      active_tab_background = e.base0D;
-      active_tab_foreground = e.base00;
-      inactive_tab_background = e.base01;
-      inactive_tab_foreground = e.base04;
+      active_tab_background = f.mPrimary;
+      active_tab_foreground = f.mOnPrimary;
+      inactive_tab_background = f.mSurfaceVariant;
+      inactive_tab_foreground = f.mOnSurfaceVariant;
 
-      active_border_color = e.base0D;
-      inactive_border_color = e.base01;
+      active_border_color = f.mPrimary;
+      inactive_border_color = f.mOutline;
 
-      # Standard base16 ANSI mapping.
-      color0 = e.base00;
-      color1 = e.base08;
-      color2 = e.base0B;
-      color3 = e.base0A;
-      color4 = e.base0D;
-      color5 = e.base0E;
-      color6 = e.base0C;
-      color7 = e.base05;
+      # Standard ANSI mapping onto the founder terminal palette.
+      color0 = f.terminal.normal.black;
+      color1 = f.terminal.normal.red;
+      color2 = f.terminal.normal.green;
+      color3 = f.terminal.normal.yellow;
+      color4 = f.terminal.normal.blue;
+      color5 = f.terminal.normal.magenta;
+      color6 = f.terminal.normal.cyan;
+      color7 = f.terminal.normal.white;
 
-      color8 = e.base03;
-      color9 = e.base08;
-      color10 = e.base0B;
-      color11 = e.base0A;
-      color12 = e.base0D;
-      color13 = e.base0E;
-      color14 = e.base0C;
-      color15 = e.base07;
+      color8 = f.terminal.bright.black;
+      color9 = f.terminal.bright.red;
+      color10 = f.terminal.bright.green;
+      color11 = f.terminal.bright.yellow;
+      color12 = f.terminal.bright.blue;
+      color13 = f.terminal.bright.magenta;
+      color14 = f.terminal.bright.cyan;
+      color15 = f.terminal.bright.white;
     };
 
     keybindings = {
@@ -88,7 +89,7 @@ in
       # Font-size zoom + page scroll bindings, ported from
       # s1devist1/my-linux-hp config/kitty/kitty.conf (SHOA-1058). Only the
       # keybindings are ported; the source theme/transparency/font/`shell fish`
-      # are not (the curated Eldritch baseline above stays).
+      # are not (the curated founder-palette baseline above stays).
       "ctrl+plus" = "change_font_size all +1";
       "ctrl+equal" = "change_font_size all +1";
       "ctrl+kp_add" = "change_font_size all +1";

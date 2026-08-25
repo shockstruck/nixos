@@ -1,18 +1,26 @@
 { pkgs, config, ... }:
 let
-  # Eldritch palette source of truth (modules/home/theme/eldritch.nix).
-  e = config.theme.eldritch;
+  # Founder palette dark colors, source of truth
+  # (modules/home/theme/founder.nix, SHOA-1094).
+  f = config.theme.founder.dark;
 in
 {
   # Fastfetch with the NGR boxed layout + logo, ported from
   # s1devist1/my-linux-hp (SHOA-1058): config.jsonc structure + ngr1.txt logo
   # verbatim, packages row adapted to {nixpkgs} (NixOS, not pacman/flatpak),
-  # and the Nord theme swapped to Eldritch hexes from config.theme.eldritch.
+  # and the Nord theme swapped to founder palette hexes from
+  # config.theme.founder (SHOA-1094). The `noctalia` theme file has existed
+  # since SHOA-1058 but was never referenced; `"theme": "noctalia"` below
+  # activates it.
   home.packages = [ pkgs.fastfetch ];
 
   xdg.configFile."fastfetch/config.jsonc".text = ''
     {
       "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+      // Activate the noctalia theme file (defined since SHOA-1058 but never
+      // referenced, so its hexes had no effect). Founder palette colors,
+      // SHOA-1094.
+      "theme": "noctalia",
         "logo": {
         "type": "file",
         "source": "~/.config/fastfetch/ngr1.txt",
@@ -148,20 +156,20 @@ in
     {
       "logo": {
         "color": {
-          "1": "${e.green}",
-          "2": "${e.cyan}"
+          "1": "${f.mPrimary}",
+          "2": "${f.mTertiary}"
         }
       },
       "display": {
         "color": {
-          "keys": "${e.cyan}",
-          "title": "${e.blue}"
+          "keys": "${f.mOnSurfaceVariant}",
+          "title": "${f.mPrimary}"
         },
         "percent": {
           "color": {
-            "green": "${e.green}",
-            "yellow": "${e.yellow}",
-            "red": "${e.red}"
+            "green": "${f.terminal.normal.green}",
+            "yellow": "${f.terminal.normal.yellow}",
+            "red": "${f.mError}"
           }
         }
       }

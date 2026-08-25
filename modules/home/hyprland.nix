@@ -1,7 +1,12 @@
 { pkgs
 , lib
+, config
 , ...
 }:
+let
+  # Founder palette dark decoration colors (SHOA-1094, theme/founder.nix).
+  f = config.theme.founder.dark;
+in
 {
   # Hyprland Home Manager compositor config (SHOA-1037, reverting the compositor swap
   # SHOA-997). Restored from the pre-swap Hyprland setup (git ad2aea6,
@@ -28,6 +33,10 @@
   # SHOA-993/1037). The SUPER+L bind below runs `noctalia msg session lock`
   # directly: stasis does not lock on `loginctl lock-session` (it only tracks
   # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.
+  #
+  # Decoration colors (misc.background_color + general borders) come from the
+  # founder palette (SHOA-1094, theme/founder.nix) — the dark surface as the
+  # compositor background and mPrimary/mOutline as the active/inactive borders.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     home.pointerCursor = {
       enable = true;
@@ -47,8 +56,14 @@
           numlock_by_default = true;
           touchpad.natural_scroll = true;
         };
+        # Founder-palette decoration colors (SHOA-1094): rgb hex without the
+        # leading # (Hyprland rgb() format).
+        general = {
+          "col.active_border" = "rgb(${lib.removePrefix "#" f.mPrimary})";
+          "col.inactive_border" = "rgb(${lib.removePrefix "#" f.mOutline})";
+        };
         misc = {
-          background_color = "rgb(000000)";
+          background_color = "rgb(${lib.removePrefix "#" f.mSurface})";
           disable_hyprland_logo = true;
           disable_splash_rendering = true;
           force_default_wallpaper = 0;

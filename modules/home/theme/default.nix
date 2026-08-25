@@ -3,6 +3,7 @@
 {
   imports = [
     ./eldritch.nix
+    ./founder.nix
     ./mactahoe.nix
   ];
 }

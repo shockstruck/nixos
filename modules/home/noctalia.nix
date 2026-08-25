@@ -15,13 +15,15 @@
 # idle behaviours default off, so the two idle managers do not fight (the
 # previous DMS module made the same handoff via its zeroed idle timeouts).
 #
-# Theming consumes the standard Eldritch palette module from C7
-# (SHOA-999, theme/eldritch.nix): the exact eldritchtheme/eldritch base16 values
-# are exported verbatim as a Noctalia custom palette
-# (~/.config/noctalia/palettes/eldritch.json) and selected as the active theme
-# via `theme.source = "custom"`. See
-# https://docs.noctalia.dev/noctalia/theming/palette/ for the palette JSON schema
-# and https://docs.noctalia.dev/noctalia/configuration/ for the config reference.
+# Theming consumes the founder palette module (SHOA-1094, theme/founder.nix) as
+# the single source of truth: the exact founder hexes are exported verbatim as a
+# Noctalia custom palette (~/.config/noctalia/palettes/founder.json) and
+# selected as the active theme via `theme.source = "custom"` /
+# `theme.custom_palette = "founder"`. The standard Eldritch palette (SHOA-999,
+# theme/eldritch.nix) remains available as a custom palette but is no longer the
+# default. See https://docs.noctalia.dev/noctalia/theming/palette/ for the
+# palette JSON schema and https://docs.noctalia.dev/noctalia/configuration/ for
+# the config reference.
 { config
 , flake
 , lib
@@ -29,7 +31,13 @@
 , ...
 }:
 let
-  # Single source of truth for the palette (SHOA-999 theme/eldritch.nix).
+  # Single source of truth for the founder palette (SHOA-1094 theme/founder.nix).
+  # `f.dark` / `f.light` carry the exact 16 m* keys + terminal shape Noctalia's
+  # palette schema expects (same shape as the working eldritch palette).
+  f = config.theme.founder;
+
+  # Standard Eldritch palette (SHOA-999 theme/eldritch.nix), kept available as a
+  # custom palette — no longer the active default.
   p = config.theme.eldritch;
 
   # Wallpaper collection ported from s1devist1/my-linux-hp (SHOA-1058).
@@ -77,12 +85,13 @@ in
           screen_corners.enabled = true;
         };
 
-        # Active theme = the standard Eldritch palette from C7, exported below as
-        # a custom palette. Dark mode only (the palette provides a dark variant).
+        # Active theme = the founder palette (SHOA-1094, theme/founder.nix),
+        # exported below as a custom palette. Dark mode (the palette provides
+        # dark + light variants; `mode = "dark"` selects the dark one).
         theme = {
           mode = "dark";
           source = "custom";
-          custom_palette = "eldritch";
+          custom_palette = "founder";
         };
 
         # Locking is Noctalia-native (SHOA-1040), driven by stasis
@@ -442,11 +451,23 @@ in
         };
       };
 
+      # Founder palette (SHOA-1094, theme/founder.nix) mapped verbatim onto
+      # Noctalia's 16 color roles + terminal section. Written to
+      # ~/.config/noctalia/palettes/founder.json and selected by
+      # `theme.custom_palette = "founder"` above. `validateConfig = true` is
+      # unchanged: it validates config.toml (`theme.custom_palette` is a plain
+      # string), and the generated palette JSON shape is identical to the
+      # eldritch one already in production.
+      customPalettes.founder = {
+        dark = f.dark;
+        light = f.light;
+      };
+
       # Standard Eldritch palette (eldritchtheme/eldritch base16) mapped onto
       # Noctalia's 16 color roles, consumed from the C7 module. Written to
-      # ~/.config/noctalia/palettes/eldritch.json and selected by
-      # `theme.custom_palette = "eldritch"` above. Dark variant only; Noctalia
-      # reuses it for light mode when `light` is omitted.
+      # ~/.config/noctalia/palettes/eldritch.json and still exported so the
+      # palette remains selectable, but no longer the active default. Dark
+      # variant only; Noctalia reuses it for light mode when `light` is omitted.
       customPalettes.eldritch.dark = {
         mPrimary = p.green; # #37f499 — eldritch signature accent
         mOnPrimary = p.background;
