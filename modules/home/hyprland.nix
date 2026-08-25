@@ -4,8 +4,8 @@
 , ...
 }:
 let
-  # Founder palette dark decoration colors (SHOA-1094, theme/founder.nix).
-  f = config.theme.founder.dark;
+  # Mactahoe-default palette dark decoration colors (SHOA-1102, theme/mactahoe.nix).
+  f = config.theme.mactahoe.dark;
 in
 {
   # Hyprland Home Manager compositor config (SHOA-1037, reverting the compositor swap
@@ -35,8 +35,9 @@ in
   # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.
   #
   # Decoration colors (misc.background_color + general borders) come from the
-  # founder palette (SHOA-1094, theme/founder.nix) — the dark surface as the
-  # compositor background and mPrimary/mOutline as the active/inactive borders.
+  # mactahoe-default palette (SHOA-1102, theme/mactahoe.nix) — the dark surface
+  # as the compositor background and mPrimary/mOutline as the active/inactive
+  # borders.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     home.pointerCursor = {
       enable = true;
@@ -56,7 +57,7 @@ in
           numlock_by_default = true;
           touchpad.natural_scroll = true;
         };
-        # Founder-palette decoration colors (SHOA-1094): rgb hex without the
+        # Mactahoe-default decoration colors (SHOA-1102): rgb hex without the
         # leading # (Hyprland rgb() format).
         general = {
           "col.active_border" = "rgb(${lib.removePrefix "#" f.mPrimary})";

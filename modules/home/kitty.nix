@@ -1,14 +1,14 @@
 { pkgs, config, ... }:
 let
-  # Founder palette dark terminal colors, source of truth
-  # (modules/home/theme/founder.nix, SHOA-1094).
-  f = config.theme.founder.dark;
+  # Mactahoe-default palette dark terminal colors, source of truth
+  # (modules/home/theme/mactahoe.nix, SHOA-1102).
+  f = config.theme.mactahoe.dark;
 in
 {
   # Ported from mooniri (revaljonathan/mooniri) config/kitty/kitty.conf. The
-  # colors are driven by the founder palette (SHOA-1094, theme/founder.nix)
-  # rather than the original static Tokyo Night Moon set. matugen/petalslinger
-  # dynamic-theming includes are intentionally not ported.
+  # colors are driven by the mactahoe-default palette (SHOA-1102,
+  # theme/mactahoe.nix) rather than the original static Tokyo Night Moon set.
+  # matugen/petalslinger dynamic-theming includes are intentionally not ported.
   home.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 
   programs.kitty = {
@@ -42,7 +42,7 @@ in
       cursor_trail_decay = "0.1 0.9";
       cursor_trail_start_threshold = 0;
 
-      # Founder palette dark terminal colors (modules/home/theme/founder.nix).
+      # Mactahoe-default palette dark terminal colors (modules/home/theme/mactahoe.nix).
       background = f.terminal.background;
       foreground = f.terminal.foreground;
       selection_background = f.terminal.selectionBg;
@@ -58,7 +58,7 @@ in
       active_border_color = f.mPrimary;
       inactive_border_color = f.mOutline;
 
-      # Standard ANSI mapping onto the founder terminal palette.
+      # Standard ANSI mapping onto the mactahoe-default terminal palette.
       color0 = f.terminal.normal.black;
       color1 = f.terminal.normal.red;
       color2 = f.terminal.normal.green;
@@ -89,7 +89,7 @@ in
       # Font-size zoom + page scroll bindings, ported from
       # s1devist1/my-linux-hp config/kitty/kitty.conf (SHOA-1058). Only the
       # keybindings are ported; the source theme/transparency/font/`shell fish`
-      # are not (the curated founder-palette baseline above stays).
+      # are not (the curated mactahoe-default-palette baseline above stays).
       "ctrl+plus" = "change_font_size all +1";
       "ctrl+equal" = "change_font_size all +1";
       "ctrl+kp_add" = "change_font_size all +1";

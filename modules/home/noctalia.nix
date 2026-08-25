@@ -15,13 +15,14 @@
 # idle behaviours default off, so the two idle managers do not fight (the
 # previous DMS module made the same handoff via its zeroed idle timeouts).
 #
-# Theming consumes the founder palette module (SHOA-1094, theme/founder.nix) as
-# the single source of truth: the exact founder hexes are exported verbatim as a
-# Noctalia custom palette (~/.config/noctalia/palettes/founder.json) and
-# selected as the active theme via `theme.source = "custom"` /
-# `theme.custom_palette = "founder"`. The standard Eldritch palette (SHOA-999,
-# theme/eldritch.nix) remains available as a custom palette but is no longer the
-# default. See https://docs.noctalia.dev/noctalia/theming/palette/ for the
+# Theming consumes the mactahoe-default palette module (SHOA-1102,
+# theme/mactahoe.nix) as the single source of truth: the exact mactahoe default
+# hexes are exported verbatim as a Noctalia custom palette
+# (~/.config/noctalia/palettes/mactahoe.json) and selected as the active theme
+# via `theme.source = "custom"` / `theme.custom_palette = "mactahoe"`. The
+# standard Eldritch palette (SHOA-999, theme/eldritch.nix) remains available as
+# a custom palette but is no longer the default. See
+# https://docs.noctalia.dev/noctalia/theming/palette/ for the
 # palette JSON schema and https://docs.noctalia.dev/noctalia/configuration/ for
 # the config reference.
 { config
@@ -31,10 +32,11 @@
 , ...
 }:
 let
-  # Single source of truth for the founder palette (SHOA-1094 theme/founder.nix).
-  # `f.dark` / `f.light` carry the exact 16 m* keys + terminal shape Noctalia's
-  # palette schema expects (same shape as the working eldritch palette).
-  f = config.theme.founder;
+  # Single source of truth for the mactahoe-default palette (SHOA-1102
+  # theme/mactahoe.nix). `f.dark` / `f.light` carry the exact 16 m* keys +
+  # terminal shape Noctalia's palette schema expects (same shape as the working
+  # eldritch palette).
+  f = config.theme.mactahoe;
 
   # Standard Eldritch palette (SHOA-999 theme/eldritch.nix), kept available as a
   # custom palette — no longer the active default.
@@ -85,13 +87,14 @@ in
           screen_corners.enabled = true;
         };
 
-        # Active theme = the founder palette (SHOA-1094, theme/founder.nix),
-        # exported below as a custom palette. Dark mode (the palette provides
-        # dark + light variants; `mode = "dark"` selects the dark one).
+        # Active theme = the mactahoe-default palette (SHOA-1102,
+        # theme/mactahoe.nix), exported below as a custom palette. Dark mode
+        # (the palette provides dark + light variants; `mode = "dark"` selects
+        # the dark one).
         theme = {
           mode = "dark";
           source = "custom";
-          custom_palette = "founder";
+          custom_palette = "mactahoe";
         };
 
         # Locking is Noctalia-native (SHOA-1040), driven by stasis
@@ -465,14 +468,14 @@ in
         };
       };
 
-      # Founder palette (SHOA-1094, theme/founder.nix) mapped verbatim onto
-      # Noctalia's 16 color roles + terminal section. Written to
-      # ~/.config/noctalia/palettes/founder.json and selected by
-      # `theme.custom_palette = "founder"` above. `validateConfig = true` is
+      # Mactahoe-default palette (SHOA-1102, theme/mactahoe.nix) mapped verbatim
+      # onto Noctalia's 16 color roles + terminal section. Written to
+      # ~/.config/noctalia/palettes/mactahoe.json and selected by
+      # `theme.custom_palette = "mactahoe"` above. `validateConfig = true` is
       # unchanged: it validates config.toml (`theme.custom_palette` is a plain
       # string), and the generated palette JSON shape is identical to the
       # eldritch one already in production.
-      customPalettes.founder = {
+      customPalettes.mactahoe = {
         dark = f.dark;
         light = f.light;
       };

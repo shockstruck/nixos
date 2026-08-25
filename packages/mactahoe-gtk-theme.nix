@@ -7,9 +7,9 @@
 , gtk3
 , getent
 , which
-  # Founder-palette tint (SHOA-1094): accent + dark surface colors are single
+  # Mactahoe-default tint (SHOA-1102): accent + dark surface colors are single
   # sass variables in the pinned source, so the theme can be tinted at build
-  # time with NO new assets. Defaults are the vanilla vinceliuice values, so
+  # time with NO new assets. Defaults equal the vanilla vinceliuice values, so
   # the package alone still builds vanilla.
 , tint ? {
     accent = "#0088FF";
@@ -43,8 +43,9 @@ stdenvNoCC.mkDerivation {
       --replace-fail 'SUDO_BIN="$(which sudo)"' 'SUDO_BIN=""' \
       --replace-fail 'if [[ ! -w "/root" ]]; then' 'if false; then'
 
-    # Founder-palette tint (SHOA-1094): accent + dark surface colors are
-    # single sass variables in the pinned source — no new assets needed.
+    # Mactahoe-default tint (SHOA-1102): accent + dark surface colors are
+    # single sass variables in the pinned source — defaults equal vanilla
+    # vinceliuice values, no new assets needed.
     substituteInPlace src/sass/_colors-palette.scss \
       --replace-fail '$theme_color_default: #0088FF;' '$theme_color_default: ${tint.accent};'
 
@@ -65,7 +66,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = with lib; {
-    description = "MacOS Tahoe-like GTK theme (dark variant), founder-palette tinted at build time via sass variables (SHOA-1094)";
+    description = "MacOS Tahoe-like GTK theme (dark variant), mactahoe-default tinted at build time via sass variables (SHOA-1102)";
     homepage = "https://github.com/vinceliuice/MacTahoe-gtk-theme";
     license = licenses.gpl3Only;
     platforms = platforms.unix;

@@ -1,15 +1,15 @@
 { pkgs, config, ... }:
 let
-  # Founder palette dark colors, source of truth
-  # (modules/home/theme/founder.nix, SHOA-1094).
-  f = config.theme.founder.dark;
+  # Mactahoe-default palette dark colors, source of truth
+  # (modules/home/theme/mactahoe.nix, SHOA-1102).
+  f = config.theme.mactahoe.dark;
 in
 {
   # Fastfetch with the NGR boxed layout + logo, ported from
   # s1devist1/my-linux-hp (SHOA-1058): config.jsonc structure + ngr1.txt logo
   # verbatim, packages row adapted to {nixpkgs} (NixOS, not pacman/flatpak),
-  # and the Nord theme swapped to founder palette hexes from
-  # config.theme.founder (SHOA-1094). The `noctalia` theme file has existed
+  # and the Nord theme swapped to mactahoe-default palette hexes from
+  # config.theme.mactahoe (SHOA-1102). The `noctalia` theme file has existed
   # since SHOA-1058 but was never referenced; `"theme": "noctalia"` below
   # activates it.
   home.packages = [ pkgs.fastfetch ];
@@ -18,8 +18,8 @@ in
     {
       "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
       // Activate the noctalia theme file (defined since SHOA-1058 but never
-      // referenced, so its hexes had no effect). Founder palette colors,
-      // SHOA-1094.
+      // referenced, so its hexes had no effect). Mactahoe-default palette colors,
+      // SHOA-1102.
       "theme": "noctalia",
         "logo": {
         "type": "file",
