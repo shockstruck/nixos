@@ -49,12 +49,15 @@ stdenvNoCC.mkDerivation {
     substituteInPlace src/sass/_colors-palette.scss \
       --replace-fail '$theme_color_default: #0088FF;' '$theme_color_default: ${tint.accent};'
 
+    # The five patterns below are bash double-quoted with \$-escaped dollars so
+    # the inner 'light'/'true' quotes survive bash parsing (single quotes inside
+    # single-quoted args were consumed as quoting syntax and never matched).
     substituteInPlace src/sass/_colors.scss \
-      --replace-fail '$base_color:                        if($variant == 'light', #ffffff, if($darker == 'true', #1f1f1f, #242424));' '$base_color:                        if($variant == 'light', #ffffff, ${tint.base});' \
-      --replace-fail '$text_color:                        if($variant == 'light', #363636, #dadada);' '$text_color:                        if($variant == 'light', #363636, ${tint.text});' \
-      --replace-fail '$bg_color:                          if($variant == 'light', #f5f5f5, if($darker == 'true', #282828, #333333));' '$bg_color:                          if($variant == 'light', #f5f5f5, ${tint.bg});' \
-      --replace-fail '$fg_color:                          if($variant == 'light', #242424, #dedede);' '$fg_color:                          if($variant == 'light', #242424, ${tint.fg});' \
-      --replace-fail '$selected_fg_color:                 $light_fg_color;' '$selected_fg_color:                 ${tint.onAccent};'
+      --replace-fail "\$base_color:                        if(\$variant == 'light', #ffffff, if(\$darker == 'true', #1f1f1f, #242424));" "\$base_color:                        if(\$variant == 'light', #ffffff, ${tint.base});" \
+      --replace-fail "\$text_color:                        if(\$variant == 'light', #363636, #dadada);" "\$text_color:                        if(\$variant == 'light', #363636, ${tint.text});" \
+      --replace-fail "\$bg_color:                          if(\$variant == 'light', #f5f5f5, if(\$darker == 'true', #282828, #333333));" "\$bg_color:                          if(\$variant == 'light', #f5f5f5, ${tint.bg});" \
+      --replace-fail "\$fg_color:                          if(\$variant == 'light', #242424, #dedede);" "\$fg_color:                          if(\$variant == 'light', #242424, ${tint.fg});" \
+      --replace-fail "\$selected_fg_color:                 \$light_fg_color;" "\$selected_fg_color:                 ${tint.onAccent};"
     patchShebangs install.sh libs/lib-install.sh libs/lib-core.sh
   '';
 

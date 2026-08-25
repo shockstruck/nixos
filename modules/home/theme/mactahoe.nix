@@ -121,8 +121,8 @@ let
       onAccent = f.mOnPrimary;
       base = f.mSurface;
       bg = f.mSurfaceVariant;
-      text = f.mOnSurface;
-      fg = f.mOnSurfaceVariant;
+      text = f.mOnSurfaceVariant; # vanilla $text_color dark = #dadada
+      fg = f.mOnSurface; # vanilla $fg_color dark = #dedede
     };
   };
 in
