@@ -147,7 +147,7 @@ in
     default = { inherit dark light; };
   };
 
-  gtk = {
+  config.gtk = {
     enable = true;
     theme = {
       name = "MacTahoe-Dark";
