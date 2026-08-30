@@ -14,6 +14,7 @@ in
     ./graphics.nix
     ./power.nix
     ./storage.nix
+    ./virtualisation.nix
   ];
 
   nixpkgs.hostPlatform = "x86_64-linux";
