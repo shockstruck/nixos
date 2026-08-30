@@ -80,6 +80,22 @@ in
     nix-info
     nixpkgs-fmt
 
+    # Bluefin-derived dev tooling (SHOC-46)
+    bpftrace
+    bpftop
+    trace-cmd
+    iotop
+    numactl
+    nicstat
+    tiptop
+    sysprof
+    android-tools
+    cdrkit
+    p7zip
+    flatpak-builder
+    wtype
+    just
+    gum
 
     # On ubuntu, we need this less for `man home-configuration.nix`'s pager to
     # work.

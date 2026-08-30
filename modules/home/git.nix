@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   home.shellAliases = {
     g = "git";
@@ -9,6 +9,8 @@
   programs = {
     git = {
       enable = true;
+      # gitFull carries git-svn (SHOC-46).
+      package = pkgs.gitFull;
       ignores = [ "*~" "*.swp" ];
       settings = {
         user.name = config.me.fullname;
