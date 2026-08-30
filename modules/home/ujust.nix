@@ -25,7 +25,7 @@ let
     # Lint nix files
     [group('repo')]
     lint:
-        nix fmt {{flake}}
+        cd {{flake}} && nix fmt
 
     # Check the nix flake
     [group('repo')]
