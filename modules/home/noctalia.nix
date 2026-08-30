@@ -48,6 +48,23 @@ in
 {
   imports = [ flake.inputs.noctalia.homeModules.default ];
 
+  # home-manager gained its own `programs.noctalia` module upstream
+  # (modules/programs/noctalia.nix, 2026-08-24), and home-manager auto-discovers
+  # everything under modules/programs via readDir. Its option declarations
+  # collide with the ones in the noctalia flake's homeModules.default, which
+  # broke evaluation outright when the weekly lock bump pulled that
+  # home-manager in (SHOC-46).
+  #
+  # Keep the flake's module and disable home-manager's copy: the flake is pinned
+  # to v5.0.0-beta.9, defaults `package` to the flake's own build, and provides
+  # the `settings` / `validateConfig` interface configured below, none of which
+  # home-manager's module offers. The path is spelled absolutely because
+  # home-manager does not set `modulesPath`, so a relative entry would not
+  # resolve.
+  disabledModules = [
+    "${flake.inputs.home-manager}/modules/programs/noctalia.nix"
+  ];
+
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     programs.noctalia = {
       enable = true;
