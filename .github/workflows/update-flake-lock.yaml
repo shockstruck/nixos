@@ -13,19 +13,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
       - name: Update flake.lock
         id: update
-        uses: DeterminateSystems/update-flake-lock@main
+        uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
         with:
+          # GitHub does not run workflows for branches pushed by, or PRs opened
+          # by, a GitHub Action using the default GITHUB_TOKEN. On 2026-08-30
+          # that produced a lock-bump PR whose CI run had zero jobs and failed in
+          # two seconds, which auto-merge then treated as no obstacle — landing
+          # an evaluation-breaking home-manager bump on main with no validation
+          # anywhere (SHOC-46).
+          #
+          # A PAT in GH_TOKEN_FOR_UPDATES makes the PR look human-authored so
+          # ci.yaml actually runs against it, and so the merge commit triggers
+          # the push build on main. The `|| github.token` fallback keeps this
+          # workflow working until that secret exists — but until it does, the
+          # PR is still unvalidated.
+          token: ${{ secrets.GH_TOKEN_FOR_UPDATES || github.token }}
           pr-title: "Update flake.lock"
           pr-labels: |
             automated
       - name: Enable auto-merge
         if: steps.update.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN_FOR_UPDATES || github.token }}
           PR_NUMBER: ${{ steps.update.outputs.pull-request-number }}
+        # `--auto` only waits for checks that a branch protection rule marks as
+        # required. With no required-status-check rule on main it merges
+        # immediately, validated or not. The rule is a repository setting, not a
+        # file in this repo — see the SHOC-46 handoff.
         run: gh pr merge --auto --squash "$PR_NUMBER"
