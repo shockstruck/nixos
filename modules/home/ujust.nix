@@ -8,43 +8,49 @@ let
   justfile = pkgs.writeText "ujust-justfile" ''
     # Global ujust recipes (SHOC-46). Run `ujust` from anywhere to list them.
 
+    # Path to the nixos flake checkout the repo-scoped recipes below operate
+    # on. Defaults to the current directory; export NIXOS_FLAKE to run them
+    # from elsewhere.
+    flake := env('NIXOS_FLAKE', '.')
+
     _default:
-        @just --list --list-heading $'Available commands:\n' --list-prefix $' - '
+        #!${pkgs.bash}/bin/bash
+        ${pkgs.just}/bin/just --list --list-heading $'Available commands:\n' --list-prefix $' - '
 
     # Update the flake inputs
-    [group('Main')]
+    [group('repo')]
     update:
-        nix flake update
+        nix flake update --flake {{flake}}
 
     # Lint nix files
-    [group('dev')]
+    [group('repo')]
     lint:
-        nix fmt
+        nix fmt {{flake}}
 
     # Check the nix flake
-    [group('dev')]
+    [group('repo')]
     check:
-        nix flake check
+        nix flake check {{flake}}
 
     # Manually enter the dev shell
-    [group('dev')]
+    [group('repo')]
     dev:
-        nix develop
+        nix develop {{flake}}
 
     # Activate the configuration
-    [group('Main')]
+    [group('repo')]
     run:
-        nix run
+        nix run {{flake}}
 
     # Rebuild and switch to the new generation
-    [group('Main')]
+    [group('repo')]
     switch:
-        sudo nixos-rebuild switch --flake .
+        sudo nixos-rebuild switch --flake {{flake}}
 
     # Rebuild and set as the boot default without switching
-    [group('Main')]
+    [group('repo')]
     boot:
-        sudo nixos-rebuild boot --flake .
+        sudo nixos-rebuild boot --flake {{flake}}
 
     # Roll back to the previous generation
     [group('Main')]
