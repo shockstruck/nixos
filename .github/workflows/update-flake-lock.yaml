@@ -1,48 +1,132 @@
 name: update-flake-lock
+
 on:
   workflow_dispatch: # allows manual triggering
   schedule:
-    - cron: '0 0 * * 0' # runs weekly on Sunday at 00:00
+    - cron: '0 0 * * 0' # runs weekly on Sunday at 00:00 UTC
 
-permissions:
-  contents: write
-  pull-requests: write
+# Least privilege: every write below is performed with the GitHub App
+# installation token minted in the first step, never with GITHUB_TOKEN.
+permissions: {}
+
+# Never let a manual run race the scheduled one onto the same PR branch.
+concurrency:
+  group: update-flake-lock
+  cancel-in-progress: false
 
 jobs:
-  example-lock:
+  update-lock:
+    name: Update flake.lock
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # GITHUB_TOKEN only needs to fetch the source; every write below is done
+      # with the App installation token.
+      contents: read
     steps:
+      # GitHub deliberately does not run workflows for branches pushed by, or
+      # PRs opened by, a GitHub Action using GITHUB_TOKEN. On 2026-08-30 that
+      # produced a lock-bump PR whose CI run had zero jobs, which auto-merge
+      # then treated as no obstacle — landing an evaluation-breaking
+      # home-manager bump on main with no validation anywhere (SHOC-46).
+      #
+      # A GitHub App installation token is not subject to that suppression:
+      # PRs and merge commits it creates do trigger ci.yaml. It is also
+      # short-lived (1h), scoped to this repository, and revoked when the job
+      # ends — unlike the long-lived PAT this previously called for.
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          # BOT_APP_ID holds the App ID. `app-id` is deprecated in favour of
+          # `client-id`; switch both together if the secret is ever moved to
+          # the App's Client ID.
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_SECRET_KEY }}
+
+      # Attributes the lock commit to the app's bot user rather than
+      # github-actions[bot], so the commit and the PR have the same author.
+      - name: Resolve bot commit identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          user_id="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          {
+            echo "name=${APP_SLUG}[bot]"
+            echo "email=${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # create-pull-request (used inside update-flake-lock) configures its
+          # own push credentials from the token it is given, so no credential
+          # needs to be persisted in .git/config.
+          persist-credentials: false
+
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
       - name: Update flake.lock
         id: update
         uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
         with:
-          # GitHub does not run workflows for branches pushed by, or PRs opened
-          # by, a GitHub Action using the default GITHUB_TOKEN. On 2026-08-30
-          # that produced a lock-bump PR whose CI run had zero jobs and failed in
-          # two seconds, which auto-merge then treated as no obstacle — landing
-          # an evaluation-breaking home-manager bump on main with no validation
-          # anywhere (SHOC-46).
-          #
-          # A PAT in GH_TOKEN_FOR_UPDATES makes the PR look human-authored so
-          # ci.yaml actually runs against it, and so the merge commit triggers
-          # the push build on main. The `|| github.token` fallback keeps this
-          # workflow working until that secret exists — but until it does, the
-          # PR is still unvalidated.
-          token: ${{ secrets.GH_TOKEN_FOR_UPDATES || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
           pr-title: "Update flake.lock"
           pr-labels: |
             automated
+          git-author-name: ${{ steps.bot.outputs.name }}
+          git-author-email: ${{ steps.bot.outputs.email }}
+          git-committer-name: ${{ steps.bot.outputs.name }}
+          git-committer-email: ${{ steps.bot.outputs.email }}
+          # The upstream default body tells readers to close and reopen the PR
+          # to get CI to run. That advice does not apply here — the App token
+          # already makes ci.yaml run — and following it would be misleading.
+          pr-body: |
+            Automated `flake.lock` update by the
+            [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock)
+            workflow, opened as a GitHub App so that CI runs against it.
+
+            ```
+            {{ env.GIT_COMMIT_MESSAGE }}
+            ```
+
+      # `gh pr merge --auto` only *waits* for checks that a branch protection
+      # rule or ruleset marks as required. With no required check on the base
+      # branch it merges the lock bump immediately, unvalidated — the SHOC-46
+      # failure. So enable auto-merge only once such a rule exists, and
+      # otherwise leave the PR open for review rather than merging blind.
       - name: Enable auto-merge
         if: steps.update.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN_FOR_UPDATES || github.token }}
-          PR_NUMBER: ${{ steps.update.outputs.pull-request-number }}
-        # `--auto` only waits for checks that a branch protection rule marks as
-        # required. With no required-status-check rule on main it merges
-        # immediately, validated or not. The rule is a repository setting, not a
-        # file in this repo — see the SHOC-46 handoff.
-        run: gh pr merge --auto --squash "$PR_NUMBER"
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.update.outputs.pull-request-url }}
+          BASE_BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Anything that is not a plain count (API error, missing endpoint,
+          # insufficient token scope) is treated as "no required checks", so
+          # the fail-safe direction is always "do not auto-merge".
+          count() { if printf '%s' "$1" | grep -Eq '^[0-9]+$'; then printf '%s' "$1"; else printf '0'; fi; }
+
+          # Rulesets (current API).
+          ruleset_checks="$(count "$(gh api "repos/${REPO}/rules/branches/${BASE_BRANCH}" \
+            --jq '[.[] | select(.type == "required_status_checks")] | length' 2>/dev/null || true)")"
+
+          # Classic branch protection (legacy API, needs administration:read).
+          classic_checks="$(count "$(gh api "repos/${REPO}/branches/${BASE_BRANCH}/protection" \
+            --jq '.required_status_checks.contexts // [] | length' 2>/dev/null || true)")"
+
+          echo "required status checks on ${BASE_BRANCH}: ruleset=${ruleset_checks} classic=${classic_checks}"
+
+          if [ "$ruleset_checks" -gt 0 ] || [ "$classic_checks" -gt 0 ]; then
+            gh pr merge --auto --squash "$PR_URL"
+            echo "Auto-merge enabled; the PR will merge once required checks pass."
+          else
+            echo "::warning::Auto-merge NOT enabled: ${BASE_BRANCH} has no required status checks, so --auto would merge this lock bump without waiting for CI (SHOC-46). Add a branch ruleset requiring the 'CI / ci-passed' check to re-enable it. ${PR_URL} is open for review."
+          fi
