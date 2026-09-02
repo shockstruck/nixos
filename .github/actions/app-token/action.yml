@@ -6,7 +6,7 @@ inputs:
     description: "GitHub App ID (secrets.BOT_APP_ID)"
     required: true
   private-key:
-    description: "GitHub App private key, the .pem file verbatim (secrets.BOT_APP_SECRET_KEY)"
+    description: "GitHub App private key, the .pem file verbatim (secrets.BOT_APP_PRIVATE_KEY)"
     required: true
 
 outputs:
@@ -27,10 +27,12 @@ runs:
   using: composite
   steps:
     # The private key must be the PEM file verbatim, real newlines and all. A
-    # key pasted as one line, base64-encoded, or with CRLF endings fails inside
-    # the token action with a bare `ERR_OSSL_UNSUPPORTED` from OpenSSL and no
-    # hint at the cause — which is exactly how run 33594528520 failed. Check
-    # the shape first and say what to do about it. Nothing here prints the key.
+    # key whose newlines were flattened on paste, or that was base64-encoded,
+    # fails inside the token action with a bare `ERR_OSSL_UNSUPPORTED` from
+    # OpenSSL and no hint at the cause — which is how runs 33594528520 and
+    # 33595229372 failed. Name the cause instead. Nothing here prints the key:
+    # the shape checks report only counts, and openssl runs with -noout and its
+    # stderr discarded.
     - name: Check App credentials are well-formed
       shell: bash
       env:
@@ -40,38 +42,50 @@ runs:
         set -euo pipefail
 
         restore="Re-store it from the .pem file so the newlines survive:
-          gh secret set BOT_APP_SECRET_KEY --repo ${GITHUB_REPOSITORY} < your-app.private-key.pem"
+          gh secret set BOT_APP_PRIVATE_KEY --repo ${GITHUB_REPOSITORY} < your-app.private-key.pem
+        (shockstruck/k8s-gitops uses that same secret name with a working key.)"
 
         fail() { echo "::error::$*"; exit 1; }
 
-        [ -n "$APP_ID" ] || fail "BOT_APP_ID is not set for this repository."
-        [ -n "$PRIVATE_KEY" ] || fail "BOT_APP_SECRET_KEY is not set for this repository."
+        [ -n "$APP_ID" ] || fail "No App ID: BOT_APP_ID is not set for this repository."
+        [ -n "$PRIVATE_KEY" ] || fail "No App private key: neither BOT_APP_PRIVATE_KEY nor BOT_APP_SECRET_KEY is set for this repository."
 
         case "$PRIVATE_KEY" in
           "-----BEGIN "*) ;;
-          *) fail "BOT_APP_SECRET_KEY does not start with '-----BEGIN'. It is not a PEM — a base64-encoded key or a stray quote will do this. ${restore}" ;;
+          *) fail "The App private key does not start with '-----BEGIN'. It is not a PEM — a base64-encoded key, or the App's client secret stored by mistake, will look like this. ${restore}" ;;
         esac
 
         if printf '%s' "$PRIVATE_KEY" | grep -q $'\r'; then
-          fail "BOT_APP_SECRET_KEY has CRLF line endings; GitHub's PEM parser needs Unix newlines. ${restore}"
+          fail "The App private key has CRLF line endings; the PEM parser needs Unix newlines. ${restore}"
         fi
 
-        newlines="$(printf '%s' "$PRIVATE_KEY" | grep -c '' || true)"
-        if [ "$newlines" -lt 3 ]; then
-          fail "BOT_APP_SECRET_KEY is ${newlines} line(s); a PEM is many. The real newlines were lost — a literal \\n in the secret does not work. ${restore}"
+        lines="$(printf '%s' "$PRIVATE_KEY" | grep -c '' || true)"
+        if [ "$lines" -lt 4 ]; then
+          fail "The App private key is ${lines} line(s); a PEM is around 28. Its real newlines were lost on the way into the secret — a literal \\n does not work. ${restore}"
         fi
 
-        echo "App credentials look well-formed: BOT_APP_ID set, PEM spans ${newlines} lines."
+        # Catch-all: whatever the shape checks missed, OpenSSL is the parser
+        # that actually has to accept this key.
+        if ! printf '%s\n' "$PRIVATE_KEY" | openssl pkey -noout >/dev/null 2>&1; then
+          fail "The App private key is ${lines} lines and looks like a PEM, but OpenSSL cannot parse it as a private key. ${restore}"
+        fi
+
+        echo "App credentials look well-formed: App ID set, PEM spans ${lines} lines and parses."
 
     - name: Create installation token
       id: token
-      # `app-id` is deprecated upstream in favour of `client-id`; it still works
-      # and BOT_APP_ID genuinely holds an App ID. Switch both together if that
-      # secret is ever moved to the App's Client ID.
-      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      # Same action and same pin shockstruck/k8s-gitops uses, so both repos
+      # exchange the App credentials identically. v2's `app-id` input is also
+      # what BOT_APP_ID actually holds — v3 deprecates it in favour of
+      # `client-id` and warns on every run.
+      uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
       with:
         app-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.private-key }}
+        # Narrow the token to what the two callers need: push the lock branch
+        # and merge it (contents), open and merge the PR (pull-requests).
+        permission-contents: write
+        permission-pull-requests: write
 
     # Attributes commits to the app's own bot user rather than
     # github-actions[bot], so a commit and the PR carrying it share an author.
