@@ -102,6 +102,32 @@ in
             open_near_click_control_center = true;
           };
           screen_corners.enabled = true;
+
+          # Greeter appearance sync stays OFF (SHOC-83, decided on SHOC-33).
+          #
+          # With auto_sync on, Noctalia re-syncs the greeter whenever the
+          # wallpaper, colors, theme mode or shell font change, and each sync
+          # stages files into $XDG_RUNTIME_DIR/noctalia-greeter-sync and runs
+          # `noctalia-greeter-apply-appearance` through a privilege escalator
+          # (`run0` if on PATH, else `pkexec` — process::resolvePrivilegeEscalator,
+          # noctalia rev a064c063). Both escalation paths demand an admin password
+          # with no usable grace at this cadence, so combined with the 30-minute
+          # `wallpaper.automation` rotation below it produced an administrator
+          # password prompt on every wallpaper change.
+          #
+          # Security Identity Lead reviewed and DECLINED the alternative fix — a
+          # passwordless polkit rule for the helper — because the helper does not
+          # validate the staging directory it is handed and its file copy follows
+          # symlinks. Do not add such a rule here or anywhere else.
+          #
+          # This pin is declared intent, not enforcement: Noctalia layers GUI
+          # overrides from ~/.local/state/noctalia/settings.toml OVER the
+          # store-symlinked ~/.config/noctalia/config.toml this module generates,
+          # so a toggle set in Noctalia Settings still wins over this value. The
+          # override has to be cleared on the workstation by hand (untoggle
+          # Auto-Sync Greeter, or drop the greeter_sync key from that file).
+          # Re-sync the greeter deliberately with Sync Now when it is wanted.
+          greeter_sync.auto_sync = false;
         };
 
         # Active theme = the mactahoe-default palette (SHOA-1102,
