@@ -1,18 +1,39 @@
-name: "CI"
+name: CI
+
 on:
   push:
     branches:
       - main
       - ci/**
   pull_request:
+  workflow_dispatch:
+
+# Least privilege by default: no job gets a token scope it does not ask for.
+permissions: {}
+
+# One in-flight run per ref. Superseded runs on PRs and feature branches are
+# cancelled so a 1h+ build is not spent on a commit nobody is waiting for; runs
+# on main are never cancelled, so every commit that lands keeps a build record.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   validate:
+    name: Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Nothing here pushes; do not leave a credential in .git/config.
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
 
       - name: Evaluate flake outputs
         run: nix flake show --no-write-lock-file
@@ -20,6 +41,8 @@ jobs:
       - name: Check installer syntax
         run: bash -n install.sh
 
+      # Scoped to the paths known to be nixpkgs-fmt clean. Widening this to the
+      # whole tree needs one `nix fmt` pass over the other .nix files first.
       - name: Check formatting
         run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop
 
@@ -29,8 +52,10 @@ jobs:
           nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
 
   build:
+    name: Build (${{ matrix.host }})
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     permissions:
       contents: read
     strategy:
@@ -38,11 +63,42 @@ jobs:
       matrix:
         host: [desktop, laptop]
     steps:
-      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           tool-cache: true
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
+
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
 
       - name: Build ${{ matrix.host }} configuration
         run: nix build --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+
+  # Single stable check name to mark as a required status check on main. The
+  # matrix job names change whenever the host list changes; this one does not,
+  # so a branch ruleset that requires "CI / ci-passed" keeps working. Without a
+  # required check, `gh pr merge --auto` merges immediately (SHOC-46).
+  ci-passed:
+    name: ci-passed
+    if: always()
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Assert every upstream job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "upstream results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::CI did not pass (a required job reported '$result')."
+              exit 1
+            fi
+          done
