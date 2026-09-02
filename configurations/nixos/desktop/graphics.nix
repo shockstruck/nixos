@@ -6,6 +6,15 @@
     enable32Bit = true;
   };
 
+  # ROCm OpenCL (SHOC-46): amdgpu.nix wires rocmPackages.clr + clr.icd into
+  # hardware.graphics.extraPackages for us.
+  hardware.amdgpu.opencl.enable = true;
+
+  environment.systemPackages = [
+    pkgs.rocmPackages.rocm-smi
+    pkgs.rocmPackages.rocminfo
+  ];
+
   services.xserver.videoDrivers = [ "amdgpu" ];
 
   services.ollama = {
