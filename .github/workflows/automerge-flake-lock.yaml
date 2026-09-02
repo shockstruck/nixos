@@ -1,0 +1,131 @@
+name: automerge-flake-lock
+
+# Merges the automated flake-update PR once CI has actually passed on the exact
+# commit CI tested.
+#
+# Why not `gh pr merge --auto` from update-flake-lock.yaml: `--auto` only waits
+# for checks that a ruleset or branch protection marks as *required*. `main` has
+# no such rule, so `--auto` merges the moment it is enabled — validated or not.
+# That is the SHOC-46 failure. This workflow gates on the CI run itself, so the
+# lock PR lands automatically whether or not a ruleset ever exists.
+#
+# `workflow_run` runs from the default branch with the repository's secrets and
+# never executes PR code, so this is safe even though it holds a write token.
+# It also means this file has no effect until it is merged to the default
+# branch — a workflow_run trigger is only ever read from there.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: automerge-flake-lock
+  cancel-in-progress: false
+
+env:
+  # Shared with update-flake-lock.yaml — both must name the same branch.
+  LOCK_BRANCH: update_flake_lock_action
+
+jobs:
+  merge:
+    name: Merge flake update
+    # Narrow before doing anything: a successful CI run, for a pull_request,
+    # from a branch in this repository (never a fork), on the lock branch.
+    # The branch name is spelled out here because the `env` context is not
+    # available in a job-level `if`; keep it in step with LOCK_BRANCH above.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'update_flake_lock_action'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Only to fetch the composite action; the merge uses the App token.
+      contents: read
+    steps:
+      # Checked out only to reach the local composite action below; the merge
+      # itself is done entirely through the API. workflow_run checks out the
+      # default branch, which is where this workflow already runs from.
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Mint GitHub App token
+        id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_SECRET_KEY }}
+
+      - name: Verify and merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+
+          number="$(gh pr list --repo "$REPO" --head "$LOCK_BRANCH" --base "$BASE_BRANCH" \
+            --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$number" ]; then
+            echo "No open PR on ${LOCK_BRANCH}; nothing to merge."
+            exit 0
+          fi
+
+          pr="$(gh pr view "$number" --repo "$REPO" --json headRefOid,isDraft,author,files)"
+
+          head_oid="$(jq -r '.headRefOid' <<<"$pr")"
+          is_draft="$(jq -r '.isDraft' <<<"$pr")"
+          # GraphQL reports a Bot author's login without the "[bot]" suffix.
+          author="$(jq -r '.author.login' <<<"$pr" | sed 's/\[bot\]$//')"
+          mapfile -t changed < <(jq -r '.files[].path' <<<"$pr")
+
+          # CI validated HEAD_SHA. If the PR has moved on since, this run's
+          # verdict says nothing about what would be merged.
+          if [ "$head_oid" != "$HEAD_SHA" ]; then
+            echo "PR #${number} is at ${head_oid}, CI passed on ${HEAD_SHA}; skipping."
+            exit 0
+          fi
+
+          if [ "$is_draft" = "true" ]; then
+            echo "PR #${number} is a draft; skipping."
+            exit 0
+          fi
+
+          if [ "$author" != "$APP_SLUG" ]; then
+            echo "::error::PR #${number} is authored by '${author}', not the '${APP_SLUG}' app. Refusing to merge."
+            exit 1
+          fi
+
+          # A flake update touches these two files and nothing else. Anything
+          # broader on this branch is not the automation's work.
+          for path in "${changed[@]}"; do
+            case "$path" in
+              flake.nix | flake.lock) ;;
+              *)
+                echo "::error::PR #${number} changes '${path}', which is outside flake.nix/flake.lock. Refusing to merge."
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "PR #${number} at ${head_oid} passed CI and changes only: ${changed[*]}"
+
+          # --match-head-commit closes the window between the check above and
+          # the merge itself. If a ruleset later adds required checks that have
+          # not reported yet, the direct merge is rejected — fall back to
+          # queueing auto-merge, which then waits for them.
+          if gh pr merge "$number" --repo "$REPO" --squash --delete-branch \
+            --match-head-commit "$head_oid"; then
+            echo "Merged PR #${number}."
+          else
+            echo "Direct merge rejected; queueing auto-merge instead."
+            gh pr merge "$number" --repo "$REPO" --squash --delete-branch --auto \
+              --match-head-commit "$head_oid"
+          fi
