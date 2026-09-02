@@ -76,5 +76,6 @@
     pkgs.nerd-fonts.jetbrains-mono
     pkgs.rubik
     pkgs.twemoji-color-font
+    pkgs.cascadia-code
   ];
 }
