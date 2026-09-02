@@ -8,6 +8,8 @@ in
   #
   # Search for packages here: https://search.nixos.org/packages
   home.packages = with pkgs; [
+    claude-code
+    codex
     omnix
     opencode
 
@@ -15,6 +17,7 @@ in
     bitwarden-desktop
     bolt-launcher
     brave
+    code-cursor
     ente-auth
     firefox
     github-desktop
