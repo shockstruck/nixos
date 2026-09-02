@@ -97,9 +97,10 @@ jobs:
       # Packages under packages/ pin their own version and hash by hand, so
       # `nix flake update` can never move them — paperweight sat on 0.5.0 while
       # upstream had shipped 0.6.0. nix-update bumps each one to its newest
-      # upstream release and rewrites the hash, reaching them through the flake
-      # attributes added in modules/flake/packages.nix. A package whose src is
-      # a local path has no upstream and is skipped.
+      # upstream release and rewrites the hash, addressing them through the
+      # `packages.<system>.<name>` attributes nixos-unified already autowires
+      # from this directory. A package whose src is a local path has no
+      # upstream and is skipped.
       #
       # Failure to update one package must not cost the whole refresh, so each
       # is attempted independently and a failed one is reverted and reported.
