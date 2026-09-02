@@ -59,7 +59,9 @@ jobs:
         uses: ./.github/actions/app-token
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
-          private-key: ${{ secrets.BOT_APP_SECRET_KEY }}
+          # Prefer the secret name shockstruck/k8s-gitops uses, so one working
+          # PEM can serve both repos; fall back to the name created here first.
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY || secrets.BOT_APP_SECRET_KEY }}
 
       # `nix flake update` re-locks each input against the ref written in
       # flake.nix, so an input pinned to a release tag never advances on its
