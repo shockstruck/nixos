@@ -84,8 +84,9 @@ jobs:
 
           head_oid="$(jq -r '.headRefOid' <<<"$pr")"
           is_draft="$(jq -r '.isDraft' <<<"$pr")"
-          # GraphQL reports a Bot author's login without the "[bot]" suffix.
-          author="$(jq -r '.author.login' <<<"$pr" | sed 's/\[bot\]$//')"
+          # gh renders a Bot author as "app/<slug>", while GraphQL itself omits
+          # the "[bot]" suffix. Strip both so this compares against app-slug.
+          author="$(jq -r '.author.login' <<<"$pr" | sed -e 's#^app/##' -e 's/\[bot\]$//')"
           mapfile -t changed < <(jq -r '.files[].path' <<<"$pr")
 
           # CI validated HEAD_SHA. If the PR has moved on since, this run's
