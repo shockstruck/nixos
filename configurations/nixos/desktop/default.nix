@@ -13,6 +13,7 @@ in
     ./hardware.nix
     ./graphics.nix
     ./power.nix
+    ./scheduler.nix
     ./storage.nix
     ./virtualisation.nix
   ];
