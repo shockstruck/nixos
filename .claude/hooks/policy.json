@@ -1,0 +1,29 @@
+{
+  "repository": "shockstruck/nixos, the NixOS and Home Manager source for the workstations. Flake-based, built with nixos-unified; `configurations/` holds the hosts, `modules/` the shared options, and `flake.lock` pins every input. An evaluation, a build or an activation here takes an hour or more, so agents change the source and CI performs the build",
+  "blockedCommands": {
+    "nixos-rebuild": "nixos-rebuild switches, builds or tests the running system. Activation needs a separately approved change with a rollback, never an agent session. Edit the configuration and let CI build it.",
+    "nixos-install": "nixos-install writes a new system to disk. Installation is never an agent action.",
+    "home-manager": "home-manager switch/build activates or realises the user environment, which takes an hour and changes the running workstation. Edit the configuration and let CI build it.",
+    "disko": "disko partitions and formats disks. Partitioning is never an agent action.",
+    "kubectl": "kubectl is blocked. This repository is workstation source; cluster state lives in k8s-gitops.",
+    "flux": "flux CLI is blocked. This repository is workstation source, not cluster intent.",
+    "helm": "helm is blocked. This repository is workstation source.",
+    "talosctl": "talosctl is blocked. Talos is k8s-gitops' concern.",
+    "sops": "sops is blocked. Do not decrypt or print secret material in an agent session."
+  },
+  "taskIdentifiers": {
+    "prefixes": ["SHOC", "PRO", "MUL"],
+    "paths": ["**"]
+  },
+  "comments": {
+    "paths": [],
+    "suffixes": [".yaml", ".yml", ".toml", ".ini", ".conf"],
+    "directives": ["yaml-language-server:", "renovate:"],
+    "excludedPaths": [],
+    "guidance": ""
+  },
+  "validation": {
+    "commandPattern": "nix\\s+fmt\\b|just\\s+lint\\b|bash\\s+-n\\s+install\\.sh|scripts/test-agent-hooks\\.py",
+    "hint": "`nix fmt -- --check <paths>` or `just lint` for a Nix change, `bash -n install.sh` for the installer, and `python3 scripts/test-agent-hooks.py` for a hook or policy change. Never a build: an evaluation or activation takes an hour and CI owns that gate"
+  }
+}

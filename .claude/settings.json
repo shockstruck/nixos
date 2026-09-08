@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+      "AskUserQuestion",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(jq *)",
+      "Bash(just lint *)",
+      "Bash(nix flake metadata *)",
+      "Bash(nix flake show *)",
+      "Bash(nix fmt *)",
+      "Bash(nix-instantiate --parse *)",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Read",
+      "Skill",
+      "Task",
+      "TodoWrite",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "deny": [
+      "Bash(disko *)",
+      "Bash(flux *)",
+      "Bash(helm *)",
+      "Bash(home-manager *)",
+      "Bash(just check *)",
+      "Bash(just dev *)",
+      "Bash(just run *)",
+      "Bash(just update *)",
+      "Bash(kubectl *)",
+      "Bash(nix build *)",
+      "Bash(nix develop *)",
+      "Bash(nix flake check *)",
+      "Bash(nix flake update *)",
+      "Bash(nix profile *)",
+      "Bash(nix repl *)",
+      "Bash(nix run *)",
+      "Bash(nix shell *)",
+      "Bash(nixos-install *)",
+      "Bash(nixos-rebuild *)",
+      "Bash(sops *)",
+      "Bash(talosctl *)",
+      "CronCreate",
+      "Monitor",
+      "Read(./**/*.agekey)",
+      "Read(./**/*.env)",
+      "Read(./**/*.env.*)",
+      "Read(./**/*.key)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.tfvars)",
+      "Read(./**/kubeconfig)",
+      "Read(./**/talosconfig)",
+      "Read(./**/terraform.tfstate*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.mcp.json)",
+      "Read(./.private/**)",
+      "Read(./secrets/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.config/sops/age/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.ssh/**)",
+      "RemoteTrigger",
+      "ScheduleWakeup"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-runtime.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-nix-realise.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-git-unsafe.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-gh-unsafe.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/require-validation-before-git.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-config-commentary.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/probity.sh\""
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_CRON": "1",
+    "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
+  }
+}
