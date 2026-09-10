@@ -94,7 +94,7 @@ resolve to their `default.nix`.
 
 | Module | Contents |
 | --- | --- |
-| `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
+| `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` option and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `gui/default.nix` | Imports `./brave.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
