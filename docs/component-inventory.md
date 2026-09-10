@@ -67,7 +67,7 @@ resolve to their `default.nix`.
 | Module | Purpose |
 | --- | --- |
 | `bitwarden.nix` | Bitwarden vault config + `bw-ssh-pull` helper script |
-| `brave.nix` | `programs.brave.enable` + Bitwarden extension |
+| `brave.nix` | `programs.brave-origin.enable` + Bitwarden extension |
 | `direnv.nix` | direnv setup (`programs.direnv` with `nix-direnv`) |
 | `fastfetch.nix` | fastfetch with the Noctalia theme + NGR logo (SHOA-1058) |
 | `gc.nix` | Home-manager garbage collection |
