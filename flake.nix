@@ -30,7 +30,7 @@
     # restoring the SHOA-1002 stasis manager); its Home Manager module provides
     # `services.stasis`, wired in modules/home/idle.nix, and its RUNE plan runs
     # Noctalia's native lock screen via `noctalia msg session lock`.
-    stasis.url = "github:saltnpepper97/stasis/v1.5.1";
+    stasis.url = "github:saltnpepper97/stasis/v1.6.3";
     stasis.inputs.nixpkgs.follows = "nixpkgs";
     stasis.inputs.flake-parts.follows = "flake-parts";
 
