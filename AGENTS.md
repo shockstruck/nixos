@@ -7,7 +7,7 @@ file.
 ## Validation policy — cheap validation only
 
 Nix compiles/realises and CI runs each take an hour or more. Agents must not
-burn a heartbeat on them. Formatting is the only local validation you run; CI
+burn a run on them. Formatting is the only local validation you run; CI
 and the human are the compile/build/activation gate.
 
 ### Prohibited during iteration
@@ -25,7 +25,7 @@ activation — each takes 1h+:
 - any other command that realises a derivation
 
 Do not wait for or poll CI to go green before proceeding or handing off. CI also
-takes 1h+. Push your change and hand off; never block a heartbeat on CI.
+takes 1h+. Push your change and hand off; never block a run on CI.
 
 ### Permitted validation — the ceiling
 
