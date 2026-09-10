@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `75a9f74` (2026-08-25). This doc is not
+Captured against `origin/main` @ `5ce5ab2` (2026-09-10). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -67,6 +67,7 @@ resolve to their `default.nix`.
 | Module | Purpose |
 | --- | --- |
 | `bitwarden.nix` | Bitwarden vault config + `bw-ssh-pull` helper script |
+| `brave.nix` | `programs.brave.enable` + Bitwarden extension |
 | `direnv.nix` | direnv setup (`programs.direnv` with `nix-direnv`) |
 | `fastfetch.nix` | fastfetch with the Noctalia theme + NGR logo (SHOA-1058) |
 | `gc.nix` | Home-manager garbage collection |
@@ -96,7 +97,8 @@ resolve to their `default.nix`.
 | `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` option and per-user top-level configuration; system-wide `programs.zsh.enable` |
-| `gui/default.nix` | Imports `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
+| `gui/default.nix` | Imports `./brave.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
+| `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
 
 ### Darwin modules — `modules/darwin/`
@@ -123,7 +125,7 @@ resolve to their `default.nix`.
 | Group | Packages |
 | --- | --- |
 | General | `omnix`, `opencode` |
-| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `brave`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `splayer-next`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vicinae`, `vscodium` |
+| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `splayer-next`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vicinae`, `vscodium` |
 | Unix tools | `age`, `ansible`, `bitwarden-cli`, `cloudflared`, `crane`, `fluxcd`, `gh`, `go-task`, `helmfile`, `kubeconform`, `kubecolor`, `kubectl`, `kubernetes-helm`, `kustomize`, `minijinja`, `mise`, `ranger`, `ripgrep`, `fd`, `sd`, `sops`, `stern`, `talhelper`, `talosctl`, `terraform`, `tree`, `gnumake`, `yamllint`, `yq-go`, `proton-pass-cli`, `_1password-cli` |
 | Nix dev | `cachix`, `nil`, `nix-info`, `nixpkgs-fmt` |
 | Other | `less` (man pager) |

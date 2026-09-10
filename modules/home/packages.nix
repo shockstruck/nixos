@@ -16,7 +16,6 @@ in
     # Desktop applications
     bitwarden-desktop
     bolt-launcher
-    brave
     code-cursor
     ente-auth
     firefox

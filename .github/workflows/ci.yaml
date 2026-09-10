@@ -44,7 +44,7 @@ jobs:
       # Scoped to the paths known to be nixpkgs-fmt clean. Widening this to the
       # whole tree needs one `nix fmt` pass over the other .nix files first.
       - name: Check formatting
-        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop
+        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix modules/home/brave.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop
 
       - name: Evaluate workstation configurations
         run: |
