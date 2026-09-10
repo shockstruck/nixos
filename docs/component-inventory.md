@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `75a9f74` (2026-08-25). This doc is not
+Captured against `origin/main` @ `5ce5ab2` (2026-09-10). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -93,7 +93,7 @@ resolve to their `default.nix`.
 
 | Module | Contents |
 | --- | --- |
-| `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
+| `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` option and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `gui/default.nix` | Imports `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
