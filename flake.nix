@@ -46,7 +46,7 @@
     # `homeModules.default` provides the `programs.noctalia` Home-Manager
     # interface consumed by modules/home/noctalia.nix; the systemd user service
     # binds to graphical-session.target, which the Hyprland session satisfies.
-    noctalia.url = "github:noctalia-dev/noctalia-shell/v5.0.1";
+    noctalia.url = "github:noctalia-dev/noctalia-shell/v5.1.0";
     noctalia.inputs.nixpkgs.follows = "nixpkgs";
   };
 
