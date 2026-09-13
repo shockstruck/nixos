@@ -21,11 +21,14 @@ concurrency:
 jobs:
   # Most PRs only touch shared or host config, which `validate` already
   # evaluates and format-checks in about two minutes, so the required check
-  # `ci-passed` passes on `validate` alone for those; the hour-long `build`
-  # matrix only runs when a change can actually break a build — a push to
-  # main, a manual dispatch, an edit to `flake.lock`, `packages/**` or this
-  # workflow file, or a PR explicitly carrying the `full-build` label — so a
-  # skipped `build` on an ordinary PR is the expected outcome, not a failure.
+  # `ci-passed` passes on `validate` alone for those. The hour-long `build`
+  # matrix only runs on a push to main, a manual dispatch, an edit to
+  # `flake.lock`, or a PR explicitly carrying the `full-build` label. A PR
+  # that only edits `packages/**` instead builds just the changed packages
+  # via the `packages` job — minutes, not the full host matrix. Editing this
+  # workflow file no longer triggers either the matrix or a package build, so
+  # a skipped `build` and/or `packages` job on an ordinary PR is the expected
+  # outcome, not a failure.
   changes:
     name: Determine build need
     runs-on: ubuntu-latest
@@ -34,6 +37,7 @@ jobs:
       contents: read
     outputs:
       build: ${{ steps.decide.outputs.build }}
+      packages: ${{ steps.decide.outputs.packages }}
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -52,11 +56,13 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "packages=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ "$HAS_FULL_BUILD_LABEL" = "true" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "packages=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -67,7 +73,19 @@ jobs:
           echo "changed files:"
           echo "$CHANGED_FILES"
 
-          if echo "$CHANGED_FILES" | grep -Eq '^(flake\.lock|\.github/workflows/ci\.yaml)$|^packages/'; then
+          PACKAGE_NAMES=$(echo "$CHANGED_FILES" | grep -E '^packages/' | sed -E 's#^packages/([^/]+).*#\1#; s/\.nix$//' | sort -u)
+          CHANGED_PACKAGES=""
+          for name in $PACKAGE_NAMES; do
+            if [ -f "packages/$name.nix" ]; then
+              CHANGED_PACKAGES="$CHANGED_PACKAGES $name"
+            fi
+          done
+          CHANGED_PACKAGES=$(echo $CHANGED_PACKAGES)
+          echo "changed packages:"
+          echo "$CHANGED_PACKAGES"
+          echo "packages=$CHANGED_PACKAGES" >> "$GITHUB_OUTPUT"
+
+          if echo "$CHANGED_FILES" | grep -Eq '^flake\.lock$'; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -134,6 +152,31 @@ jobs:
       - name: Build ${{ matrix.host }} configuration
         run: nix build --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
 
+  packages:
+    name: Build changed packages
+    needs: changes
+    if: needs.changes.outputs.packages != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
+
+      - name: Build changed packages
+        env:
+          PACKAGES: ${{ needs.changes.outputs.packages }}
+        run: |
+          for p in $PACKAGES; do
+            nix build --no-link ".#$p"
+          done
+
   # Single stable check name to mark as a required status check on main. The
   # matrix job names change whenever the host list changes; this one does not,
   # so a branch ruleset that requires "CI / ci-passed" keeps working. Without a
@@ -141,7 +184,7 @@ jobs:
   ci-passed:
     name: ci-passed
     if: always()
-    needs: [changes, validate, build]
+    needs: [changes, validate, build, packages]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -152,21 +195,26 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           BUILD_NEEDED: ${{ needs.changes.outputs.build }}
+          PACKAGES_RESULT: ${{ needs.packages.result }}
+          PACKAGES_NEEDED: ${{ needs.changes.outputs.packages }}
         run: |
-          echo "changes=$CHANGES_RESULT validate=$VALIDATE_RESULT build=$BUILD_RESULT build_needed=$BUILD_NEEDED"
+          echo "changes=$CHANGES_RESULT validate=$VALIDATE_RESULT build=$BUILD_RESULT build_needed=$BUILD_NEEDED packages=$PACKAGES_RESULT packages_needed=$PACKAGES_NEEDED"
 
           if [ "$CHANGES_RESULT" != "success" ] || [ "$VALIDATE_RESULT" != "success" ]; then
             echo "::error::CI did not pass (changes or validate did not succeed)."
             exit 1
           fi
 
-          if [ "$BUILD_RESULT" = "success" ]; then
-            exit 0
+          if [ "$BUILD_RESULT" != "success" ]; then
+            if [ "$BUILD_RESULT" != "skipped" ] || [ "$BUILD_NEEDED" != "false" ]; then
+              echo "::error::CI did not pass (build reported '$BUILD_RESULT' while build_needed='$BUILD_NEEDED')."
+              exit 1
+            fi
           fi
 
-          if [ "$BUILD_RESULT" = "skipped" ] && [ "$BUILD_NEEDED" = "false" ]; then
-            exit 0
+          if [ "$PACKAGES_RESULT" != "success" ]; then
+            if [ "$PACKAGES_RESULT" != "skipped" ] || [ -n "$PACKAGES_NEEDED" ]; then
+              echo "::error::CI did not pass (packages reported '$PACKAGES_RESULT' while packages_needed='$PACKAGES_NEEDED')."
+              exit 1
+            fi
           fi
-
-          echo "::error::CI did not pass (build reported '$BUILD_RESULT' while build_needed='$BUILD_NEEDED')."
-          exit 1
