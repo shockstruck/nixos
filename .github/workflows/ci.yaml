@@ -163,8 +163,63 @@ jobs:
             extra-substituters = https://cache.nixos-cuda.org
             extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
 
+      # Repo-scoped Nix binary cache carried in the GitHub Actions cache
+      # (free, CI-only, no external account or secret). `actions/cache`
+      # needs no token permission beyond this job's default (`contents:
+      # read`) — deleting caches via the REST API is the only operation
+      # that needs `actions: write`, and this workflow never does that.
+      - name: Restore Nix cache
+        id: nix-cache-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: nix-cache-${{ matrix.host }}-${{ hashFiles('flake.lock') }}
+          restore-keys: |
+            nix-cache-${{ matrix.host }}-
+
+      # Plan against upstream substituters only (the file cache isn't wired
+      # in yet), so this list reflects only what cache.nixos.org and the
+      # CUDA cache cannot supply. The licence allowlist keeps code-cursor,
+      # lmstudio, discord, 1password-cli and claude-code out of the copy
+      # step below, regardless of cache-hit state.
+      - name: Plan what upstream can't supply
+        run: |
+          nix build --dry-run --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel" 2>&1 | tee "$RUNNER_TEMP/plan.log"
+          grep -oE '/nix/store/[a-z0-9]{32}-[^ ]+\.drv' "$RUNNER_TEMP/plan.log" | sort -u > "$RUNNER_TEMP/plan.drvs"
+          xargs -r nix-store -q --outputs < "$RUNNER_TEMP/plan.drvs" | grep -vE -- '-(code-cursor|cursor|lmstudio|lm-studio|discord|_1password-cli|1password-cli|claude-code)-' > "$RUNNER_TEMP/push.list" || true
+
+      # `require-sigs false` is needed because paths we built ourselves
+      # carry no signature and there is no signing secret; it is confined to
+      # this one command on an ephemeral runner whose substituters are
+      # cache.nixos.org, cache.nixos-cuda.org and a cache only this repo's
+      # main/own-branch runs can write. nix-quick-install-action installs
+      # Nix single-user (no nix-daemon), so the runner user is trusted and
+      # this command-line --option is honoured.
       - name: Build ${{ matrix.host }} configuration
-        run: nix build --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+        run: nix build --no-link --option extra-substituters "file://$RUNNER_TEMP/nix-cache" --option require-sigs false ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+
+      # Fresh directory per run so this holds exactly this run's set, not a
+      # cumulative one. `--no-recursive` is the point: only paths upstream
+      # lacks are stored here; their references still resolve from
+      # cache.nixos.org at restore time.
+      - name: Copy new paths to the local cache
+        continue-on-error: true
+        run: |
+          while read -r p; do [ -e "$p" ] && echo "$p"; done < "$RUNNER_TEMP/push.list" > "$RUNNER_TEMP/push.valid" || true
+          if [ -s "$RUNNER_TEMP/push.valid" ]; then xargs nix copy --no-recursive --to "file://$RUNNER_TEMP/nix-cache-new" < "$RUNNER_TEMP/push.valid"; fi
+          du -sh "$RUNNER_TEMP/nix-cache-new" || true
+
+      # Cache keys are immutable, so a second save of the same key is a
+      # no-op, not an overwrite — safe to run unconditionally on match.
+      # Only main and full-build-labelled PR runs save, to keep the 10 GiB
+      # repo cache budget (LRU-evicted) for the builds worth reusing.
+      - name: Save Nix cache
+        if: success() && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'full-build'))
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache-new
+          key: nix-cache-${{ matrix.host }}-${{ hashFiles('flake.lock') }}
 
   packages:
     name: Build changed packages
