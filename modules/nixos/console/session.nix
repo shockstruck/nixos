@@ -3,6 +3,10 @@
 #     gamescopeSession.enable — a submodule option under programs.steam.
 #     protontricks.enable — lib.mkEnableOption "protontricks, a simple
 #       wrapper for running Winetricks commands for Proton-enabled games".
+#     protontricks.package — lib.mkPackageOption pkgs "protontricks"; the
+#       module applies `.override { inherit extraCompatPaths; }` to it.
+#   pkgs/development/interpreters/python/hooks/pytest-check-hook.sh:
+#     disabledTests is turned into a pytest `-k` deselect expression.
 #   nixos/modules/services/display-managers/greetd.nix:
 #     settings.initial_session is referenced directly by the module
 #     (`default = !(cfg.settings ? initial_session);`); settings is a
@@ -22,6 +26,17 @@
     enable = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
     protontricks.enable = true;
+    # extraCompatPackages makes the steam module rebuild protontricks with a
+    # non-default extraCompatPaths, so it is never in the binary cache and CI
+    # compiles it on a GitHub runner whose single-user Nix cannot sandbox.
+    # There, upstream's test_flatpak_xdg_user_dir writes a `#!/bin/bash` shim
+    # using `[[ ]]` that ends up interpreted by the host's dash and fails
+    # (`xdg-user-dir: 2: [[: not found`). The same suite passes in Hydra's
+    # sandbox; nothing in this host's config is involved. Deselect that one
+    # test and keep the other 169.
+    protontricks.package = pkgs.protontricks.overrideAttrs (prev: {
+      disabledTests = (prev.disabledTests or [ ]) ++ [ "test_flatpak_xdg_user_dir" ];
+    });
     gamescopeSession.enable = true;
   };
 
