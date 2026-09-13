@@ -31,13 +31,20 @@
 { config, lib, pkgs, ... }:
 
 {
-  # capSysNice setcaps the gamescope binary instead of putting it in
-  # environment.systemPackages (nixos/modules/programs/gamescope.nix:
-  # `security.wrappers.gamescope` when capSysNice, else a plain
-  # environment.systemPackages entry). A setcap binary drops LD_PRELOAD for
-  # security, so MangoHud rides in through gamescope's own overlay
-  # (`--mangoapp`) instead of being LD_PRELOAD-ed into the session.
-  programs.gamescope.capSysNice = true;
+  # Deliberately off. capSysNice replaces gamescope with a
+  # security.wrappers copy whose wrapper raises cap_sys_nice into the
+  # *ambient* set (nixos/modules/security/wrappers/wrapper.c,
+  # make_caps_ambient) so the real binary can use it. Ambient capabilities
+  # survive execve into every descendant, and gamescope does not drop them
+  # before spawning its child (src/Utils/Process.cpp). pkgs.steam is a
+  # buildFHSEnv, so that child is bubblewrap, and bwrap refuses to start as
+  # an unprivileged user holding capabilities (bubblewrap.c acquire_privs:
+  # "Unexpected capabilities but not setuid"). Steam exits at once, gamescope
+  # shuts down after its primary child, and greetd loops back to the
+  # greeter. Cost of leaving it off: gamescope logs "No CAP_SYS_NICE, falling
+  # back to regular-priority compute and threads" and runs its compositor
+  # threads at normal priority.
+  programs.gamescope.capSysNice = false;
 
   programs.steam = {
     enable = true;
@@ -55,8 +62,8 @@
       disabledTests = (prev.disabledTests or [ ]) ++ [ "test_flatpak_xdg_user_dir" ];
     });
     gamescopeSession.enable = true;
-    # gamescope's own overlay flag; see the capSysNice comment above for why
-    # MangoHud rides in through this instead of LD_PRELOAD.
+    # gamescope's own MangoHud overlay (spawns mangoapp inside the session),
+    # the SteamOS/Bazzite way of getting the HUD in a gamescope session.
     gamescopeSession.args = [ "--mangoapp" ];
   };
 
