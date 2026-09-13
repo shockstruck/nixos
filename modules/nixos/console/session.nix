@@ -8,6 +8,11 @@
 #     extraPackages (listOf package, default [ ]) — folded into the FHS
 #       env's `extraPkgs`, so a package listed here lands on Steam's own
 #       PATH inside its bubblewrap sandbox, not the host's.
+#     gamescopeSession.steamArgs (listOf str, default [ "-tenfoot"
+#       "-pipewire-dmabuf" ]) — appended after `-- steam` in the
+#       `steam-gamescope` wrapper's `gamescope --steam ${args} -- steam
+#       ${steamArgs}` invocation, i.e. these are the Steam client's own CLI
+#       args, distinct from `gamescopeSession.args` (gamescope's own args).
 #   pkgs/development/interpreters/python/hooks/pytest-check-hook.sh:
 #     disabledTests is turned into a pytest `-k` deselect expression.
 #   nixos/modules/services/display-managers/greetd.nix:
@@ -181,6 +186,20 @@ in
     # gamescope's own MangoHud overlay (spawns mangoapp inside the session),
     # the SteamOS/Bazzite way of getting the HUD in a gamescope session.
     gamescopeSession.args = [ "--mangoapp" ];
+    # Under gamescope the client shows the SteamOS-style power menu because
+    # it checks IN_GAMESCOPE, but the "Switch to Desktop" action only calls
+    # steamos-session-select when the client was ALSO started with
+    # -steamos3 (ON_STEAMOS) — without it the button is wired to nothing and
+    # sits on "Switching to desktop…" forever (ValveSoftware/steam-for-linux
+    # issue 11241; every working gamescope-session setup — ChimeraOS/Bazzite,
+    # Jovian, the AUR steamos-session-select package — starts Steam this
+    # way). Known side effects of pretending to be SteamOS 3: Settings →
+    # System's OS-update check fails looking for steamos-update /
+    # steamos-select-branch polkit helpers this host doesn't ship (a
+    # harmless "command not found" in the journal), and the desktop-style
+    # Shift+Tab overlay shortcut is replaced by the controller Guide-button
+    # behaviour.
+    gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ];
     # steamos-session-select is what Big Picture's "Switch to Desktop" calls
     # from inside Steam's own FHS env; without it the call hangs forever.
     extraPackages = [ sessionSelect ];
