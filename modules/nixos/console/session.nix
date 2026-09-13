@@ -65,19 +65,29 @@
   # instead of crash-looping the autologin. steam-gamescope is the wrapper
   # nixpkgs installs into environment.systemPackages when
   # programs.steam.gamescopeSession.enable is true.
-  services.greetd = {
-    enable = true;
-    settings = {
-      initial_session = {
-        command = "${config.system.path}/bin/steam-gamescope";
-        user = builtins.head config.myusers;
-      };
-      default_session = {
-        command = "${lib.getExe pkgs.tuigreet} --cmd ${config.system.path}/bin/steam-gamescope";
-        user = "greeter";
+  #
+  # greetd hands the session's stdout/stderr to the VT it owns (greetd
+  # session/worker.rs, term_connect_pipes), so nothing gamescope or Steam
+  # prints survives the session ending — the screen is cleared before the
+  # greeter redraws. systemd-cat execs the session with both streams on the
+  # journal instead (`journalctl -t steam-gamescope`); stdin stays the VT.
+  services.greetd =
+    let
+      session = "${config.systemd.package}/bin/systemd-cat -t steam-gamescope ${config.system.path}/bin/steam-gamescope";
+    in
+    {
+      enable = true;
+      settings = {
+        initial_session = {
+          command = session;
+          user = builtins.head config.myusers;
+        };
+        default_session = {
+          command = "${lib.getExe pkgs.tuigreet} --cmd '${session}'";
+          user = "greeter";
+        };
       };
     };
-  };
 
   # The desktop gets audio through its own gui module; the console has no gui
   # module, so it needs its own pipewire/rtkit stack.
