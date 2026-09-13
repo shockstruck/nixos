@@ -9,11 +9,13 @@
 #
 # theme/hyprland/noctalia/kitty back the Hyprland/Noctalia desktop session
 # from modules/nixos/console/desktop.nix (console-session's "Switch to
-# Desktop" target). Not idle: stasis would lock/suspend the console desktop,
-# and couch use has no keyboard at hand to clear the lock prompt. Not
-# packages/shell/brave/bitwarden either — those are desktop/laptop's
-# day-to-day app set, not needed for the occasional shortcut-adding session
-# this profile exists for.
+# Desktop" target). brave carries Kevin's "basic apps" ask for that session —
+# same brave-origin module + Bitwarden extension as desktop/laptop, paired
+# with the managed policy imported by modules/nixos/console/desktop.nix. Not
+# idle: stasis would lock/suspend the console desktop, and couch use has no
+# keyboard at hand to clear the lock prompt. Not packages/shell/bitwarden
+# either — those are desktop/laptop's day-to-day app set, not needed for the
+# occasional shortcut-adding session this profile exists for.
 { flake, ... }:
 let
   inherit (flake) inputs;
@@ -30,6 +32,7 @@ in
     self.homeModules.hyprland
     self.homeModules.noctalia
     self.homeModules.kitty
+    self.homeModules.brave
   ];
 
   me = {
