@@ -38,6 +38,13 @@
 #     Hyprland execs. Steam's own bwrap sandbox under a Hyprland session is
 #     therefore unaffected, unlike the ambient `+pie` gamescope wrapper this
 #     file deliberately leaves off.
+#     `programs.hyprland.package` (mkPackageOption's `apply` composes in
+#     XWayland support) is the final package the module itself execs via the
+#     `security.wrappers.Hyprland` wrapper above; `lib.getExe' pkg "hyprctl"`
+#     (nixpkgs lib `meta.nix`) resolves the same package's `hyprctl` by store
+#     path, since `steamos-session-select gamescope` is called from a
+#     systemd --user service (Noctalia's "Return to Gaming Mode" launcher)
+#     whose PATH cannot be relied on to contain it.
 #
 # Session-switch contract: Steam's Big Picture "Switch to Desktop" runs
 # `steamos-session-select plasma|desktop` from inside its own FHS env and
@@ -77,7 +84,7 @@ let
         gamescope)
           printf 'gamescope\n' > "$state"
           if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
-            hyprctl dispatch exit
+            ${lib.getExe' config.programs.hyprland.package "hyprctl"} dispatch exit
           fi
           ;;
         *)

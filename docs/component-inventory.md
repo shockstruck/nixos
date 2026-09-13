@@ -20,10 +20,10 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 | flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
 | nixos-hardware | `github:NixOS/nixos-hardware` | `24cfdc1f9344` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
-| stasis | `github:saltnpepper97/stasis/v1.5.1` | `aa1dde4d058f` | nixpkgs, flake-parts |
+| stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
 | nix-index-database | `github:nix-community/nix-index-database` | `a74e17340755` | nixpkgs |
 | nixvim | `github:nix-community/nixvim` | `16baff93297c` | nixpkgs, flake-parts |
-| noctalia | `github:noctalia-dev/noctalia-shell/v5.0.0-beta.9` | `c7b9197af77f` | nixpkgs |
+| noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
 `nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`.
