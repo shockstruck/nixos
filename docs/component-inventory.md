@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `e616c72` (2026-09-13). This doc is not
+Captured against `origin/main` @ `a01b8c1` (2026-09-13). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,17 +13,17 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `2c423e03bbaf` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `eaad089433ca` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `ec1a8fdf74ed` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `fdc36b12804b` | nixpkgs |
 | disko | `github:nix-community/disko` | `ff8702b4de27` | nixpkgs |
-| flake-parts | `github:hercules-ci/flake-parts` | `427bf4bd9435` | — |
-| nixos-hardware | `github:NixOS/nixos-hardware` | `0471accf8d0a` | nixpkgs |
-| nixos-unified | `github:srid/nixos-unified` | `d2818c36b863` | — |
-| stasis | `github:saltnpepper97/stasis/v1.5.1` | `f17d1a09e0e4` | nixpkgs, flake-parts |
-| nix-index-database | `github:nix-community/nix-index-database` | `c7962dc97b45` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `bd46166bd830` | nixpkgs, flake-parts |
-| noctalia | `github:noctalia-dev/noctalia-shell/v5.0.0-beta.9` | `a064c063f204` | nixpkgs |
+| flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
+| nixos-hardware | `github:NixOS/nixos-hardware` | `24cfdc1f9344` | nixpkgs |
+| nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
+| stasis | `github:saltnpepper97/stasis/v1.5.1` | `aa1dde4d058f` | nixpkgs, flake-parts |
+| nix-index-database | `github:nix-community/nix-index-database` | `a74e17340755` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `16baff93297c` | nixpkgs, flake-parts |
+| noctalia | `github:noctalia-dev/noctalia-shell/v5.0.0-beta.9` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
 `nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`.
@@ -61,8 +61,11 @@ files by path, and supplies its own `graphics.nix` (no ROCm/OpenCL/Ollama):
 { username = "kevin"; … }`, imports `self.homeModules.default`,
 `home.stateVersion = "26.05"`), used by `desktop` and `laptop`.
 `configurations/home/console/kevin.nix` is the console's own, smaller Home
-Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh}` only — no
-Hyprland/Noctalia/idle/theme/desktop-app modules), selected via
+Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh,theme,hyprland,
+noctalia,kitty}` — the theme/Hyprland/Noctalia/kitty modules back the desktop
+session from `modules/nixos/console/desktop.nix`; still no `idle` — stasis
+would lock/suspend a couch session with no keyboard at hand — and no
+`packages`/`shell`/`brave`/`bitwarden`), selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
@@ -114,12 +117,13 @@ resolve to their `default.nix`.
 | `gui/default.nix` | Imports `./brave.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
-| `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
-| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `protontricks.enable`), `services.greetd` autologin into `steam-gamescope`, `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
+| `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
+| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix`, falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
 | `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller` |
 | `console/streaming.nix` | `services.sunshine` (`enable`, `capSysAdmin`, `openFirewall`, `autoStart`) |
+| `console/desktop.nix` | `programs.hyprland` (`enable`, `xwayland.enable`), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Brave policy, Grayjay, kdeconnect, keyring/gvfs/udisks2 and `services.xserver.enable` |
 
 ### Darwin modules — `modules/darwin/`
 

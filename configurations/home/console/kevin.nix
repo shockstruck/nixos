@@ -6,6 +6,14 @@
 # list. modules/nixos/common/myusers.nix's myhome.dir option is what points
 # the console host's home-manager.users import here instead of the shared
 # configurations/home/kevin.nix.
+#
+# theme/hyprland/noctalia/kitty back the Hyprland/Noctalia desktop session
+# from modules/nixos/console/desktop.nix (console-session's "Switch to
+# Desktop" target). Not idle: stasis would lock/suspend the console desktop,
+# and couch use has no keyboard at hand to clear the lock prompt. Not
+# packages/shell/brave/bitwarden either — those are desktop/laptop's
+# day-to-day app set, not needed for the occasional shortcut-adding session
+# this profile exists for.
 { flake, ... }:
 let
   inherit (flake) inputs;
@@ -18,6 +26,10 @@ in
     self.homeModules.gc
     self.homeModules.git
     self.homeModules.ssh
+    self.homeModules.theme
+    self.homeModules.hyprland
+    self.homeModules.noctalia
+    self.homeModules.kitty
   ];
 
   me = {
