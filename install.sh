@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--host laptop|desktop] [--disk /dev/...]
+Usage: ./install.sh [--host laptop|desktop|console] [--disk /dev/...]
 
 Run the guarded clean-install flow from the repository root. If --host or
 --disk is omitted, the installer prompts for it explicitly.
@@ -34,7 +34,7 @@ while (($# > 0)); do
       exit 0
       ;;
     --host)
-      (($# >= 2)) || stop "--host requires laptop or desktop"
+      (($# >= 2)) || stop "--host requires laptop, desktop or console"
       host="$2"
       shift 2
       ;;
@@ -55,17 +55,17 @@ cd -- "$repo_root"
 [[ -f "$repo_root/flake.lock" ]] || stop "flake.lock is missing from the repository root"
 
 if [[ -z "$host" ]]; then
-  read -r -p "Host to install (laptop|desktop): " host || stop "host prompt was not answered"
+  read -r -p "Host to install (laptop|desktop|console): " host || stop "host prompt was not answered"
 fi
 if [[ -z "$disk" ]]; then
   read -r -p "Target whole-disk path (/dev/...): " disk || stop "disk prompt was not answered"
 fi
 
 case "$host" in
-  laptop|desktop)
+  laptop|desktop|console)
     ;;
   *)
-    stop "invalid host '$host'; expected laptop or desktop"
+    stop "invalid host '$host'; expected laptop, desktop or console"
     ;;
 esac
 
@@ -132,8 +132,9 @@ fi
 
 [[ -d /sys/firmware/efi ]] || stop 'installer was not booted in UEFI mode'
 
-# Both checked-in host Disko definitions use this mkDefault device. Refusing
-# another path prevents validating one disk while Disko destroys another.
+# Every checked-in host Disko definition uses this mkDefault device (console
+# imports the desktop's storage.nix). Refusing another path prevents validating
+# one disk while Disko destroys another.
 readonly configured_disk="/dev/nvme0n1"
 [[ "$disk" == "$configured_disk" ]] || stop "target '$disk' does not match the checked-in Disko device '$configured_disk'"
 
