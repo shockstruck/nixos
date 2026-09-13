@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `5ce5ab2` (2026-09-10). This doc is not
+Captured against `origin/main` @ `bc1b512` (2026-09-13). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -41,20 +41,34 @@ The flake is wired via `inputs.nixos-unified.lib.mkFlake` (autowiring), for syst
 
 ## Hosts
 
-Both hosts are `x86_64-linux` NixOS configurations under `configurations/nixos/`.
-Each imports `self.nixosModules.default` + `self.nixosModules.gui` +
-`inputs.disko.nixosModules.disko` plus its local boot/hardware/graphics/power/storage
-modules:
+All three hosts are `x86_64-linux` NixOS configurations under
+`configurations/nixos/`. `desktop` and `laptop` import
+`self.nixosModules.default` + `self.nixosModules.gui` +
+`inputs.disko.nixosModules.disko` plus their local
+boot/hardware/graphics/power/storage modules. `console` is a hardware variant
+of `desktop` (same AMD CPU/GPU, single NVMe, LUKS2/TPM2 layout): it imports
+`self.nixosModules.default` + `self.nixosModules.console` (not `gui`) +
+`inputs.disko.nixosModules.disko`, reuses `desktop`'s boot/hardware/power/storage
+files by path, and supplies its own `graphics.nix` (no ROCm/OpenCL/Ollama):
 
 | Host | Config | Hostname | Host platform | State version | Local imports |
 | --- | --- | --- | --- | --- | --- |
 | desktop | `configurations/nixos/desktop/default.nix` | `desktop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
 | laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
+| console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
 
 `configurations/home/kevin.nix` defines the shared home configuration (`me =
 { username = "kevin"; … }`, imports `self.homeModules.default`,
-`home.stateVersion = "26.05"`). `configurations/darwin/example.nix` is the
-un-wired nix-darwin example configuration.
+`home.stateVersion = "26.05"`), used by `desktop` and `laptop`.
+`configurations/home/console/kevin.nix` is the console's own, smaller Home
+Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh}` only — no
+Hyprland/Noctalia/idle/theme/desktop-app modules), selected via
+`modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
+host sets to `self + /configurations/home/console`. The subdirectory has no
+`default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
+directory scan (which only reads regular files) picks it up as a sibling
+profile. `configurations/darwin/example.nix` is the un-wired nix-darwin
+example configuration.
 
 ## Imported modules
 
@@ -96,10 +110,15 @@ resolve to their `default.nix`.
 | --- | --- |
 | `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
-| `common/myusers.nix` | Declares the `myusers` option and per-user top-level configuration; system-wide `programs.zsh.enable` |
+| `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `gui/default.nix` | Imports `./brave.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
+| `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
+| `console/session.nix` | `programs.steam` (incl. `gamescopeSession.enable`, `protontricks.enable`), `services.greetd` autologin into `steam-gamescope`, `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
+| `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl |
+| `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth) |
+| `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, callpackaged `opengameinstaller` |
 
 ### Darwin modules — `modules/darwin/`
 
@@ -149,3 +168,4 @@ resolve to their `default.nix`.
 | splayer-next | `packages/splayer-next.nix` | Callpackaged in `modules/home/packages.nix` |
 | mactahoe-gtk-theme | `packages/mactahoe-gtk-theme.nix` | MacTahoe-Dark GTK theme, tinted at build time from the founder palette; consumed by `modules/home/theme/mactahoe.nix` |
 | wallpapers | `packages/wallpapers.nix` | Wallpaper collection (SHOA-1058, `packages/wallpapers/assets/`); consumed by `modules/home/noctalia.nix` |
+| opengameinstaller | `packages/opengameinstaller.nix` | AppImage-wrapped OpenGameInstaller front-end; callpackaged in `modules/nixos/console/launchers.nix` |
