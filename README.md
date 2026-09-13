@@ -327,19 +327,23 @@ sudo reboot
 
 ## Install another host
 
-For a normal installation of the desktop, validate the target disk, TPM2, and
-backups and use the same guarded encrypted installer with the matching explicit
-host selector. Do not select one machine's configuration on the other machine.
+For a normal installation of the desktop or the console, validate the target
+disk, TPM2, and backups and use the same guarded encrypted installer with the
+matching explicit host selector. Do not select one machine's configuration on
+another machine. The console shares the desktop's disko layout, so it uses the
+same checked-in target disk and the same TPM2 and LUKS2 flow.
 
 ```sh
-# The installer also accepts --host desktop; use the checked-in target disk.
+# The installer also accepts --host desktop or --host console; use the
+# checked-in target disk.
 ./install.sh --host desktop --disk /dev/nvme0n1
+./install.sh --host console --disk /dev/nvme0n1
 ```
 
 After rebooting into an installed system, select the matching host explicitly
 for future source-controlled updates:
 
 ```sh
-# Replace HOST with desktop or laptop.
+# Replace HOST with desktop, laptop or console.
 sudo nixos-rebuild switch --flake .#HOST
 ```
