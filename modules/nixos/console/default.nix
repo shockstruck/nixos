@@ -9,6 +9,7 @@
     ./performance.nix
     ./input.nix
     ./launchers.nix
+    ./streaming.nix
   ];
 
   # Quiet boot / plymouth, copied from modules/nixos/gui/default.nix. No
