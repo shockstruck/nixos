@@ -179,14 +179,21 @@ jobs:
 
       # Plan against upstream substituters only (the file cache isn't wired
       # in yet), so this list reflects only what cache.nixos.org and the
-      # CUDA cache cannot supply. The licence allowlist keeps code-cursor,
-      # lmstudio, discord, 1password-cli and claude-code out of the copy
-      # step below, regardless of cache-hit state.
+      # CUDA cache cannot supply. Of those, only the expensive builds are
+      # worth caching (ollama, noctalia, stasis, terraform, the nvidia
+      # driver); units, config files and prebuilt apps rebuild in seconds
+      # and would only drag the whole system closure into the copy below.
+      # The licence exclusion keeps code-cursor, lmstudio, discord,
+      # 1password-cli and claude-code out regardless.
       - name: Plan what upstream can't supply
         run: |
           nix build --dry-run --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel" 2>&1 | tee "$RUNNER_TEMP/plan.log"
-          grep -oE '/nix/store/[a-z0-9]{32}-[^ ]+\.drv' "$RUNNER_TEMP/plan.log" | sort -u > "$RUNNER_TEMP/plan.drvs"
-          xargs -r nix-store -q --outputs < "$RUNNER_TEMP/plan.drvs" | grep -vE -- '-(code-cursor|cursor|lmstudio|lm-studio|discord|_1password-cli|1password-cli|claude-code)-' > "$RUNNER_TEMP/push.list" || true
+          { grep -oE '/nix/store/[a-z0-9]{32}-[^ ]+\.drv' "$RUNNER_TEMP/plan.log" || true; } | sort -u > "$RUNNER_TEMP/plan.drvs"
+          { xargs -r nix-store -q --outputs < "$RUNNER_TEMP/plan.drvs" || true; } \
+            | { grep -E -- '^/nix/store/[a-z0-9]{32}-(ollama|noctalia|stasis|terraform|nvidia)[-.]' || true; } \
+            | { grep -vE -- '-(code-cursor|cursor|lmstudio|lm-studio|discord|_1password-cli|1password-cli|claude-code)-' || true; } \
+            > "$RUNNER_TEMP/push.list"
+          wc -l "$RUNNER_TEMP/plan.drvs" "$RUNNER_TEMP/push.list"
 
       # `require-sigs false` is needed because paths we built ourselves
       # carry no signature and there is no signing secret; it is confined to
@@ -199,14 +206,29 @@ jobs:
         run: nix build --no-link --option extra-substituters "file://$RUNNER_TEMP/nix-cache" --option require-sigs false ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
 
       # Fresh directory per run so this holds exactly this run's set, not a
-      # cumulative one. `--no-recursive` is the point: only paths upstream
-      # lacks are stored here; their references still resolve from
-      # cache.nixos.org at restore time.
+      # cumulative one. A binary cache refuses a path whose references it
+      # does not hold ("cannot add ... because the reference ... is not
+      # valid"), so the closures are copied first and then pruned down to
+      # the planned paths: only those keep their narinfo and nar. At
+      # restore time Nix resolves the pruned references from
+      # cache.nixos.org and the CUDA cache as it would anyway. zstd keeps
+      # the copy fast; actions/cache compresses the archive again itself.
       - name: Copy new paths to the local cache
         continue-on-error: true
         run: |
           while read -r p; do [ -e "$p" ] && echo "$p"; done < "$RUNNER_TEMP/push.list" > "$RUNNER_TEMP/push.valid" || true
-          if [ -s "$RUNNER_TEMP/push.valid" ]; then xargs nix copy --no-recursive --to "file://$RUNNER_TEMP/nix-cache-new" < "$RUNNER_TEMP/push.valid"; fi
+          if [ -s "$RUNNER_TEMP/push.valid" ]; then
+            xargs nix copy --to "file://$RUNNER_TEMP/nix-cache-new?compression=zstd" < "$RUNNER_TEMP/push.valid"
+            echo "closure narinfos: $(ls "$RUNNER_TEMP"/nix-cache-new/*.narinfo | wc -l)"
+            for info in "$RUNNER_TEMP"/nix-cache-new/*.narinfo; do
+              path=$(sed -n 's/^StorePath: //p' "$info")
+              if ! grep -qxF -- "$path" "$RUNNER_TEMP/push.valid"; then
+                nar=$(sed -n 's/^URL: //p' "$info")
+                rm -f -- "$info" "$RUNNER_TEMP/nix-cache-new/$nar"
+              fi
+            done
+            echo "kept narinfos: $(ls "$RUNNER_TEMP"/nix-cache-new/*.narinfo | wc -l)"
+          fi
           du -sh "$RUNNER_TEMP/nix-cache-new" || true
 
       # Cache keys are immutable, so a second save of the same key is a
