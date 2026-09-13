@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `440c427` (2026-09-13). This doc is not
+Captured against `origin/main` @ `ec9b2c7` (2026-09-13). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -62,10 +62,12 @@ files by path, and supplies its own `graphics.nix` (no ROCm/OpenCL/Ollama):
 `home.stateVersion = "26.05"`), used by `desktop` and `laptop`.
 `configurations/home/console/kevin.nix` is the console's own, smaller Home
 Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh,theme,hyprland,
-noctalia,kitty}` — the theme/Hyprland/Noctalia/kitty modules back the desktop
-session from `modules/nixos/console/desktop.nix`; still no `idle` — stasis
-would lock/suspend a couch session with no keyboard at hand — and no
-`packages`/`shell`/`brave`/`bitwarden`), selected via
+noctalia,kitty,brave}` — the theme/Hyprland/Noctalia/kitty modules back the
+desktop session from `modules/nixos/console/desktop.nix`, and `brave` carries
+Kevin's "basic apps" ask, paired with the managed policy imported by
+`console/desktop.nix`; still no `idle` — stasis would lock/suspend a couch
+session with no keyboard at hand — and no `packages`/`shell`/`bitwarden`),
+selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
@@ -123,7 +125,7 @@ resolve to their `default.nix`.
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
 | `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller`, `bun` (OGI's NixOS branch expects Bun on PATH and offers no installer) |
 | `console/streaming.nix` | `services.sunshine` (`enable`, `capSysAdmin`, `openFirewall`, `autoStart`) |
-| `console/desktop.nix` | `programs.hyprland` (`enable`, `xwayland.enable`), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Brave policy, Grayjay, kdeconnect, keyring/gvfs/udisks2 and `services.xserver.enable` |
+| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`); `programs.hyprland` (`enable`, `xwayland.enable`), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, keyring/gvfs/udisks2 and `services.xserver.enable` |
 
 ### Darwin modules — `modules/darwin/`
 

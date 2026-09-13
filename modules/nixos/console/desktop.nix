@@ -9,14 +9,16 @@
 # services.greetd.settings.default_session a second time — an eval conflict
 # with ./session.nix, which already owns greetd on this host with its own
 # tuigreet fallback. Importing modules/nixos/gui wholesale would additionally
-# drag in Brave's managed policy, the Grayjay flatpak service and kdeconnect,
-# none of which belong on a console.
+# drag in the Grayjay flatpak service and kdeconnect, neither of which
+# belongs on a console. Brave's managed-policy file is imported below
+# instead, by its own relative path: it is a standalone /etc entry, so
+# pulling it in on its own carries no greeter or other gui/ pieces.
 #
 # Deliberately absent, unlike gui/hyprland.nix:
 #   - services.displayManager.noctalia-greeter (greetd conflict above; this
 #     host's greeter is console-session/tuigreet)
 #   - programs.steam (already configured by ./session.nix, gamescope-first)
-#   - the grayjay-flatpak install/update service, kdeconnect, brave policy
+#   - the grayjay-flatpak install/update service, kdeconnect
 #   - services.gnome.gnome-keyring, services.gvfs, services.udisks2 — no
 #     desktop file manager or GNOME-keyring-consuming app runs here
 #   - services.xserver.enable — Hyprland is Wayland-native and needs no X
@@ -30,6 +32,8 @@
 #     (listOf str).
 { pkgs, ... }:
 {
+  imports = [ ../gui/brave.nix ];
+
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
