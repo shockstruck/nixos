@@ -19,9 +19,26 @@
 #   nixos/modules/services/desktops/flatpak.nix: asserts xdg.portal.enable.
 #   nixos/modules/config/xdg/portal.nix: enable, extraPortals (asserted
 #     non-empty when enabled), config (attrsOf (attrsOf (str | listOf str))).
+#   nixos/modules/programs/gamescope.nix: capSysNice (bool, default false) —
+#     when true, config wraps the package in `security.wrappers.gamescope`
+#     (cap_sys_nice+pie) and drops it from environment.systemPackages, so
+#     `gamescope` on PATH resolves to the capability-wrapped copy.
+#   nixos/modules/programs/steam.nix: `programs.gamescope.enable = lib.mkDefault
+#     cfg.gamescopeSession.enable;` and `steam-gamescope` is a writeShellScriptBin
+#     that calls plain `gamescope --steam ...` (resolved via PATH, so it picks
+#     up the wrapper above). gamescopeSession.args (listOf str, default [ ])
+#     is a submodule option passed straight to that `gamescope` invocation.
 { config, lib, pkgs, ... }:
 
 {
+  # capSysNice setcaps the gamescope binary instead of putting it in
+  # environment.systemPackages (nixos/modules/programs/gamescope.nix:
+  # `security.wrappers.gamescope` when capSysNice, else a plain
+  # environment.systemPackages entry). A setcap binary drops LD_PRELOAD for
+  # security, so MangoHud rides in through gamescope's own overlay
+  # (`--mangoapp`) instead of being LD_PRELOAD-ed into the session.
+  programs.gamescope.capSysNice = true;
+
   programs.steam = {
     enable = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
@@ -38,6 +55,9 @@
       disabledTests = (prev.disabledTests or [ ]) ++ [ "test_flatpak_xdg_user_dir" ];
     });
     gamescopeSession.enable = true;
+    # gamescope's own overlay flag; see the capSysNice comment above for why
+    # MangoHud rides in through this instead of LD_PRELOAD.
+    gamescopeSession.args = [ "--mangoapp" ];
   };
 
   # initial_session boots straight into Steam once; when Steam exits, greetd
