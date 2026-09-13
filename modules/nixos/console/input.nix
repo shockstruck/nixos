@@ -19,8 +19,10 @@
   # firmware/radio init fails (-71/-108) and only a physical replug
   # recovers it (dlundqvist/xone#188, #215; regressed between v0.5.5 and
   # v0.5.6, still unfixed as of the v0.5.8 this flake ships). #215 closed
-  # on a udev-triggered de-authorize/re-authorize, which re-enumerates the
-  # device exactly like a replug. Verified before writing:
+  # on a udev-triggered de-authorize/re-authorize, which unconfigures and
+  # reconfigures the device (SET_CONFIGURATION 0, then the chosen
+  # configuration) and recovers it the way a replug does. Verified before
+  # writing:
   #   dlundqvist/xone tag v0.5.8, transport/dongle.c xone_dongle_id_table:
   #     the driver binds 045e:02e6, 045e:02fe, 045e:02f9, 045e:091e — match
   #     all four, same table the driver uses.
