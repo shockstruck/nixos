@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `a01b8c1` (2026-09-13). This doc is not
+Captured against `origin/main` @ `550c4dc` (2026-09-13). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -118,7 +118,7 @@ resolve to their `default.nix`.
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
-| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix`, falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
+| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix`, falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
 | `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller` |
