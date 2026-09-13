@@ -15,5 +15,7 @@ in
     pkgs.lutris
     pkgs.umu-launcher
     opengameinstaller
+    # OGI's NixOS branch expects Bun on PATH and offers no installer of its own.
+    pkgs.bun
   ];
 }
