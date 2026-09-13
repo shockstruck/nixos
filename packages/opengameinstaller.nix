@@ -23,11 +23,10 @@
 #   4. If a release changes the internal `.desktop`/icon filenames or the Exec
 #      line, update `extraInstallCommands` (the `--replace-fail` will fail loudly
 #      if the Exec string drifts, which is intentional).
-{
-  appimageTools,
-  fetchurl,
-  lib,
-  makeWrapper,
+{ appimageTools
+, fetchurl
+, lib
+, makeWrapper
 }:
 let
   pname = "opengameinstaller";
