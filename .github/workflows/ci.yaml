@@ -38,6 +38,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -59,8 +60,10 @@ jobs:
             exit 0
           fi
 
-          git fetch --depth=1 origin "$BASE_SHA"
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if ! CHANGED_FILES=$(git diff --name-only "$BASE_SHA...$HEAD_SHA"); then
+            echo "::error::Could not diff $BASE_SHA...$HEAD_SHA (merge base not found)."
+            exit 1
+          fi
           echo "changed files:"
           echo "$CHANGED_FILES"
 
