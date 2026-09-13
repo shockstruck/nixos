@@ -12,6 +12,9 @@
 #   nixos/modules/services/desktops/pipewire/pipewire.nix:
 #     enable, alsa.enable, alsa.support32Bit, pulse.enable all declared.
 #   nixos/modules/security/rtkit.nix: enable declared.
+#   nixos/modules/services/desktops/flatpak.nix: asserts xdg.portal.enable.
+#   nixos/modules/config/xdg/portal.nix: enable, extraPortals (asserted
+#     non-empty when enabled), config (attrsOf (attrsOf (str | listOf str))).
 { config, lib, pkgs, ... }:
 
 {
@@ -55,4 +58,13 @@
   services.flatpak.enable = true;
   security.polkit.enable = true;
   programs.dconf.enable = true;
+
+  # services.flatpak asserts xdg.portal.enable. On desktop/laptop
+  # programs.hyprland turns the portal on and supplies its own backend; the
+  # console has no compositor module, so it carries the generic GTK backend.
+  xdg.portal = {
+    enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    config.common.default = [ "gtk" ];
+  };
 }
