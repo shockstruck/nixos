@@ -151,6 +151,24 @@ Bitwarden Desktop is the native nixpkgs `bitwarden-desktop` package
 - Whether the Noctalia greeter surfaces the fingerprint prompt at the login
   screen is confirmed on-device; password login always works regardless.
 
+## Console host
+
+`console` is a third workstation: the same AMD hardware class as `desktop`
+(single NVMe, LUKS2/TPM2 disko layout, reused from `desktop`'s boot, hardware,
+power and storage files), but with no Hyprland/Noctalia desktop session. It
+boots straight into Steam's gamescope session (SteamOS/Bazzite-style "deck
+mode") via a `greetd` autologin, with Heroic, ProtonUp-Qt, MangoHud,
+OpenGameInstaller, Xbox controller drivers (`hardware.xone`, `hardware.xpadneo`),
+and CachyOS-inspired scheduling (`services.scx` with `scx_lavd`,
+`services.ananicy`, `programs.gamemode`). It has its own, smaller Home Manager
+profile under `configurations/home/console/`.
+
+On an installed console system, select its configuration explicitly:
+
+```sh
+sudo nixos-rebuild switch --flake .#console
+```
+
 ## Local AI
 
 The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.

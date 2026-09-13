@@ -44,12 +44,13 @@ jobs:
       # Scoped to the paths known to be nixpkgs-fmt clean. Widening this to the
       # whole tree needs one `nix fmt` pass over the other .nix files first.
       - name: Check formatting
-        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix modules/home/brave.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop
+        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix modules/home/brave.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop modules/nixos/console configurations/nixos/console configurations/home/console packages/opengameinstaller.nix
 
       - name: Evaluate workstation configurations
         run: |
           nix eval .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
           nix eval .#nixosConfigurations.laptop.config.system.build.toplevel.drvPath
+          nix eval .#nixosConfigurations.console.config.system.build.toplevel.drvPath
 
   build:
     name: Build (${{ matrix.host }})
@@ -61,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [desktop, laptop]
+        host: [desktop, laptop, console]
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1

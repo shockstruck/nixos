@@ -20,6 +20,12 @@ in
         in
         baseNames;
     };
+
+    myhome.dir = lib.mkOption {
+      type = lib.types.path;
+      default = self + /configurations/home;
+      description = "Directory holding the per-user Home Manager entry points (<user>.nix). A host with its own user profile points this at a sibling directory.";
+    };
   };
 
   config = {
@@ -52,7 +58,7 @@ in
 
     # Enable home-manager for our user
     home-manager.users = mapListToAttrs config.myusers (name: {
-      imports = [ (self + /configurations/home/${name}.nix) ];
+      imports = [ (config.myhome.dir + "/${name}.nix") ];
     });
 
     # All users can add Nix caches.

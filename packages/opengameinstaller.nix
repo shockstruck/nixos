@@ -51,7 +51,8 @@ appimageTools.wrapType2 {
     install -Dm 644 ${appimageContents}/usr/share/icons/hicolor/0x0/apps/opengameinstaller-gui.png \
       $out/share/icons/hicolor/256x256/apps/opengameinstaller-gui.png
     substituteInPlace $out/share/applications/opengameinstaller-gui.desktop \
-      --replace-fail 'Exec=AppRun --no-sandbox %U' 'Exec=opengameinstaller %U'
+      --replace-fail 'Exec=AppRun --no-sandbox %U' 'Exec=opengameinstaller %U' \
+      --replace-fail 'Categories=Development;' 'Categories=Game;'
     wrapProgram "$out/bin/opengameinstaller" --add-flags "--no-sandbox"
   '';
 
