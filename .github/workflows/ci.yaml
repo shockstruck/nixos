@@ -19,6 +19,60 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Most PRs only touch shared or host config, which `validate` already
+  # evaluates and format-checks in about two minutes, so the required check
+  # `ci-passed` passes on `validate` alone for those; the hour-long `build`
+  # matrix only runs when a change can actually break a build — a push to
+  # main, a manual dispatch, an edit to `flake.lock`, `packages/**` or this
+  # workflow file, or a PR explicitly carrying the `full-build` label — so a
+  # skipped `build` on an ordinary PR is the expected outcome, not a failure.
+  changes:
+    name: Determine build need
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Decide whether the build matrix is needed
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HAS_FULL_BUILD_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-build') }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$HAS_FULL_BUILD_LABEL" = "true" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! CHANGED_FILES=$(git diff --name-only "$BASE_SHA...$HEAD_SHA"); then
+            echo "::error::Could not diff $BASE_SHA...$HEAD_SHA (merge base not found)."
+            exit 1
+          fi
+          echo "changed files:"
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -Eq '^(flake\.lock|\.github/workflows/ci\.yaml)$|^packages/'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -54,7 +108,8 @@ jobs:
 
   build:
     name: Build (${{ matrix.host }})
-    needs: validate
+    needs: [validate, changes]
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 240
     permissions:
@@ -87,19 +142,32 @@ jobs:
   ci-passed:
     name: ci-passed
     if: always()
-    needs: [validate, build]
+    needs: [changes, validate, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: Assert every upstream job succeeded
+      - name: Assert required jobs passed
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          BUILD_NEEDED: ${{ needs.changes.outputs.build }}
         run: |
-          echo "upstream results: $RESULTS"
-          for result in $RESULTS; do
-            if [ "$result" != "success" ]; then
-              echo "::error::CI did not pass (a required job reported '$result')."
-              exit 1
-            fi
-          done
+          echo "changes=$CHANGES_RESULT validate=$VALIDATE_RESULT build=$BUILD_RESULT build_needed=$BUILD_NEEDED"
+
+          if [ "$CHANGES_RESULT" != "success" ] || [ "$VALIDATE_RESULT" != "success" ]; then
+            echo "::error::CI did not pass (changes or validate did not succeed)."
+            exit 1
+          fi
+
+          if [ "$BUILD_RESULT" = "success" ]; then
+            exit 0
+          fi
+
+          if [ "$BUILD_RESULT" = "skipped" ] && [ "$BUILD_NEEDED" = "false" ]; then
+            exit 0
+          fi
+
+          echo "::error::CI did not pass (build reported '$BUILD_RESULT' while build_needed='$BUILD_NEEDED')."
+          exit 1
