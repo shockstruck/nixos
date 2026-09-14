@@ -6,6 +6,45 @@
 { pkgs, ... }:
 let
   opengameinstaller = pkgs.callPackage ../../../packages/opengameinstaller.nix { };
+
+  # fatboy-unpack (OGI's FitGirl addon) extracts a FuckingFast download by
+  # running `unrar x <partN.rar> <dir> -idn -kb -y` once per downloaded
+  # volume, sequentially, and fails the whole setup on any non-zero exit.
+  # The first run already extracts the entire set (unrar follows
+  # part0 -> part1 -> ...); every later run starts on a non-first volume
+  # whose first entry continues from the previous one, so unrar prints
+  # "You need to start extraction from a previous volume to unpack ..."
+  # (loclang.hpp MUnpCannotMerge) and exits 6 (errhnd.hpp RARX_OPEN), which
+  # the addon reports as "Failed to extract downloaded files" even though
+  # the repack is fully on disk. This wrapper reports success for exactly
+  # that case and only for that call signature; anything else — other
+  # commands, other switches, other exit codes, other messages — is passed
+  # through untouched, so Lutris and umu see the real unrar. Stdout is not
+  # intercepted: the addon parses its progress from it. Upstream fix is a
+  # one-liner in the addon (extract the first volume only); remove this
+  # once it lands.
+  unrarFatboy = pkgs.writeShellApplication {
+    name = "unrar";
+    runtimeInputs = [ pkgs.coreutils pkgs.gnugrep ];
+    text = ''
+      if [ "$#" -lt 6 ] || [ "$1" != "x" ] \
+        || [ "''${*: -3:1}" != "-idn" ] || [ "''${*: -2:1}" != "-kb" ] || [ "''${*: -1}" != "-y" ]; then
+        exec ${pkgs.unrar}/bin/unrar "$@"
+      fi
+      stderr_file="$(mktemp)"
+      trap 'rm -f "$stderr_file"' EXIT
+      set +e
+      ${pkgs.unrar}/bin/unrar "$@" 2> "$stderr_file"
+      code=$?
+      set -e
+      cat "$stderr_file" >&2
+      if [ "$code" -eq 6 ] && grep -q 'You need to start extraction from a previous volume' "$stderr_file"; then
+        echo "unrar (console wrapper): non-first volume already extracted with its first volume; reporting success" >&2
+        exit 0
+      fi
+      exit "$code"
+    '';
+  };
 in
 {
   environment.systemPackages = [
@@ -17,8 +56,8 @@ in
     opengameinstaller
     # OGI's NixOS branch expects Bun on PATH and offers no installer of its own.
     pkgs.bun
-    # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar.
-    pkgs.unrar
+    # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar; see unrarFatboy above for why this is a wrapper.
+    unrarFatboy
     # OGI does not use the umu-launcher above for its own Windows-game flow:
     # it downloads the upstream umu zipapp to
     # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
