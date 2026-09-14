@@ -213,7 +213,11 @@ jobs:
       # restore time Nix resolves the pruned references from
       # cache.nixos.org and the CUDA cache as it would anyway. zstd keeps
       # the copy fast; actions/cache compresses the archive again itself.
+      # The result is swapped into the restore path at the end: actions/cache
+      # derives a cache "version" from the path list, so an entry saved from
+      # a different path than the one restored is never found.
       - name: Copy new paths to the local cache
+        id: nix-cache-copy
         continue-on-error: true
         run: |
           while read -r p; do [ -e "$p" ] && echo "$p"; done < "$RUNNER_TEMP/push.list" > "$RUNNER_TEMP/push.valid" || true
@@ -228,19 +232,23 @@ jobs:
               fi
             done
             echo "kept narinfos: $(ls "$RUNNER_TEMP"/nix-cache-new/*.narinfo | wc -l)"
+            rm -rf "$RUNNER_TEMP/nix-cache"
+            mv "$RUNNER_TEMP/nix-cache-new" "$RUNNER_TEMP/nix-cache"
           fi
-          du -sh "$RUNNER_TEMP/nix-cache-new" || true
+          du -sh "$RUNNER_TEMP/nix-cache" || true
 
       # Cache keys are immutable, so a second save of the same key is a
       # no-op, not an overwrite — safe to run unconditionally on match.
       # Only main and full-build-labelled PR runs save, to keep the 10 GiB
-      # repo cache budget (LRU-evicted) for the builds worth reusing.
+      # repo cache budget (LRU-evicted) for the builds worth reusing, and
+      # only when the copy step itself succeeded, so a failed copy can
+      # never occupy a key with an empty entry.
       - name: Save Nix cache
-        if: success() && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'full-build'))
+        if: steps.nix-cache-copy.outcome == 'success' && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'full-build'))
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/nix-cache-new
+          path: ${{ runner.temp }}/nix-cache
           key: nix-cache-${{ matrix.host }}-${{ hashFiles('flake.lock') }}
 
   packages:
