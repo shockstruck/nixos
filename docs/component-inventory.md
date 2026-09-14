@@ -93,7 +93,7 @@ resolve to their `default.nix`.
 | Module | Purpose |
 | --- | --- |
 | `bitwarden.nix` | Bitwarden vault config + `bw-ssh-pull` helper script |
-| `brave.nix` | `programs.brave-origin.enable` + Bitwarden extension |
+| `brave.nix` | `programs.brave-origin.enable` + Bitwarden extension; activation script merges `brave.location_bar_is_wide=true` into the profile's `Preferences` (no policy exists for this pref) |
 | `direnv.nix` | direnv setup (`programs.direnv` with `nix-direnv`) |
 | `fastfetch.nix` | fastfetch with the Noctalia theme + NGR logo (SHOA-1058) |
 | `gc.nix` | Home-manager garbage collection |
@@ -125,7 +125,7 @@ resolve to their `default.nix`.
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
-| `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
+| `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search) and force-pinned Bitwarden toolbar entry |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service, `NAUTILUS_4_EXTENSION_DIR` session variable (nautilus-python, for the Nextcloud client's Nautilus integration) |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
