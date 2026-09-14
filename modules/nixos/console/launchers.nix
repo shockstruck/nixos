@@ -22,6 +22,16 @@ in
     # OGI drives torrents through qBittorrent's WebUI API; WebUI enable and
     # password are set in-app by Kevin, never here.
     pkgs.qbittorrent
+    # OGI does not use the umu-launcher above for its own Windows-game flow:
+    # it downloads the upstream umu zipapp to
+    # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
+    # electron/startup.ts, handlers/handler.umu.ts) and addons spawn it
+    # directly for setup.exe / winetricks. That zipapp is a `python3` script
+    # (umu-launcher Makefile.in, `python3 -m zipapp … -p`) with pure-Python
+    # deps, and the AppImage FHS env OGI runs in carries no interpreter
+    # (appimageTools.defaultFhsEnvArgs), so it resolves `python3` from the
+    # host PATH — absent here until this line.
+    pkgs.python3
   ];
 
   # genesis-lib, the OGI addon library behind Cloudflare/DDoS-Guard bypass and
