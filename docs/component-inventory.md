@@ -125,7 +125,7 @@ resolve to their `default.nix`.
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
-| `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search) and force-pinned Bitwarden toolbar entry |
+| `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search), force-pinned Bitwarden toolbar entry, and a `3rdparty.extensions` block presetting Bitwarden's managed-storage environment to `vault.panic.ac` (fresh installs only) |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service, `NAUTILUS_4_EXTENSION_DIR` session variable (nautilus-python, for the Nextcloud client's Nautilus integration) |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
