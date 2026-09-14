@@ -23,8 +23,7 @@
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
 # it are enabled in modules/nixos/console/desktop.nix. heroic.nix asserts
 # Heroic's auto-add-to-Steam toggle for the shortcut-adding sessions this
-# profile exists for. opengameinstaller.nix carries the Hyprland window rule
-# that keeps OGI tiled instead of floating over the layout.
+# profile exists for.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -48,7 +47,6 @@ in
     self.homeModules.nix-index
 
     ./heroic.nix
-    ./opengameinstaller.nix
   ];
 
   home.packages = [ pkgs.nautilus ];
