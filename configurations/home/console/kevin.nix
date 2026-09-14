@@ -13,9 +13,11 @@
 # same brave-origin module + Bitwarden extension as desktop/laptop, paired
 # with the managed policy imported by modules/nixos/console/desktop.nix. Not
 # idle: stasis would lock/suspend the console desktop, and couch use has no
-# keyboard at hand to clear the lock prompt. Not packages/shell/bitwarden
-# either — those are desktop/laptop's day-to-day app set, not needed for the
-# occasional shortcut-adding session this profile exists for. nautilus is the
+# keyboard at hand to clear the lock prompt. shell/neovim/direnv/nix-index are
+# imported so the console's interactive shell (zsh + powerlevel10k) matches
+# desktop/laptop. Still not packages/bitwarden — those are desktop/laptop's
+# day-to-day app set, not needed for the occasional shortcut-adding session
+# this profile exists for. nautilus is the
 # one item lifted out of packages: the shared Noctalia dock pins
 # org.gnome.Nautilus (modules/home/noctalia.nix) and the shortcut-adding
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
@@ -37,6 +39,10 @@ in
     self.homeModules.noctalia
     self.homeModules.kitty
     self.homeModules.brave
+    self.homeModules.shell
+    self.homeModules.neovim
+    self.homeModules.direnv
+    self.homeModules.nix-index
   ];
 
   home.packages = [ pkgs.nautilus ];

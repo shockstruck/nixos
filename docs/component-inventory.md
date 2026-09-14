@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `cdbbc2d` (2026-09-14). This doc is not
+Captured against `origin/main` @ `897a1ed` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -62,13 +62,15 @@ files by path, and supplies its own `graphics.nix` (no ROCm/OpenCL/Ollama):
 `home.stateVersion = "26.05"`), used by `desktop` and `laptop`.
 `configurations/home/console/kevin.nix` is the console's own, smaller Home
 Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh,theme,hyprland,
-noctalia,kitty,brave}` — the theme/Hyprland/Noctalia/kitty modules back the
-desktop session from `modules/nixos/console/desktop.nix`, and `brave` carries
-Kevin's "basic apps" ask, paired with the managed policy imported by
-`console/desktop.nix`; still no `idle` — stasis would lock/suspend a couch
-session with no keyboard at hand — and no `packages`/`shell`/`bitwarden`;
-`home.packages = [ nautilus ]` is the one item lifted out of `packages`, the
-file manager the shared Noctalia dock pins), selected via
+noctalia,kitty,brave,shell,neovim,direnv,nix-index}` — the theme/Hyprland/
+Noctalia/kitty modules back the desktop session from
+`modules/nixos/console/desktop.nix`, `brave` carries Kevin's "basic apps" ask,
+paired with the managed policy imported by `console/desktop.nix`, and
+`shell`/`neovim`/`direnv`/`nix-index` give the console the same zsh/
+powerlevel10k shell as desktop/laptop; still no `idle` — stasis would
+lock/suspend a couch session with no keyboard at hand — and no
+`packages`/`bitwarden`; `home.packages = [ nautilus ]` is the one item lifted
+out of `packages`, the file manager the shared Noctalia dock pins), selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
@@ -102,7 +104,7 @@ resolve to their `default.nix`.
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service, founder palette) |
 | `packages.nix` | `home.packages` list + `programs.*` (see below) |
-| `shell.nix` | Shell config (zsh, p10k, eza aliases) |
+| `shell.nix` | Shell config (zsh, p10k, eza aliases); `home.packages = [ ripgrep ]` + `programs.{eza,fzf,bat}.enable` |
 | `ssh.nix` | `programs.ssh` github.com host config (SHOA-1092) |
 | `theme/default.nix` | Aggregates theme modules → `./eldritch.nix`, `./founder.nix`, `./mactahoe.nix` |
 | `theme/eldritch.nix` | Eldritch base16 palette (SHOA-999); still exported as a Noctalia custom palette, no longer the default |
@@ -154,13 +156,15 @@ resolve to their `default.nix`.
 | --- | --- |
 | General | `omnix`, `opencode` |
 | Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vscodium` |
-| Unix tools | `age`, `ansible`, `bitwarden-cli`, `cloudflared`, `crane`, `fluxcd`, `gh`, `go-task`, `helmfile`, `kubeconform`, `kubecolor`, `kubectl`, `kubernetes-helm`, `kustomize`, `minijinja`, `mise`, `ranger`, `ripgrep`, `fd`, `sd`, `sops`, `stern`, `talhelper`, `talosctl`, `terraform`, `tree`, `gnumake`, `yamllint`, `yq-go`, `proton-pass-cli`, `_1password-cli` |
+| Unix tools | `age`, `ansible`, `bitwarden-cli`, `cloudflared`, `crane`, `fluxcd`, `gh`, `go-task`, `helmfile`, `kubeconform`, `kubecolor`, `kubectl`, `kubernetes-helm`, `kustomize`, `minijinja`, `mise`, `ranger`, `fd`, `sd`, `sops`, `stern`, `talhelper`, `talosctl`, `terraform`, `tree`, `gnumake`, `yamllint`, `yq-go`, `proton-pass-cli`, `_1password-cli` |
 | Nix dev | `cachix`, `nil`, `nix-info`, `nixpkgs-fmt` |
 | Other | `less` (man pager) |
 
 ### `programs.*` enabled in `modules/home/packages.nix`
 
-`bat`, `fzf`, `jq`, `btop`, `eza`, `tmate` (all `enable = true`).
+`jq`, `btop`, `tmate` (all `enable = true`). `bat`, `fzf`, `eza` moved to
+`modules/home/shell.nix`, along with `ripgrep` (`home.packages`), so the
+console's `shell` import gets the tools its aliases need.
 
 `modules/home/fastfetch.nix` additionally adds `home.packages = [ pkgs.fastfetch ]`.
 
