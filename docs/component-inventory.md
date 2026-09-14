@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `a01b8c1` (2026-09-14). This doc is not
+Captured against `origin/main` @ `cbdf2ca` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
