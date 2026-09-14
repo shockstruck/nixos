@@ -209,7 +209,7 @@ in
         cd = "z";
         grep = "rg --color=auto --line-number --smart-case";
       };
-      initExtra = ''
+      initContent = ''
         setopt auto_cd
         setopt interactive_comments
         setopt multios
