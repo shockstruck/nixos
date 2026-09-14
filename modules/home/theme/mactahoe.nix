@@ -153,6 +153,12 @@ in
       name = "MacTahoe-Dark";
       package = mactahoe;
     };
+    # macOS-shaped icon set (blue folders) to match the Mac-styled theme above;
+    # kora-icon-theme installs all its variants, so kora-pgrey is a name change.
+    iconTheme = {
+      name = "kora";
+      package = pkgs.kora-icon-theme;
+    };
     gtk4.theme = config.gtk.theme;
   };
 }
