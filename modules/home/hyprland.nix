@@ -33,6 +33,9 @@ in
   # SHOA-993/1037). The SUPER+L bind below runs `noctalia msg session lock`
   # directly: stasis does not lock on `loginctl lock-session` (it only tracks
   # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.
+  # Laptop lid handling also lives here, shared with the desktop: the bind is
+  # inert on any host without a "Lid Switch" device, and `eDP-1` is already
+  # hard-coded as the laptop's internal panel in the shared modules/home/noctalia.nix.
   #
   # Decoration colors (misc.background_color + general borders) come from the
   # mactahoe-default palette (SHOA-1102, theme/mactahoe.nix) — the dark surface
@@ -147,6 +150,26 @@ in
         hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("noctalia msg media toggle"), { locked = true })
         hl.bind("XF86AudioNext", hl.dsp.exec_cmd("noctalia msg media next"), { locked = true })
         hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("noctalia msg media previous"), { locked = true })
+
+        -- Laptop lid (switch name from `hyprctl devices`). With an external output
+        -- enabled, closing the lid drops the internal panel and reopening restores
+        -- it (scale pinned to 1, matching the fallback monitor rule above — the
+        -- lua default is "auto", which would 1.5x the 1080p panel). With only the
+        -- internal panel enabled this is a no-op and logind's HandleLidSwitch
+        -- (suspend, configurations/nixos/laptop/power.nix) owns the lid. Inert on
+        -- hosts without a lid switch.
+        local internal_panel = "eDP-1"
+        hl.bind("switch:on:Lid Switch", function()
+          for _, mon in ipairs(hl.get_monitors()) do
+            if mon.name ~= internal_panel then
+              hl.monitor({ output = internal_panel, disabled = true })
+              return
+            end
+          end
+        end, { locked = true })
+        hl.bind("switch:off:Lid Switch", function()
+          hl.monitor({ output = internal_panel, disabled = false, mode = "preferred", position = "auto", scale = 1 })
+        end, { locked = true })
       '';
     };
   };

@@ -47,6 +47,11 @@ Both workstations share one declarative Wayland session:
   1800 s. stasis is the single idle manager; its RUNE plan drives Noctalia's
   shell-native lock screen (`noctalia msg session lock`), which is enabled via
   `programs.noctalia.settings.lockscreen.enabled`.
+- **Laptop lid** is split across two owners: undocked, closing the lid suspends
+  via logind's `HandleLidSwitch` (`configurations/nixos/laptop/power.nix`);
+  docked (a second display connected), logind ignores the lid and Hyprland
+  (`modules/home/hyprland.nix`) disables the internal `eDP-1` panel on close
+  and restores it on open.
 - **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
 - **Input defaults** enable Num Lock in the Hyprland session on both hosts. The
