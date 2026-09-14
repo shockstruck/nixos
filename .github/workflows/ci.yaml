@@ -124,7 +124,7 @@ jobs:
       # Scoped to the paths known to be nixpkgs-fmt clean. Widening this to the
       # whole tree needs one `nix fmt` pass over the other .nix files first.
       - name: Check formatting
-        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix modules/home/brave.nix modules/home/nextcloud.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop modules/nixos/console configurations/nixos/console configurations/home/console packages/opengameinstaller.nix
+        run: nix fmt -- --check flake.nix modules/nixos/default.nix modules/nixos/common/myusers.nix modules/nixos/gui modules/home/hyprland.nix modules/home/brave.nix modules/home/nextcloud.nix configurations/home/kevin.nix configurations/nixos/desktop configurations/nixos/laptop modules/nixos/console configurations/nixos/console configurations/home/console packages/opengameinstaller.nix packages/decky-loader.nix
 
       - name: Evaluate workstation configurations
         run: |
