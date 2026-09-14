@@ -17,6 +17,9 @@ in
     opengameinstaller
     # OGI's NixOS branch expects Bun on PATH and offers no installer of its own.
     pkgs.bun
+    # OGI drives torrents through qBittorrent's WebUI API; WebUI enable and
+    # password are set in-app by Kevin, never here.
+    pkgs.qbittorrent
   ];
 
   # genesis-lib, the OGI addon library behind Cloudflare/DDoS-Guard bypass and
