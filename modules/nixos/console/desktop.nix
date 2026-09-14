@@ -19,8 +19,7 @@
 #     host's greeter is console-session/tuigreet)
 #   - programs.steam (already configured by ./session.nix, gamescope-first)
 #   - the grayjay-flatpak install/update service, kdeconnect
-#   - services.gnome.gnome-keyring, services.gvfs, services.udisks2 — no
-#     desktop file manager or GNOME-keyring-consuming app runs here
+#   - services.gnome.gnome-keyring — no GNOME-keyring-consuming app runs here
 #   - services.xserver.enable — Hyprland is Wayland-native and needs no X
 #     server stack (gui/default.nix only turns this on for its own reasons)
 #
@@ -30,6 +29,9 @@
 #     default true already, kept explicit here for parity with gui/hyprland.nix).
 #   nixos/modules/config/system-path.nix: environment.pathsToLink
 #     (listOf str).
+#   nixos/modules/services/desktops/gvfs.nix: services.gvfs.enable
+#     (mkEnableOption); nixos/modules/services/hardware/udisks2.nix:
+#     services.udisks2.enable (mkEnableOption).
 { pkgs, ... }:
 {
   imports = [ ../gui/brave.nix ];
@@ -38,6 +40,12 @@
     enable = true;
     xwayland.enable = true;
   };
+
+  # nautilus (configurations/home/console/kevin.nix) needs the gvfs daemon
+  # for trash, network locations and mounting; udisks2 backs its removable
+  # media. Same pair gui/hyprland.nix enables for desktop/laptop.
+  services.gvfs.enable = true;
+  services.udisks2.enable = true;
 
   environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
 

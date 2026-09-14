@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `cbdf2ca` (2026-09-14). This doc is not
+Captured against `origin/main` @ `7d8025d` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,16 +13,16 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `eaad089433ca` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `ef34387ddd75` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `fdc36b12804b` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `cfcda3f99334` | nixpkgs |
 | disko | `github:nix-community/disko` | `ff8702b4de27` | nixpkgs |
 | flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
 | nixos-hardware | `github:NixOS/nixos-hardware` | `24cfdc1f9344` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
 | stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
 | nix-index-database | `github:nix-community/nix-index-database` | `a74e17340755` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `16baff93297c` | nixpkgs, flake-parts |
+| nixvim | `github:nix-community/nixvim` | `afcfb8c1dc07` | nixpkgs, flake-parts |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
@@ -66,8 +66,9 @@ noctalia,kitty,brave}` — the theme/Hyprland/Noctalia/kitty modules back the
 desktop session from `modules/nixos/console/desktop.nix`, and `brave` carries
 Kevin's "basic apps" ask, paired with the managed policy imported by
 `console/desktop.nix`; still no `idle` — stasis would lock/suspend a couch
-session with no keyboard at hand — and no `packages`/`shell`/`bitwarden`),
-selected via
+session with no keyboard at hand — and no `packages`/`shell`/`bitwarden`;
+`home.packages = [ nautilus ]` is the one item lifted out of `packages`, the
+file manager the shared Noctalia dock pins), selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
@@ -120,12 +121,12 @@ resolve to their `default.nix`.
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
-| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix`, falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
+| `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix` — launched through the package's `start-hyprland` watchdog with `--path` at the `security.wrappers.Hyprland` wrapper, so the compositor keeps cap_sys_nice without its "started without start-hyprland" warning — falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
 | `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller`, `bun` (OGI's NixOS branch expects Bun on PATH and offers no installer), `unrar` (OGI addons, Lutris and umu extract RAR archives by shelling out to unrar), `qbittorrent` (OGI drives torrents through its WebUI API); `systemd.services.chromium-flatpak` installs/updates `org.chromium.Chromium` from Flathub for OGI's genesis-lib addon, mirroring `gui/hyprland.nix`'s `grayjay-flatpak` |
 | `console/streaming.nix` | `services.sunshine` (`enable`, `capSysAdmin`, `openFirewall`, `autoStart`) |
-| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`); `programs.hyprland` (`enable`, `xwayland.enable`), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, keyring/gvfs/udisks2 and `services.xserver.enable` |
+| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`); `programs.hyprland` (`enable`, `xwayland.enable`), `services.gvfs`/`services.udisks2` (for the console profile's nautilus), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, gnome-keyring and `services.xserver.enable` |
 
 ### Darwin modules — `modules/darwin/`
 
