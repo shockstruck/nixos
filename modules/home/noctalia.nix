@@ -246,7 +246,9 @@ in
           inactive_opacity = 1.0;
           launcher_position = "start";
           # Adapted to this repo's app set (source list was GNOME/Flatpak-specific).
-          pinned = [ "firefox" "kitty" "obsidian" "org.telegram.desktop" "discord" "signal" ];
+          # org.gnome.Nautilus: the file manager, installed on desktop/laptop
+          # via packages.nix and on the console via its own home profile.
+          pinned = [ "firefox" "kitty" "org.gnome.Nautilus" "obsidian" "org.telegram.desktop" "discord" "signal" ];
         };
 
         # Widget settings (all verified against beta.9 widget definitions).

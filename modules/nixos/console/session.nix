@@ -50,6 +50,18 @@
 #     path, since `steamos-session-select gamescope` is called from a
 #     systemd --user service (Noctalia's "Return to Gaming Mode" launcher)
 #     whose PATH cannot be relied on to contain it.
+#   hyprwm/Hyprland v0.56.2 (the nixpkgs package version at the pinned rev):
+#     `start-hyprland` (start/, installed to bin/ unconditionally by the root
+#     CMakeLists) is the watchdog wrapper the upstream `hyprland.desktop`
+#     session execs. It forks the compositor with `--watchdog-fd` and, when
+#     that fd is absent, `CCompositor` posts the "Hyprland was started
+#     without start-hyprland" overlay notification on every start
+#     (src/Compositor.cpp, TXT_KEY_NOTIF_NO_WATCHDOG, unless
+#     `misc:disable_watchdog_warning`). `--path` (start/src/main.cpp) sets
+#     the binary it `execvp`s (start/src/core/Instance.cpp), so pointing it
+#     at the security wrapper keeps cap_sys_nice. On a clean compositor exit
+#     (`hyprctl dispatch exit`) it returns 0; on a crash it relaunches
+#     Hyprland in safe mode itself instead of returning here.
 #
 # Session-switch contract: Steam's Big Picture "Switch to Desktop" runs
 # `steamos-session-select plasma|desktop` from inside its own FHS env and
@@ -131,7 +143,12 @@ let
             sleep 1
           done
           echo "console-session: starting desktop session"
-          ${config.security.wrapperDir}/Hyprland || true
+          # Through the watchdog, not the bare wrapper: without it every
+          # desktop session opens on Hyprland's "started without
+          # start-hyprland" warning (header note). --path keeps the
+          # cap_sys_nice wrapper as the binary the watchdog execs.
+          ${lib.getExe' config.programs.hyprland.package "start-hyprland"} \
+            --path ${config.security.wrapperDir}/Hyprland || true
           echo "console-session: desktop session ended"
           continue
         fi

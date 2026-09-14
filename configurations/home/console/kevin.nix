@@ -15,8 +15,12 @@
 # idle: stasis would lock/suspend the console desktop, and couch use has no
 # keyboard at hand to clear the lock prompt. Not packages/shell/bitwarden
 # either — those are desktop/laptop's day-to-day app set, not needed for the
-# occasional shortcut-adding session this profile exists for.
-{ flake, ... }:
+# occasional shortcut-adding session this profile exists for. nautilus is the
+# one item lifted out of packages: the shared Noctalia dock pins
+# org.gnome.Nautilus (modules/home/noctalia.nix) and the shortcut-adding
+# sessions need a file manager to find the installed game; gvfs/udisks2 for
+# it are enabled in modules/nixos/console/desktop.nix.
+{ flake, pkgs, ... }:
 let
   inherit (flake) inputs;
   inherit (inputs) self;
@@ -34,6 +38,8 @@ in
     self.homeModules.kitty
     self.homeModules.brave
   ];
+
+  home.packages = [ pkgs.nautilus ];
 
   me = {
     username = "kevin";
