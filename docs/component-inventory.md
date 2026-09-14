@@ -100,6 +100,7 @@ resolve to their `default.nix`.
 | `me.nix` | User config options (`me.username`, `me.fullname`, `me.email`) |
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
 | `neovim/nixvim.nix` | nixvim configuration for neovim |
+| `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its Nautilus/D-Bus integration files |
 | `nix-index.nix` | nix-index database setup |
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service, founder palette) |
@@ -122,7 +123,7 @@ resolve to their `default.nix`.
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
-| `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service |
+| `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service, `NAUTILUS_4_EXTENSION_DIR` session variable (nautilus-python, for the Nextcloud client's Nautilus integration) |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
 | `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix` — launched through the package's `start-hyprland` watchdog with `--path` at the `security.wrappers.Hyprland` wrapper, so the compositor keeps cap_sys_nice without its "started without start-hyprland" warning — falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |

@@ -20,6 +20,13 @@
   services.gvfs.enable = true;
   services.udisks2.enable = true;
 
+  # Nautilus loads its extension modules from NAUTILUS_4_EXTENSION_DIR
+  # (nixpkgs' extension_dir.patch). Pointing it at nautilus-python lets the
+  # Nextcloud client's Python extension (modules/home/nextcloud.nix) load
+  # from $XDG_DATA_DIRS/nautilus-python/extensions. Same wiring as nixpkgs'
+  # programs.nautilus-open-any-terminal module.
+  environment.sessionVariables.NAUTILUS_4_EXTENSION_DIR = "${pkgs.nautilus-python}/lib/nautilus/extensions-4";
+
   hardware.bluetooth.enable = true;
   hardware.i2c.enable = true;
 
