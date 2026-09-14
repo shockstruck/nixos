@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `bd47023` (2026-09-14). This doc is not
+Captured against `origin/main` @ `8b8017a` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -185,4 +185,4 @@ console's `shell` import gets the tools its aliases need.
 | paperweight | `packages/paperweight.nix` | Callpackaged in `modules/home/packages.nix` |
 | mactahoe-gtk-theme | `packages/mactahoe-gtk-theme.nix` | MacTahoe-Dark GTK theme, tinted at build time from the founder palette; consumed by `modules/home/theme/mactahoe.nix` |
 | wallpapers | `packages/wallpapers.nix` | Wallpaper collection (SHOA-1058, `packages/wallpapers/assets/`); consumed by `modules/home/noctalia.nix` |
-| opengameinstaller | `packages/opengameinstaller.nix` | AppImage-wrapped OpenGameInstaller front-end; callpackaged in `modules/nixos/console/launchers.nix` |
+| opengameinstaller | `packages/opengameinstaller.nix` | AppImage-wrapped OpenGameInstaller front-end; callpackaged in `modules/nixos/console/launchers.nix`; wrapper exports `APPIMAGE=/run/current-system/sw/bin/opengameinstaller` so OGI's Steam/desktop shortcut writers point at the FHS launcher |

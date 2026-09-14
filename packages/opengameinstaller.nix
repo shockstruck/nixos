@@ -52,7 +52,21 @@ appimageTools.wrapType2 {
     substituteInPlace $out/share/applications/opengameinstaller-gui.desktop \
       --replace-fail 'Exec=AppRun --no-sandbox %U' 'Exec=opengameinstaller %U' \
       --replace-fail 'Categories=Development;' 'Categories=Game;'
-    wrapProgram "$out/bin/opengameinstaller" --add-flags "--no-sandbox"
+
+    # OGI's Steam-shortcut and desktop-shortcut writers take the launcher path
+    # from $APPIMAGE (helpers.app/platform.ts getOgiExecutablePath), falling
+    # back to process.execPath. appimage-exec.sh -w exports APPIMAGE unset, so
+    # without this the shortcut's LaunchOptions name the Electron binary
+    # inside the extracted store path, which cannot run outside this FHS env
+    # and Big Picture launches nothing. /run/current-system/sw/bin rather than
+    # $out/bin so shortcuts survive version bumps (this package is in
+    # environment.systemPackages via modules/nixos/console/launchers.nix), and
+    # Steam's own FHS env bind-mounts /run so the path resolves from inside
+    # the shortcut. APPIMAGE has no other consumer in OGI (the self-updater
+    # uses relative ../OpenGameInstaller-Setup.AppImage paths).
+    wrapProgram "$out/bin/opengameinstaller" \
+      --add-flags "--no-sandbox" \
+      --set APPIMAGE /run/current-system/sw/bin/opengameinstaller
   '';
 
   meta = {
