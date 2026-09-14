@@ -64,9 +64,8 @@ in
     # electron/startup.ts, handlers/handler.umu.ts) and addons spawn it
     # directly for setup.exe / winetricks. That zipapp is a `python3` script
     # (umu-launcher Makefile.in, `python3 -m zipapp … -p`) with pure-Python
-    # deps, and the AppImage FHS env OGI runs in carries no interpreter
-    # (appimageTools.defaultFhsEnvArgs), so it resolves `python3` from the
-    # host PATH — absent here until this line.
+    # deps, resolved from PATH — absent here until this line (OGI runs
+    # unsandboxed on the host, see packages/opengameinstaller.nix).
     pkgs.python3
   ];
 
