@@ -19,9 +19,6 @@ in
     pkgs.bun
     # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar.
     pkgs.unrar
-    # OGI drives torrents through qBittorrent's WebUI API; WebUI enable and
-    # password are set in-app by Kevin, never here.
-    pkgs.qbittorrent
     # OGI does not use the umu-launcher above for its own Windows-game flow:
     # it downloads the upstream umu zipapp to
     # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
