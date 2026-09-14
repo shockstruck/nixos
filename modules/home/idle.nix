@@ -48,7 +48,7 @@ in
       enable = true;
       settings = {
         general = {
-          lock_cmd = lockScript;
+          lock_cmd = "${lockScript}";
           before_sleep_cmd = "${loginctl} lock-session";
           after_sleep_cmd = "${hyprctl} dispatch dpms on";
           inhibit_sleep = 3;
