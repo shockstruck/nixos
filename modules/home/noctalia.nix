@@ -219,11 +219,11 @@ in
         control_center = {
           sidebar_section = "full";
           width = 800;
-          # 12-hour clock (SHOA-1028 sweep): calendar tab event times bypass
-          # shell.time_format upstream (CalendarTab default "%H:%M", rev
-          # a064c063) — this key is their only config surface.
-          calendar.event_time_format = "%I:%M %p";
         };
+        # 12-hour clock (SHOA-1028 sweep): calendar tab event times bypass
+        # shell.time_format upstream (calendarSchema(), noctalia-shell
+        # v5.1.0) — this key is their only config surface.
+        calendar.event_time_format = "%I:%M %p";
         notification.background_opacity = 0.51;
         osd = {
           background_opacity = 0.3;
