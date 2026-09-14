@@ -22,6 +22,7 @@ in
     gnome-calendar
     gnome-disk-utility
     lmstudio
+    looking-glass-client
     mission-center
     nautilus
     obsidian
