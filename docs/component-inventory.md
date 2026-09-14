@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `bd99978` (2026-09-14). This doc is not
+Captured against `origin/main` @ `cbdf2ca` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -151,7 +151,7 @@ resolve to their `default.nix`.
 | Group | Packages |
 | --- | --- |
 | General | `omnix`, `opencode` |
-| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `splayer-next`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vicinae`, `vscodium` |
+| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vscodium` |
 | Unix tools | `age`, `ansible`, `bitwarden-cli`, `cloudflared`, `crane`, `fluxcd`, `gh`, `go-task`, `helmfile`, `kubeconform`, `kubecolor`, `kubectl`, `kubernetes-helm`, `kustomize`, `minijinja`, `mise`, `ranger`, `ripgrep`, `fd`, `sd`, `sops`, `stern`, `talhelper`, `talosctl`, `terraform`, `tree`, `gnumake`, `yamllint`, `yq-go`, `proton-pass-cli`, `_1password-cli` |
 | Nix dev | `cachix`, `nil`, `nix-info`, `nixpkgs-fmt` |
 | Other | `less` (man pager) |
@@ -172,7 +172,6 @@ resolve to their `default.nix`.
 | Package | File | Notes |
 | --- | --- | --- |
 | paperweight | `packages/paperweight.nix` | Callpackaged in `modules/home/packages.nix` |
-| splayer-next | `packages/splayer-next.nix` | Callpackaged in `modules/home/packages.nix` |
 | mactahoe-gtk-theme | `packages/mactahoe-gtk-theme.nix` | MacTahoe-Dark GTK theme, tinted at build time from the founder palette; consumed by `modules/home/theme/mactahoe.nix` |
 | wallpapers | `packages/wallpapers.nix` | Wallpaper collection (SHOA-1058, `packages/wallpapers/assets/`); consumed by `modules/home/noctalia.nix` |
 | opengameinstaller | `packages/opengameinstaller.nix` | AppImage-wrapped OpenGameInstaller front-end; callpackaged in `modules/nixos/console/launchers.nix` |

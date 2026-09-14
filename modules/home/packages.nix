@@ -1,7 +1,6 @@
 { pkgs, ... }:
 let
   paperweight = pkgs.callPackage ../../packages/paperweight.nix { };
-  splayer-next = pkgs.callPackage ../../packages/splayer-next.nix { };
 in
 {
   # Nix packages to install to $HOME
@@ -36,11 +35,9 @@ in
     protonmail-desktop
     runelite
     signal-desktop
-    splayer-next
     telegram-desktop
     # Official Discord client with the Vencord mod injected (replaces vesktop).
     (discord.override { withVencord = true; })
-    vicinae
     vscodium
 
     # Unix tools
