@@ -21,7 +21,9 @@
 # one item lifted out of packages: the shared Noctalia dock pins
 # org.gnome.Nautilus (modules/home/noctalia.nix) and the shortcut-adding
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
-# it are enabled in modules/nixos/console/desktop.nix.
+# it are enabled in modules/nixos/console/desktop.nix. heroic.nix asserts
+# Heroic's auto-add-to-Steam toggle for the shortcut-adding sessions this
+# profile exists for.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -43,6 +45,8 @@ in
     self.homeModules.neovim
     self.homeModules.direnv
     self.homeModules.nix-index
+
+    ./heroic.nix
   ];
 
   home.packages = [ pkgs.nautilus ];
