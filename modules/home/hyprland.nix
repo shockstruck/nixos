@@ -78,6 +78,8 @@ in
       # auto-scales unconfigured monitors from EDID PPI (getDefaultScale:
       # PPI > 200 -> 2.0, PPI > 140 -> 1.5, else 1.0); the previous compositor
       # defaulted every output to 1.0, so without this the post-swap UI renders oversized.
+      # 4K-class outputs are the exception — see the per-output override in
+      # extraConfig below.
       settings.monitor = [
         {
           output = "";
@@ -91,6 +93,28 @@ in
         local function described(description)
           return { description = description }
         end
+
+        -- 4K-class outputs (a TV, typically) get scale 2 instead of the
+        -- catch-all 1.0 above: at 3840x2160 the 1.0 layout is the 1080p
+        -- panel's UI drawn on four times the pixels and is unreadable at TV
+        -- distance, and Hyprland's own PPI heuristic never scales a TV (a 55"
+        -- 4K panel is ~80 PPI). Matching on the mode's pixel size rather than
+        -- a connector name keeps this inert on the 1080p/1440p panels and
+        -- independent of which port the TV lands on. `width`/`height` are the
+        -- mode's pixel size (HL.Monitor, not the scaled logical size), and a
+        -- rule added via hl.monitor at runtime schedules a monitor refresh,
+        -- the same mechanism the lid-switch binds below rely on. The loop
+        -- covers outputs already connected at (re)load; the event covers
+        -- hotplug and the outputs Hyprland adds after the initial config load.
+        local function scale_4k_output(mon)
+          if mon.width >= 3840 and mon.height >= 2160 then
+            hl.monitor({ output = mon.name, mode = "preferred", position = "auto", scale = 2 })
+          end
+        end
+        for _, mon in ipairs(hl.get_monitors()) do
+          scale_4k_output(mon)
+        end
+        hl.on("monitor.added", scale_4k_output)
 
         -- Terminal: kitty (the shared workstation terminal since SHOA-991;
         -- replaces the pre-swap `foot` bind, which is no longer installed).
