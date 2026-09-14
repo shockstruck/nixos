@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `8b8017a` (2026-09-14). This doc is not
+Captured against `origin/main` @ `7bba16c` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -74,7 +74,11 @@ out of `packages`, the file manager the shared Noctalia dock pins; imports
 `./heroic.nix` by relative path, a `home.activation` script that merges
 `defaultSettings.addSteamShortcuts = true` into the mutable
 `~/.config/heroic/config.json` at activation so games Heroic installs land in
-Steam's library for Big Picture), selected via
+Steam's library for Big Picture; and `./opengameinstaller.nix`, a
+`wayland.windowManager.hyprland.settings.window_rule` that force-tiles OGI's
+window (`class` matching `opengameinstaller(-gui)?` case-insensitively) since
+OGI's non-resizable main window otherwise floats over the tiled layout),
+selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
