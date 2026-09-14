@@ -13,6 +13,8 @@
 #       `steam-gamescope` wrapper's `gamescope --steam ${args} -- steam
 #       ${steamArgs}` invocation, i.e. these are the Steam client's own CLI
 #       args, distinct from `gamescopeSession.args` (gamescope's own args).
+#       The default's `-tenfoot` is desktop Big Picture; overridden below to
+#       the SteamOS gaming-mode flag set instead.
 #   pkgs/development/interpreters/python/hooks/pytest-check-hook.sh:
 #     disabledTests is turned into a pytest `-k` deselect expression.
 #   nixos/modules/services/display-managers/greetd.nix:
@@ -216,7 +218,20 @@ in
     # harmless "command not found" in the journal), and the desktop-style
     # Shift+Tab overlay shortcut is replaced by the controller Guide-button
     # behaviour.
-    gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ];
+    #
+    # -gamepadui -steamos3 -steampal -steamdeck is the full SteamOS
+    # gaming-mode flag set: Valve's own steam-launcher (jupiter's
+    # gamescope-session), ChimeraOS's gamescope-session-steam
+    # (sessions.d/steam, CLIENTCMD=…) and Bazzite (80-bazzite.just, same
+    # CLIENTCMD) all start Steam this way. -gamepadui replaces -tenfoot
+    # (desktop Big Picture) with the SteamOS home / gamepad UI — the
+    # Deck-style Quick Access Menu and the Steam-menu sidebar on the Guide
+    # button live only inside it, not in Big Picture. -pipewire-dmabuf is
+    # kept from the nixpkgs default. -steamdeck's trade-off: some games pick
+    # their Deck graphics preset (lower textures) on first launch, since it
+    # presents the machine as a Steam Deck; Bazzite ships a toggle for
+    # exactly this — drop just this one flag if it bites on the 7900 XT.
+    gamescopeSession.steamArgs = [ "-gamepadui" "-steamos3" "-steampal" "-steamdeck" "-pipewire-dmabuf" ];
     # steamos-session-select is what Big Picture's "Switch to Desktop" calls
     # from inside Steam's own FHS env; without it the call hangs forever.
     extraPackages = [ sessionSelect ];
