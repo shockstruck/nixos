@@ -23,12 +23,7 @@
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
 # it are enabled in modules/nixos/console/desktop.nix. heroic.nix asserts
 # Heroic's auto-add-to-Steam toggle for the shortcut-adding sessions this
-# profile exists for. The `.cef-enable-remote-debugging` file is what makes
-# Steam expose the CEF debug port Decky Loader
-# (modules/nixos/console/decky.nix) attaches to (Jovian-NixOS issue 460);
-# Steam persists the toggle itself once it observes the file, so this is a
-# one-way switch — the resulting debug port is localhost-only, an acceptable
-# attack surface on a console with no other local users.
+# profile exists for.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -55,8 +50,6 @@ in
   ];
 
   home.packages = [ pkgs.nautilus ];
-
-  home.file.".local/share/Steam/.cef-enable-remote-debugging".text = "";
 
   me = {
     username = "kevin";
