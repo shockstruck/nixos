@@ -41,6 +41,13 @@
 # modules/home/noctalia.nix's other settings — its lock screen is now the
 # active locker, but its own idle behaviours default off, so the two idle
 # managers do not fight.
+#
+# The stasis package carries a downstream patch: upstream v1.6.3 pauses the
+# entire idle plan while UPower reports the lid closed
+# (src/core/manager/engine.rs, Event::LidClosed), with no opt-out
+# (saltnpepper97/stasis#86). That meant a docked laptop with the lid shut got
+# no idle lock, DPMS or suspend at all. The patch drops the pause on lid close
+# only; drop the patch once upstream ships an opt-out.
 { pkgs
 , lib
 , config
@@ -59,6 +66,30 @@ let
   '';
   hyprctl = "${config.wayland.windowManager.hyprland.finalPackage}/bin/hyprctl";
   systemctl = "${pkgs.systemd}/bin/systemctl";
+
+  # stasis pauses its entire idle plan while UPower reports the lid closed
+  # (src/core/manager/engine.rs, Event::LidClosed -> set_system_paused), and
+  # v1.6.3 has no switch for it (upstream saltnpepper97/stasis#86). With the
+  # laptop docked and the lid shut (modules/home/hyprland.nix) that meant no
+  # idle lock, DPMS or suspend until the lid opened. This patch drops the
+  # pause on lid close only; the PrepareForSleep pause and lid_close_action
+  # are untouched. Drop it once upstream ships an opt-out.
+  stasisPackage = flake.inputs.stasis.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [
+      (pkgs.writeText "stasis-lid-close-keeps-plan-running.patch" ''
+        --- a/src/core/manager/engine.rs
+        +++ b/src/core/manager/engine.rs
+        @@ -264,7 +264,3 @@
+                     Event::LidClosed { .. } => {
+        -                // Lid close pauses the plan timers.
+        -                state.set_system_paused(true);
+        -                self.refresh_timing_holds(state, &cfg, now_ms);
+        -
+                         // Run configured lid-close command (if any).
+                         if let Some(cmd) = &cfg.lid_close_action {
+      '')
+    ];
+  });
 in
 {
   imports = [ flake.inputs.stasis.homeModules.default ];
@@ -66,6 +97,7 @@ in
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
     services.stasis = {
       enable = true;
+      package = stasisPackage;
 
       # RUNE configuration (written to ~/.config/stasis/stasis.rune). Absolute
       # store paths are used for every command so the service PATH is irrelevant.

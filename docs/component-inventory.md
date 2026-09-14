@@ -103,7 +103,7 @@ resolve to their `default.nix`.
 | `gc.nix` | Home-manager garbage collection |
 | `git.nix` | Git config (`programs.git`, `lazygit`) + aliases (`g`, `lg`) |
 | `hyprland.nix` | Hyprland compositor home config (SHOA-1037); `wayland.windowManager.hyprland`, pointer cursor, keybinds incl. `noctalia msg session lock` |
-| `idle.nix` | Idle management via `services.stasis` (stasis v1.5.1, SHOA-1040); stasis RUNE plan drives Noctalia's native lock screen |
+| `idle.nix` | Idle management via `services.stasis` (stasis v1.6.3, SHOA-1040), patched to drop the lid-close plan pause (upstream saltnpepper97/stasis#86); stasis RUNE plan drives Noctalia's native lock screen |
 | `kitty.nix` | Kitty terminal config (founder palette) |
 | `me.nix` | User config options (`me.username`, `me.fullname`, `me.email`) |
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |

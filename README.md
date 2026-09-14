@@ -51,7 +51,10 @@ Both workstations share one declarative Wayland session:
   via logind's `HandleLidSwitch` (`configurations/nixos/laptop/power.nix`);
   docked (a second display connected), logind ignores the lid and Hyprland
   (`modules/home/hyprland.nix`) disables the internal `eDP-1` panel on close
-  and restores it on open.
+  and restores it on open. stasis is patched (`modules/home/idle.nix`) so its
+  idle plan keeps running with the lid closed on the dock — lock, DPMS and
+  suspend fire on the normal timings instead of the plan pausing until the
+  lid reopens.
 - **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
 - **Input defaults** enable Num Lock in the Hyprland session on both hosts. The
