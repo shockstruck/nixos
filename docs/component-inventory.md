@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `7d8025d` (2026-09-14). This doc is not
+Captured against `origin/main` @ `cdbbc2d` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -117,16 +117,17 @@ resolve to their `default.nix`.
 | `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
-| `gui/default.nix` | Imports `./brave.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
+| `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`) |
-| `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, Steam, fonts, flatpak/Grayjay service |
+| `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
+| `gui/hyprland.nix` | Noctalia greeter display manager, `programs.hyprland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service |
 | `console/default.nix` | Imports `./session.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
 | `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix` — launched through the package's `start-hyprland` watchdog with `--path` at the `security.wrappers.Hyprland` wrapper, so the compositor keeps cap_sys_nice without its "started without start-hyprland" warning — falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
 | `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller`, `bun` (OGI's NixOS branch expects Bun on PATH and offers no installer), `unrar` (OGI addons, Lutris and umu extract RAR archives by shelling out to unrar), `qbittorrent` (OGI drives torrents through its WebUI API); `systemd.services.chromium-flatpak` installs/updates `org.chromium.Chromium` from Flathub for OGI's genesis-lib addon, mirroring `gui/hyprland.nix`'s `grayjay-flatpak` |
 | `console/streaming.nix` | `services.sunshine` (`enable`, `capSysAdmin`, `openFirewall`, `autoStart`) |
-| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`); `programs.hyprland` (`enable`, `xwayland.enable`), `services.gvfs`/`services.udisks2` (for the console profile's nautilus), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, gnome-keyring and `services.xserver.enable` |
+| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`) and `../gui/flatpak.nix` (Bazaar + the `flatpak-remotes` oneshot; `services.flatpak.enable` is already on via `./session.nix`); `programs.hyprland` (`enable`, `xwayland.enable`), `services.gvfs`/`services.udisks2` (for the console profile's nautilus), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, gnome-keyring and `services.xserver.enable` |
 
 ### Darwin modules — `modules/darwin/`
 

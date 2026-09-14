@@ -1,6 +1,7 @@
 {
   imports = [
     ./brave.nix
+    ./flatpak.nix
     ./hyprland.nix
   ];
 
