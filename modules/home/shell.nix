@@ -4,6 +4,9 @@ let
   e = config.theme.eldritch;
 in
 {
+  home.packages = [
+    pkgs.ripgrep # Better `grep`
+  ];
   home.activation.migrateZshHistory = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     oldHistory="${config.home.homeDirectory}/.zsh_history"
     newHistory="${config.xdg.configHome}/zsh/.zsh_history"
@@ -302,7 +305,13 @@ in
     };
     # Type `z <pat>` to cd to some directory
     zoxide.enable = true;
+    # Type `<ctrl> + r` to fuzzy search your shell history
+    fzf.enable = true;
     # Atuin owns Ctrl-R; fzf keeps its file and directory widgets.
     fzf.historyWidget.command = "";
+    # Better `cat`
+    bat.enable = true;
+    # Better `ls` (mooniri zsh aliases in shell.nix invoke `eza` directly).
+    eza.enable = true;
   };
 }
