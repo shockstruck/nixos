@@ -17,6 +17,8 @@ in
     opengameinstaller
     # OGI's NixOS branch expects Bun on PATH and offers no installer of its own.
     pkgs.bun
+    # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar.
+    pkgs.unrar
     # OGI drives torrents through qBittorrent's WebUI API; WebUI enable and
     # password are set in-app by Kevin, never here.
     pkgs.qbittorrent

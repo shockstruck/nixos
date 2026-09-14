@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `bebdd3c` (2026-09-13). This doc is not
+Captured against `origin/main` @ `bd99978` (2026-09-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -123,7 +123,7 @@ resolve to their `default.nix`.
 | `console/session.nix` | `programs.gamescope.capSysNice`, `programs.steam` (incl. `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" ]`, `gamescopeSession.steamArgs = [ "-tenfoot" "-pipewire-dmabuf" "-steamos3" ]` — `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix`, falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth/flatpak/polkit/dconf |
 | `console/performance.nix` | CachyOS-style tuning: `services.scx` (`scx_lavd`), `services.ananicy` (`ananicy-cpp` + `ananicy-rules-cachyos`), `programs.gamemode`, `vm.max_map_count` sysctl, `boot.kernelModules = [ "ntsync" ]` + udev uaccess rule, `services.lact.enable` |
 | `console/input.nix` | `hardware.xone.enable`, `hardware.xpadneo.enable` (Xbox controllers, dongle + Bluetooth), `services.udev.packages = [ pkgs.game-devices-udev-rules ]`, `hardware.uinput.enable` |
-| `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller`, `bun` (OGI's NixOS branch expects Bun on PATH and offers no installer), `qbittorrent` (OGI drives torrents through its WebUI API); `systemd.services.chromium-flatpak` installs/updates `org.chromium.Chromium` from Flathub for OGI's genesis-lib addon, mirroring `gui/hyprland.nix`'s `grayjay-flatpak` |
+| `console/launchers.nix` | `environment.systemPackages`: `heroic`, `protonup-qt`, `mangohud`, `lutris`, `umu-launcher`, callpackaged `opengameinstaller`, `bun` (OGI's NixOS branch expects Bun on PATH and offers no installer), `unrar` (OGI addons, Lutris and umu extract RAR archives by shelling out to unrar), `qbittorrent` (OGI drives torrents through its WebUI API); `systemd.services.chromium-flatpak` installs/updates `org.chromium.Chromium` from Flathub for OGI's genesis-lib addon, mirroring `gui/hyprland.nix`'s `grayjay-flatpak` |
 | `console/streaming.nix` | `services.sunshine` (`enable`, `capSysAdmin`, `openFirewall`, `autoStart`) |
 | `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`); `programs.hyprland` (`enable`, `xwayland.enable`), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, keyring/gvfs/udisks2 and `services.xserver.enable` |
 
