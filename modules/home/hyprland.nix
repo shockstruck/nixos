@@ -28,11 +28,11 @@ in
   #      the compositor swap (SHOA-997, "drop the hypr-autoscroll Hyprland
   #      plugin"), so that removal decision stands here.
   #
-  # Idle/DPMS is owned by stasis (modules/home/idle.nix); locking is Noctalia's
-  # shell-native lock screen (SHOA-1040, replacing hypridle + the legacy Wayland locker
-  # SHOA-993/1037). The SUPER+L bind below runs `noctalia msg session lock`
-  # directly: stasis does not lock on `loginctl lock-session` (it only tracks
-  # LockedHint), so the bind spawns the locker like the idle/pre-sleep steps do.
+  # Idle/DPMS is owned by hypridle (modules/home/idle.nix); locking is Noctalia's
+  # shell-native lock screen. The SUPER+L bind below runs `noctalia msg session
+  # lock` directly — it works with or without the idle daemon — and
+  # `loginctl lock-session` now reaches the same locker through hypridle's
+  # `lock_cmd`.
   # Laptop lid handling also lives here, shared with the desktop: the bind is
   # inert on any host without a "Lid Switch" device, and `eDP-1` is already
   # hard-coded as the laptop's internal panel in the shared modules/home/noctalia.nix.

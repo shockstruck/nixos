@@ -10,7 +10,7 @@
 # compositor exec-once entry is required (this mirrors how DMS was started via
 # systemd, so the shell is not double-launched).
 #
-# Idle is delegated to stasis (SHOA-1040, modules/home/idle.nix), which runs
+# Idle is delegated to hypridle (modules/home/idle.nix), which runs
 # Noctalia's shell-native lock screen via `noctalia msg session lock`; its own
 # idle behaviours default off, so the two idle managers do not fight (the
 # previous DMS module made the same handoff via its zeroed idle timeouts).
@@ -140,11 +140,11 @@ in
           custom_palette = "mactahoe";
         };
 
-        # Locking is Noctalia-native (SHOA-1040), driven by stasis
+        # Locking is Noctalia-native, driven by hypridle
         # (modules/home/idle.nix) and the Hyprland SUPER+L bind: `noctalia msg
         # session lock` authenticates via the always-present `login` PAM service
         # and is idempotent while a lock is active. Noctalia's own idle
-        # behaviours default to disabled, so stasis remains the single idle
+        # behaviours default to disabled, so hypridle remains the single idle
         # manager.
         lockscreen.enabled = true;
 
@@ -208,8 +208,8 @@ in
         # (SHOA-1058). Schema-verified against noctalia-shell v5.0.0-beta.9;
         # keys not valid in beta.9 were dropped (see child spec),
         # machine-specific paths (avatar, launcher image, absolute wallpaper
-        # paths) are not ported, idle.* is intentionally NOT ported (stasis
-        # owns idle per SHOA-1040), and the Nord theme/bar layout are NOT
+        # paths) are not ported, idle.* is intentionally NOT ported (hypridle
+        # owns idle), and the Nord theme/bar layout are NOT
         # ported (Eldritch + DMS-parity bar are the curated SHOA-999/1008
         # baseline).
         accessibility.ui_scale = 1.15;

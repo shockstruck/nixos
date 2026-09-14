@@ -1,132 +1,74 @@
-# stasis — Wayland idle manager (saltnpepper97/stasis) that drives Noctalia's
-# shell-native lock screen (noctalialock) as the workstation's single, effective
-# locker (SHOA-1002 replacing swayidle; SHOA-1026 replacing the standalone
-# locker; restored for the Hyprland compositor in SHOA-1040, replacing the
-# interim hypridle + previous locker stack SHOA-993/1037).
+# hypridle — Hyprland's idle daemon, driving Noctalia's shell-native lock
+# screen (ext-session-lock) as the workstation's single locker. It replaces
+# stasis: with the laptop docked and the lid closed, stasis paused its whole
+# idle plan (no idle lock, DPMS or suspend) and offers no way to turn that
+# off; hypridle has no lid handling at all, so the listeners below keep
+# counting whatever the lid does.
 #
-# stasis owns all idle behaviour so there is exactly one idle manager. It runs
-# a deterministic, sequential timer plan mirroring the hypridle timings
-# (SHOA-993/1037): lock at 300 s, blank the monitors at 330 s, suspend at
-# 1800 s (all absolute from idle start). Because stasis step timeouts are
-# *relative to the previous step firing* (see stasis(5) — "Seconds relative to
-# the previous enabled step firing"), the blank/suspend timeouts below are
-# offsets:
-#   lock_screen   300               -> 300 s absolute
-#   dpms           30 (after lock)  -> 330 s absolute
-#   suspend      1470 (after dpms)  -> 1800 s absolute
+# Plan (absolute from idle start, unchanged timings):
+#   300 s  lock    -> `loginctl lock-session`; logind turns it into the Lock
+#                    signal hypridle answers with general.lock_cmd
+#   330 s  dpms    -> `hyprctl dispatch dpms off`, back on at first input
+#   1800 s suspend -> `systemctl suspend`
 #
-# Locking semantics are preserved with noctalialock as the only locker:
-#   - idle timeout locks via the `lock_screen` step running
-#     `noctalia msg session lock` (Noctalia's ext-session-lock lock screen)
-#   - pre-sleep (lid close / `systemctl suspend`, including stasis's own suspend
-#     step) locks via `prepare_sleep_command`, which fires on logind
-#     PrepareForSleep(true) — this replaces hypridle's before-sleep handling and
-#     requires `enable_loginctl_integration true`
-#   - the lock IPC is idempotent (Noctalia's LockScreen::lock() is a no-op while
-#     already active), so repeated triggers (manual SUPER+L, idle, pre-sleep)
-#     never stack a second locker — the old locker PID guard is gone with it
-#   - DPMS is restored on wake via the `dpms` step's `resume_command`
-#     (replacing hypridle's `after_sleep_cmd` / listener `on-resume`)
+# Every lock path converges on one idempotent command (Noctalia's
+# LockScreen::lock() is a no-op while a lock is active):
+#   - idle:   the 300 s listener -> loginctl lock-session -> lock_cmd
+#   - sleep:  before_sleep_cmd = loginctl lock-session fires for every route
+#             into sleep (idle suspend, `systemctl suspend`, undocked lid
+#             close via logind HandleLidSwitch); inhibit_sleep = 3 holds a
+#             logind delay inhibitor until the lock surface is up
+#             (hyprland-lock-notify-v1), so the machine never sleeps unlocked
+#   - manual: SUPER+L in modules/home/hyprland.nix calls Noctalia directly;
+#             `loginctl lock-session` from anywhere else works too
 #
-# Unlike hypridle, stasis does NOT run a locker in response to an external
-# `loginctl lock-session` (it only tracks logind LockedHint). The manual lock
-# bind therefore spawns the locker directly (SUPER+L in modules/home/hyprland.nix
-# now points at the same noctalialock invocation).
+# Inhibitors: Wayland idle-inhibit, org.freedesktop.ScreenSaver (browsers,
+# video calls, portal clients) and `systemd-inhibit --what=idle` are all
+# honoured by hypridle's defaults; no media or audio heuristics.
 #
-# The stasis Home Manager module is provided by the upstream flake input
-# (`flake.inputs.stasis.homeModules.default`, wired in flake.nix). The previous
-# standalone locker and its PAM entry are removed (SHOA-1026/1040): noctalialock
-# authenticates through the standard `login` PAM service, so no per-locker PAM
-# entry is required. Noctalia's competing idle/lock stays off in
-# modules/home/noctalia.nix's other settings — its lock screen is now the
-# active locker, but its own idle behaviours default off, so the two idle
-# managers do not fight.
+# Absolute store paths so the systemd user service PATH is irrelevant.
+# after_sleep_cmd turns the displays back on so waking does not need a
+# second key press.
 { pkgs
 , lib
 , config
-, flake
 , ...
 }:
 let
-  # noctalialock launcher (SHOA-1026): Noctalia's shell-native lock screen
-  # (ext-session-lock-v1), invoked via the shell's IPC CLI. The idle step, the
-  # pre-sleep hook, and the manual SUPER+L bind all converge on this single
-  # invocation; Noctalia's lock is idempotent while a lock is active, so the
-  # old PID guard is no longer needed. Absolute store path so the stasis
-  # service PATH is irrelevant.
+  loginctl = "${pkgs.systemd}/bin/loginctl";
+  systemctl = "${pkgs.systemd}/bin/systemctl";
+  hyprctl = "${config.wayland.windowManager.hyprland.finalPackage}/bin/hyprctl";
   lockScript = pkgs.writeShellScript "noctalialock" ''
     exec ${config.programs.noctalia.package}/bin/noctalia msg session lock
   '';
-  hyprctl = "${config.wayland.windowManager.hyprland.finalPackage}/bin/hyprctl";
-  systemctl = "${pkgs.systemd}/bin/systemctl";
 in
 {
-  imports = [ flake.inputs.stasis.homeModules.default ];
-
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-    services.stasis = {
+    services.hypridle = {
       enable = true;
-
-      # RUNE configuration (written to ~/.config/stasis/stasis.rune). Absolute
-      # store paths are used for every command so the service PATH is irrelevant.
-      extraConfig = ''
-        @description "ShockStruck idle plan (SHOA-1040) — single manager, noctalialock locker"
-
-        default:
-          # Subscribe to logind PrepareForSleep so `prepare_sleep_command` fires
-          # before an externally-initiated (or stasis-initiated) suspend.
-          enable_loginctl_integration true
-
-          # Honor session-bus idle inhibitors (browsers, video calls, portal
-          # clients). This is the one intentional upgrade over hypridle, which
-          # only honored the Wayland idle-inhibit protocol; timings and the
-          # locker are otherwise preserved.
-          enable_dbus_inhibit true
-
-          # No audio-based inhibition — keep hypridle's pure-timer semantics
-          # (the Wayland idle-inhibit protocol is still honored regardless).
-          monitor_media false
-
-          # Keep the absolute timings exact (no per-step debounce offset).
-          debounce_seconds 0
-
-          # Lock before sleep (lid close, `systemctl suspend`, or the suspend
-          # step below), mirroring hypridle's before-sleep handling.
-          prepare_sleep_command "${lockScript}"
-
-          # Lock after 5 minutes idle.
-          lock_screen:
-            timeout 300
-            command "${lockScript}"
-          end
-
-          # Blank the monitors 30 s after the lock (330 s absolute), and restore
-          # DPMS on input/wake (replacing hypridle's after_sleep_cmd / on-resume).
-          dpms:
-            timeout 30
-            command "${hyprctl} dispatch dpms off"
-            resume_command "${hyprctl} dispatch dpms on"
-          end
-
-          # Suspend at 1800 s absolute (1470 s after the dpms step fired).
-          suspend:
-            timeout 1470
-            command "${systemctl} suspend"
-          end
-        end
-      '';
+      settings = {
+        general = {
+          lock_cmd = "${lockScript}";
+          before_sleep_cmd = "${loginctl} lock-session";
+          after_sleep_cmd = "${hyprctl} dispatch dpms on";
+          inhibit_sleep = 3;
+        };
+        listener = [
+          {
+            timeout = 300;
+            on-timeout = "${loginctl} lock-session";
+          }
+          {
+            timeout = 330;
+            on-timeout = "${hyprctl} dispatch dpms off";
+            on-resume = "${hyprctl} dispatch dpms on";
+          }
+          {
+            timeout = 1800;
+            on-timeout = "${systemctl} suspend";
+          }
+        ];
+      };
     };
-
-    # SHOA-1064: stasis rewrites/migrates its own config at runtime (see
-    # upstream src/config/migrate.rs — backup+replace), turning HM's managed
-    # symlink into a real file. On the next `nixos-rebuild switch` HM's
-    # backupFileExtension ("hm-backup", myusers.nix:51) tries to back that file
-    # up, but a stale stasis.rune.hm-backup from a prior activation makes the
-    # backup un-clobberable and activation hard-fails — and keeps failing.
-    # force = true tells HM to overwrite the in-the-way file directly (no
-    # backup), which HM's own error suggests. HM regenerates stasis.rune
-    # deterministically from extraConfig, so nothing worth backing up is lost,
-    # no *.hm-backup accumulates, and the rebuild is self-healing.
-    xdg.configFile."stasis/stasis.rune".force = true;
   };
 }

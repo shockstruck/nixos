@@ -42,10 +42,11 @@ Both workstations share one declarative Wayland session:
   auto-imported by `modules/home` and therefore shared by every host. It provides
   the Lua main config, systemd graphical-session integration, and the shared
   keybindings below.
-- **Session locking** is **stasis → Noctalia native lock** (`modules/home/idle.nix`):
+- **Session locking** is **hypridle → Noctalia native lock** (`modules/home/idle.nix`):
   lock after 300 s idle, blank the display (DPMS) after 330 s, suspend after
-  1800 s. stasis is the single idle manager; its RUNE plan drives Noctalia's
-  shell-native lock screen (`noctalia msg session lock`), which is enabled via
+  1800 s — the same timings as before. hypridle is the single idle manager;
+  `loginctl lock-session` now locks, driving Noctalia's shell-native lock
+  screen (`noctalia msg session lock`), which is enabled via
   `programs.noctalia.settings.lockscreen.enabled`.
 - **Laptop lid** is split across two owners: undocked, closing the lid suspends
   via logind's `HandleLidSwitch` (`configurations/nixos/laptop/power.nix`);
@@ -73,7 +74,7 @@ Both workstations share one declarative Wayland session:
 | --- | --- |
 | `SUPER`+`Return` | Launch `kitty` |
 | `SUPER`+`Q` | Close the focused window |
-| `SUPER`+`L` | Lock the session (stasis / Noctalia native lock) |
+| `SUPER`+`L` | Lock the session (hypridle / Noctalia native lock) |
 | `SUPER`+`←` `→` `↑` `↓` | Move focus |
 | `SUPER`+`1`…`5` | Switch to workspace 1-5 |
 | `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
@@ -230,7 +231,7 @@ If a Noctalia input was just added or changed, refresh its lock graph first
 nix flake lock --update-input noctalia
 ```
 
-The same applies to the stasis input (`nix flake lock --update-input stasis`).
+The `stasis` input is unused and pending removal, so it no longer needs this treatment.
 
 ## Apply changes
 
