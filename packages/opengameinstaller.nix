@@ -19,12 +19,16 @@
 # the umu zipapp it downloads.
 #
 # What the AppImage carries, and why nixpkgs' Electron can run it:
-#   - Electron 40.10.2 (upstream bun.lock at the pinned tag) — electron_40
-#     below is the same major, so the Node ABI matches.
-#   - `resources/app.asar` only; no `app.asar.unpacked`. The native modules
-#     (utp-native, node-datachannel, bufferutil, utf-8-validate, …) are
-#     N-API prebuilds inside the asar, which Electron unpacks to a temp file
-#     at load time itself.
+#   - Electron 40.10.2 (upstream bun.lock at the pinned tag). nixpkgs marks
+#     every Electron below 42 EOL and refuses to evaluate it
+#     (electron/binary/generic.nix knownVulnerabilities), so electron_42 —
+#     the oldest supported major at the locked nixpkgs — runs it instead.
+#   - That works because `resources/app.asar` (no `app.asar.unpacked`)
+#     carries only N-API native modules (utp-native, node-datachannel,
+#     bufferutil, utf-8-validate, fs-native-extensions, msgpackr-extract:
+#     their Linux .node files import napi_* only, no v8/node symbols), so
+#     they do not depend on the Electron major. Electron unpacks .node
+#     files from an asar to a temp file at load time itself.
 #   - `app.isPackaged` is decided by the executable's basename, and nixpkgs'
 #     binary is `electron`, so OGI would take its dev path (renderer from
 #     http://localhost:8080, data dir under the store). Electron's own
@@ -46,14 +50,16 @@
 #          "https://github.com/Nat3z/OpenGameInstaller/releases/download/v<version>/OpenGameInstaller-linux-pt.AppImage"
 #      or set `hash = lib.fakeHash;`, build once, and copy the expected hash Nix reports.
 #   4. Check the Electron major in upstream's bun.lock at the new tag
-#      (`"electron@<major>.x.y"` under application/) and move the
-#      `electron_<major>` argument below with it; a mismatch breaks the
-#      native modules at runtime, not at build time.
+#      (`"electron@<major>.x.y"` under application/) and keep the
+#      `electron_<major>` argument below at or above it, within what nixpkgs
+#      still supports (it refuses to evaluate EOL majors). A newer Electron
+#      than upstream tested is a runtime risk, not a build failure — check
+#      the window comes up.
 #   5. If a release changes the internal `.desktop`/icon filenames or the Exec
 #      line, update `installPhase` (the `--replace-fail` will fail loudly
 #      if the Exec string drifts, which is intentional).
 { appimageTools
-, electron_40
+, electron_42
 , fetchurl
 , lib
 , makeWrapper
@@ -106,7 +112,7 @@ stdenvNoCC.mkDerivation {
     # bind-mounts /run so the path resolves from inside the shortcut.
     # APPIMAGE has no other consumer in OGI (the self-updater uses relative
     # ../OpenGameInstaller-Setup.AppImage paths).
-    makeWrapper ${electron_40}/bin/electron $out/bin/opengameinstaller \
+    makeWrapper ${electron_42}/bin/electron $out/bin/opengameinstaller \
       --add-flags "$out/share/opengameinstaller/app.asar" \
       --add-flags "--no-sandbox" \
       --set ELECTRON_FORCE_IS_PACKAGED 1 \
