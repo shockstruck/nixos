@@ -7,7 +7,9 @@
   # default because a managed policy is the only way to lock it on every
   # build; users can't change it from brave://settings. The Bitwarden toolbar
   # pin rides on top of the extension Home Manager installs — this policy
-  # only forces its pin state, not its presence.
+  # only forces its pin state, not its presence. The "3rdparty" block below is
+  # the Bitwarden extension's own managed-storage `environment` key, and only
+  # takes effect on a fresh extension install.
   environment.etc."brave/policies/managed/policies.json".text = builtins.toJSON {
     HomepageLocation = "https://portal.panic.ac";
     ShowHomeButton = true;
@@ -25,6 +27,15 @@
     ExtensionSettings = {
       nngceckbapebfimnlniiiahkandclblb = {
         toolbar_pin = "force_pinned";
+      };
+    };
+    "3rdparty" = {
+      extensions = {
+        nngceckbapebfimnlniiiahkandclblb = {
+          environment = {
+            base = "https://vault.panic.ac";
+          };
+        };
       };
     };
   };
