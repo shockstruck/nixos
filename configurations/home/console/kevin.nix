@@ -12,7 +12,7 @@
 # Desktop" target). brave carries Kevin's "basic apps" ask for that session —
 # same brave-origin module + Bitwarden extension as desktop/laptop, paired
 # with the managed policy imported by modules/nixos/console/desktop.nix. Not
-# idle: stasis would lock/suspend the console desktop, and couch use has no
+# idle: hypridle would lock/suspend the console desktop, and couch use has no
 # keyboard at hand to clear the lock prompt. shell/neovim/direnv/nix-index are
 # imported so the console's interactive shell (zsh + powerlevel10k) matches
 # desktop/laptop. Still not packages/bitwarden — those are desktop/laptop's

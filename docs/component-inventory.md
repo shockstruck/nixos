@@ -67,7 +67,7 @@ Noctalia/kitty modules back the desktop session from
 `modules/nixos/console/desktop.nix`, `brave` carries Kevin's "basic apps" ask,
 paired with the managed policy imported by `console/desktop.nix`, and
 `shell`/`neovim`/`direnv`/`nix-index` give the console the same zsh/
-powerlevel10k shell as desktop/laptop; still no `idle` — stasis would
+powerlevel10k shell as desktop/laptop; still no `idle` — hypridle would
 lock/suspend a couch session with no keyboard at hand — and no
 `packages`/`bitwarden`; `home.packages = [ nautilus ]` is the one item lifted
 out of `packages`, the file manager the shared Noctalia dock pins; imports
@@ -103,7 +103,7 @@ resolve to their `default.nix`.
 | `gc.nix` | Home-manager garbage collection |
 | `git.nix` | Git config (`programs.git`, `lazygit`) + aliases (`g`, `lg`) |
 | `hyprland.nix` | Hyprland compositor home config (SHOA-1037); `wayland.windowManager.hyprland`, pointer cursor, keybinds incl. `noctalia msg session lock` |
-| `idle.nix` | Idle management via `services.stasis` (stasis v1.5.1, SHOA-1040); stasis RUNE plan drives Noctalia's native lock screen |
+| `idle.nix` | Idle management via `services.hypridle` (hypridle from nixpkgs); drives Noctalia's native lock screen |
 | `kitty.nix` | Kitty terminal config (founder palette) |
 | `me.nix` | User config options (`me.username`, `me.fullname`, `me.email`) |
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
