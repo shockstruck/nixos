@@ -10,6 +10,12 @@
   # hardware.graphics.extraPackages for us.
   hardware.amdgpu.opencl.enable = true;
 
+  # Verified in nixpkgs nixos/modules/services/hardware/lact.nix at the locked
+  # rev ef34387d: `services.lact.enable` (mkEnableOption) installs the `lact`
+  # package and enables the `lactd` daemon; the overdrive bit it needs comes
+  # from ./hardware.nix.
+  services.lact.enable = true;
+
   environment.systemPackages = [
     pkgs.rocmPackages.rocm-smi
     pkgs.rocmPackages.rocminfo

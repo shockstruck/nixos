@@ -17,8 +17,8 @@
   #     0xfffd3fff with LACT's PP_OVERDRIVE_MASK 0x4000 set).
   #   nixos/modules/services/hardware/lact.nix recommends exactly this option.
   # Imported by path into `console` too (../console/default.nix), so this one
-  # line reaches desktop and console. Only the console enables the LACT daemon
-  # today (services.lact.enable in modules/nixos/console/performance.nix); the
-  # desktop carries the overdrive bit so LACT can use it when run there.
+  # line reaches desktop and console, the two hosts that run the LACT daemon
+  # (services.lact.enable: desktop in ./graphics.nix, console in
+  # modules/nixos/console/performance.nix).
   hardware.amdgpu.overdrive.enable = true;
 }
