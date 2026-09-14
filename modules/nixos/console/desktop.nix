@@ -10,9 +10,13 @@
 # with ./session.nix, which already owns greetd on this host with its own
 # tuigreet fallback. Importing modules/nixos/gui wholesale would additionally
 # drag in the Grayjay flatpak service and kdeconnect, neither of which
-# belongs on a console. Brave's managed-policy file is imported below
-# instead, by its own relative path: it is a standalone /etc entry, so
-# pulling it in on its own carries no greeter or other gui/ pieces.
+# belongs on a console. Brave's managed-policy file and Bazaar/the flatpak
+# remotes oneshot (gui/flatpak.nix) are imported below instead, each by its
+# own relative path: neither carries a greeter or other gui/ pieces.
+# gui/flatpak.nix does not set services.flatpak.enable — ./session.nix
+# already does — so its remote-add oneshot and chromium-flatpak's own
+# `remote-add --if-not-exists flathub` (./launchers.nix) stay idempotent
+# against each other.
 #
 # Deliberately absent, unlike gui/hyprland.nix:
 #   - services.displayManager.noctalia-greeter (greetd conflict above; this
@@ -34,7 +38,7 @@
 #     services.udisks2.enable (mkEnableOption).
 { pkgs, ... }:
 {
-  imports = [ ../gui/brave.nix ];
+  imports = [ ../gui/brave.nix ../gui/flatpak.nix ];
 
   programs.hyprland = {
     enable = true;
