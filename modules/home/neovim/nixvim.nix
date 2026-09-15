@@ -126,6 +126,36 @@
     };
     lazygit.enable = true;
 
+    # Editing QoL
+    gitsigns.enable = true;
+    todo-comments.enable = true;
+    indent-blankline.enable = true;
+    nvim-autopairs.enable = true;
+    flash.enable = true;
+    trouble.enable = true;
+    blink-cmp = {
+      enable = true;
+      settings = {
+        keymap.preset = "enter";
+        completion.documentation.auto_show = true;
+        signature.enabled = true;
+      };
+    };
+    conform-nvim = {
+      enable = true;
+      autoInstall.enable = true;
+      settings = {
+        format_on_save = {
+          lsp_format = "fallback";
+          timeout_ms = 500;
+        };
+        formatters_by_ft = {
+          nix = [ "nixpkgs_fmt" ];
+          "_" = [ "trim_whitespace" ];
+        };
+      };
+    };
+
     # Start screen (mirrors mooniri's snacks dashboard header; this nixvim
     # pin's `plugins.snacks` module has no `dashboard` sub-option, so
     # `plugins.alpha` is used as the equivalent start-screen plugin).
@@ -187,6 +217,55 @@
     {
       action = "<cmd>LazyGit<CR>";
       key = "<leader>gg";
+    }
+    {
+      key = "<leader>xx";
+      action = "<cmd>Trouble diagnostics toggle<cr>";
+      options.desc = "diagnostics (Trouble)";
+    }
+    {
+      key = "<leader>xX";
+      action = "<cmd>Trouble diagnostics toggle filter.buf=0<cr>";
+      options.desc = "buffer diagnostics (Trouble)";
+    }
+    {
+      key = "<leader>cs";
+      action = "<cmd>Trouble symbols toggle focus=false<cr>";
+      options.desc = "symbols (Trouble)";
+    }
+    {
+      key = "<leader>cf";
+      action.__raw = ''function() require("conform").format({ lsp_format = "fallback" }) end'';
+      mode = [
+        "n"
+        "v"
+      ];
+      options.desc = "format buffer/selection";
+    }
+    {
+      key = "<leader>ft";
+      action = "<cmd>TodoTelescope<cr>";
+      options.desc = "todo comments";
+    }
+    {
+      key = "s";
+      action.__raw = ''function() require("flash").jump() end'';
+      mode = [
+        "n"
+        "x"
+        "o"
+      ];
+      options.desc = "flash jump";
+    }
+    {
+      key = "S";
+      action.__raw = ''function() require("flash").treesitter() end'';
+      mode = [
+        "n"
+        "x"
+        "o"
+      ];
+      options.desc = "flash treesitter";
     }
   ];
 }
