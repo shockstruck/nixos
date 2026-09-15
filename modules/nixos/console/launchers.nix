@@ -7,7 +7,16 @@
 let
   opengameinstaller = pkgs.callPackage ../../../packages/opengameinstaller.nix { };
 
-  protonCachyos = pkgs.callPackage ../../../packages/proton-cachyos-bin.nix { };
+  # FSR 3.1 -> FSR 4 upgrade on by default for every game run through this
+  # tool (proton-cachyos-bin.nix's user_settings.py mechanism); opt out per
+  # game with `PROTON_FSR4_UPGRADE=0`. OptiScaler injection is deliberately
+  # not defaulted here — it injects a DLL into every game, and upstream
+  # calls that path work-in-progress — so it stays per-game via
+  # `PROTON_USE_OPTISCALER`. GE-Proton (session.nix) is unaffected: the
+  # setting lives in this tool's own directory, not the session.
+  protonCachyos = pkgs.callPackage ../../../packages/proton-cachyos-bin.nix {
+    userSettings = { PROTON_FSR4_UPGRADE = "1"; };
+  };
 
   # fatboy-unpack (OGI's FitGirl addon) extracts a FuckingFast download by
   # running `unrar x <partN.rar> <dir> -idn -kb -y` once per downloaded

@@ -174,24 +174,25 @@ profile under `configurations/home/console/`.
 
 ### FSR 4 and OptiScaler per game
 
-Proton-CachyOS carries the FSR 4 upgrade and OptiScaler injection. Both are
-enabled per game through the launch environment, never session-wide: they
-inject into the game process, which anti-cheat titles may reject, and the
-OptiScaler path is upstream work-in-progress. In OpenGameInstaller, set them
-in the game's **Game Arguments** field (default `%command%`); leading
-`VAR=value` tokens become the game's environment, Steam-style. The same
-string works in Steam's launch options and in Heroic's or Lutris's per-game
-environment settings.
+Proton-CachyOS's own directory carries a tool-level `user_settings.py`, so
+the FSR 3.1 -> FSR 4 upgrade is **on by default** for every game run through
+it — OGI, umu, Heroic, Lutris and Steam alike, with nothing to set per game.
+A game's own launch environment always overrides the default, so
+`PROTON_FSR4_UPGRADE=0 %command%` opts a title out (anti-cheat games, or run
+those under GE-Proton instead). OptiScaler injection stays per game, set
+through the launch environment: it injects a DLL into the game process,
+which anti-cheat titles may reject, and the OptiScaler path is upstream
+work-in-progress. In OpenGameInstaller, set per-game variables in the game's
+**Game Arguments** field (default `%command%`); leading `VAR=value` tokens
+become the game's environment, Steam-style. The same string works in
+Steam's launch options and in Heroic's or Lutris's per-game environment
+settings.
 
-Game has native FSR 3.1 (the supported path):
-
-```
-PROTON_FSR4_UPGRADE=1 DXIL_SPIRV_CONFIG=wmma_rdna3_workaround %command%
-```
-
-Select FSR in the game; frame generation is the game's own FSR 3.1 FG. Add
-`PROTON_FSR4_INDICATOR=1` on the first run to see the FSR 4 watermark, then
-remove it.
+Game has native FSR 3.1 (the supported path): nothing to set. Optionally, on
+the first run, `PROTON_FSR4_INDICATOR=1 %command%` shows the FSR 4
+watermark so you can confirm it is active, and `PROTON_FSR4_UPGRADE=0
+%command%` opts the title out entirely. Select FSR in the game; frame
+generation is the game's own FSR 3.1 FG.
 
 Game offers only DLSS or XeSS: prepend `PROTON_USE_OPTISCALER=1`, select DLSS
 in the game, then set the upscaler to FSR 4 in OptiScaler's overlay (Insert).
@@ -199,8 +200,8 @@ Less supported; drop the variable if a game breaks.
 
 Notes for the RX 7900 XT (RDNA3):
 
-- `DXIL_SPIRV_CONFIG=wmma_rdna3_workaround` avoids visual glitches with FSR
-  DLLs older than 4.1.1 and is harmless to keep.
+- `DXIL_SPIRV_CONFIG=wmma_rdna3_workaround` is only needed when pinning a
+  DLL older than 4.1.1.
 - `PROTON_FSR4_UPGRADE=4.0.0` pins an older DLL if a title stutters on the
   newest one.
 - `PROTON_OPTISCALER_NAME=d3d12.dll` (or `dbghelp.dll`) if OptiScaler fails
