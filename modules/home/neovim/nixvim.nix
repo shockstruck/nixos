@@ -54,9 +54,56 @@
           options.desc = "find via grep";
           action = "live_grep";
         };
+        "<leader>fb" = {
+          options.desc = "buffers";
+          action = "buffers";
+        };
+        "<leader>fr" = {
+          options.desc = "recent files";
+          action = "oldfiles";
+        };
+        "<leader>fh" = {
+          options.desc = "help tags";
+          action = "help_tags";
+        };
+        "<leader>fk" = {
+          options.desc = "keymaps";
+          action = "keymaps";
+        };
+        "<leader>fw" = {
+          options.desc = "grep word under cursor";
+          action = "grep_string";
+        };
+        "<leader>fd" = {
+          options.desc = "diagnostics";
+          action = "diagnostics";
+        };
+        "<leader>fs" = {
+          options.desc = "document symbols";
+          action = "lsp_document_symbols";
+        };
+        "<leader>fe" = {
+          options.desc = "file browser";
+          action = "file_browser";
+        };
+        "<leader>gc" = {
+          options.desc = "git commits";
+          action = "git_commits";
+        };
+        "<leader>gs" = {
+          options.desc = "git status";
+          action = "git_status";
+        };
       };
       extensions = {
         file-browser.enable = true;
+        fzf-native.enable = true;
+        ui-select.enable = true;
+      };
+      settings.defaults = {
+        file_ignore_patterns = [ "^.git/" ];
+        sorting_strategy = "ascending";
+        layout_config.prompt_position = "top";
       };
     };
 
