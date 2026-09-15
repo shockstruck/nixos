@@ -166,7 +166,10 @@ boots straight into Steam's gamescope session (SteamOS/Bazzite-style "deck
 mode") via a `greetd` autologin, with Heroic, ProtonUp-Qt, MangoHud,
 OpenGameInstaller, Xbox controller drivers (`hardware.xone`, `hardware.xpadneo`),
 and CachyOS-inspired scheduling (`services.scx` with `scx_lavd`,
-`services.ananicy`, `programs.gamemode`). It has its own, smaller Home Manager
+`services.ananicy`, `programs.gamemode`). Proton-CachyOS is Nix-built from
+upstream's release tarball and set as the default Proton for umu-launcher
+and OGI-launched games (via `PROTONPATH`), while remaining selectable as a
+Steam Play compatibility tool. It has its own, smaller Home Manager
 profile under `configurations/home/console/`.
 
 On an installed console system, select its configuration explicitly:
