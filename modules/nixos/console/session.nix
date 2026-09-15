@@ -156,6 +156,9 @@ let
         fi
 
         echo "console-session: starting gamescope session"
+        # Asserts Steam's default compat tool while Steam is not running;
+        # defined in ./launchers.nix.
+        ${config.system.path}/bin/steam-compat-default || true
         ${config.system.path}/bin/steam-gamescope || true
         echo "console-session: gamescope session ended"
 

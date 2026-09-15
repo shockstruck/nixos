@@ -74,6 +74,7 @@ let
   pname = "proton-cachyos-bin";
   version = "11.0-20260703";
   toolName = "proton-cachyos-${version}-slr-x86_64_v3";
+  steamDisplayName = "Proton-CachyOS";
 
   src = fetchurl {
     url = "https://github.com/CachyOS/proton-cachyos/releases/download/cachyos-${version}-slr/${toolName}.tar.xz";
@@ -115,10 +116,12 @@ stdenvNoCC.mkDerivation {
     ${lib.optionalString (userSettings != { }) "cp ${userSettingsFile} $steamcompattool/user_settings.py"}
 
     substituteInPlace $steamcompattool/compatibilitytool.vdf \
-      --replace-fail "${toolName}" "Proton-CachyOS"
+      --replace-fail "${toolName}" "${steamDisplayName}"
 
     runHook postInstall
   '';
+
+  passthru.steamDisplayName = steamDisplayName;
 
   meta = {
     description = "CachyOS's Proton fork with FSR 4 / OptiScaler auto-injection support";

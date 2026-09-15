@@ -188,6 +188,14 @@ become the game's environment, Steam-style. The same string works in
 Steam's launch options and in Heroic's or Lutris's per-game environment
 settings.
 
+OGI's own Steam shortcuts run through Steam's compat tool, not umu, so
+`PROTONPATH` does not reach them; a `steam-compat-default` script instead
+sets Steam's "Run other titles with" to Proton-CachyOS at every
+gamescope-session start, so those shortcuts get the same FSR 4 default. A
+title's own Properties -> Compatibility choice still wins. The setting
+takes effect once Steam has run at least once (its config file must exist)
+and at the next session start.
+
 Game has native FSR 3.1 (the supported path): nothing to set. Optionally, on
 the first run, `PROTON_FSR4_INDICATOR=1 %command%` shows the FSR 4
 watermark so you can confirm it is active, and `PROTON_FSR4_UPGRADE=0

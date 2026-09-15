@@ -3,7 +3,7 @@
 # lutris (pkgs/by-name/lu/lutris/package.nix) and umu-launcher
 # (pkgs/by-name/um/umu-launcher/package.nix) confirmed present in nixpkgs
 # source at the pinned rev.
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 let
   opengameinstaller = pkgs.callPackage ../../../packages/opengameinstaller.nix { };
 
@@ -16,6 +16,64 @@ let
   # setting lives in this tool's own directory, not the session.
   protonCachyos = pkgs.callPackage ../../../packages/proton-cachyos-bin.nix {
     userSettings = { PROTON_FSR4_UPGRADE = "1"; };
+  };
+
+  # Steam keeps "Run other titles with" (Settings -> Compatibility) as
+  # `CompatToolMapping."0"` under `InstallConfigStore.Software.Valve.Steam`
+  # in `~/.local/share/Steam/config/config.vdf` (the shape ProtonUp-Qt writes
+  # in `pupgui2/steamutil.py steam_update_ctool`, and ChimeraOS
+  # `chimera_app/steam_config.py` edits the same map). Steam holds that file
+  # in memory and rewrites it whenever it exits, so an edit made during
+  # `nixos-rebuild switch` while Steam is running in the gamescope session
+  # would just be overwritten on the next Steam exit. This script instead
+  # runs from `console-session` (`./session.nix`) immediately before
+  # `steam-gamescope` starts, when Steam is guaranteed not to be running, so
+  # it re-asserts the default at the start of every session — the same
+  # pattern `heroic.nix` uses to re-assert Heroic's own toggle — and leaves
+  # every per-title mapping (any key other than `"0"`) untouched. The
+  # `Software.Valve.Steam` key has been observed with either `Valve`/`Steam`
+  # or lowercase `valve`/`steam` casing in the wild (ProtonUp-Qt's
+  # `steamutil.py` checks both), so this reads whichever is present. A
+  # missing `config.vdf` means Steam has not run yet on this profile; the
+  # script skips rather than creates one, since the file's other keys are
+  # entirely Steam's to initialize.
+  steamCompatDefault = pkgs.writeShellApplication {
+    name = "steam-compat-default";
+    runtimeInputs = [ pkgs.coreutils pkgs.procps (pkgs.python3.withPackages (ps: [ ps.vdf ])) ];
+    text = ''
+      config="''${XDG_DATA_HOME:-$HOME/.local/share}/Steam/config/config.vdf"
+      if pgrep -u "$(id -u)" -x steam > /dev/null 2>&1; then
+        echo "steam-compat-default: steam is running; leaving $config alone" >&2
+        exit 0
+      fi
+      if [ ! -f "$config" ]; then
+        echo "steam-compat-default: $config not found (Steam has not run yet); skipping" >&2
+        exit 0
+      fi
+      python3 - "$config" ${lib.escapeShellArg protonCachyos.steamDisplayName} <<'PY'
+      import os, sys, vdf
+
+      path, name = sys.argv[1], sys.argv[2]
+      with open(path, encoding="utf-8") as f:
+          data = vdf.load(f)
+      software = data["InstallConfigStore"]["Software"]
+      valve = software.get("Valve") or software.get("valve")
+      steam = valve.get("Steam") or valve.get("steam")
+      mapping = steam.setdefault("CompatToolMapping", {})
+      entry = mapping.get("0")
+      if entry is not None and entry.get("name") == name:
+          sys.exit(0)
+      if entry is not None:
+          entry["name"] = name
+      else:
+          mapping["0"] = {"name": name, "config": "", "priority": "250"}
+      tmp = path + ".steam-compat-default.tmp"
+      with open(tmp, "w", encoding="utf-8") as f:
+          vdf.dump(data, f, pretty=True)
+      os.replace(tmp, path)
+      print(f"steam-compat-default: set Steam's default compat tool to {name}", file=sys.stderr)
+      PY
+    '';
   };
 
   # fatboy-unpack (OGI's FitGirl addon) extracts a FuckingFast download by
@@ -69,6 +127,7 @@ in
     pkgs.bun
     # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar; see unrarFatboy above for why this is a wrapper.
     unrarFatboy
+    steamCompatDefault
     # OGI does not use the umu-launcher above for its own Windows-game flow:
     # it downloads the upstream umu zipapp to
     # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
