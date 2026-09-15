@@ -156,6 +156,10 @@ let
         fi
 
         echo "console-session: starting gamescope session"
+        # Declared Steam compat tools and launch options (ChimeraOS
+        # steam-tweaks model), applied while Steam is not running; defined
+        # in ./launchers.nix.
+        ${config.system.path}/bin/steam-tweaks || true
         ${config.system.path}/bin/steam-gamescope || true
         echo "console-session: gamescope session ended"
 

@@ -188,6 +188,15 @@ become the game's environment, Steam-style. The same string works in
 Steam's launch options and in Heroic's or Lutris's per-game environment
 settings.
 
+OGI's own Steam shortcuts run through Steam's compat tool, not umu, so
+`PROTONPATH` does not reach them. `steam-tweaks` (the ChimeraOS model,
+declared in `modules/nixos/console/launchers.nix`) sets Steam's "Run other
+titles with" to Proton-CachyOS at every gamescope-session start, and the
+same attrset takes per-title compat tools and launch options by Steam
+appid, so a title's `PROTON_USE_OPTISCALER=1 %command%` or
+`PROTON_FSR4_UPGRADE=0 %command%` can be declared instead of typed;
+anything not declared is left as Steam wrote it.
+
 Game has native FSR 3.1 (the supported path): nothing to set. Optionally, on
 the first run, `PROTON_FSR4_INDICATOR=1 %command%` shows the FSR 4
 watermark so you can confirm it is active, and `PROTON_FSR4_UPGRADE=0
