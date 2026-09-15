@@ -100,7 +100,10 @@ jobs:
       # upstream release and rewrites the hash, addressing them through the
       # `packages.<system>.<name>` attributes nixos-unified already autowires
       # from this directory. A package whose src is a local path has no
-      # upstream and is skipped.
+      # upstream and is skipped. A package whose release scheme nix-update
+      # cannot infer on its own (e.g. a version embedded in a prefixed/suffixed
+      # tag) declares extra `nix-update` CLI flags as `passthru.nixUpdateArgs`,
+      # which this step reads and forwards.
       #
       # Failure to update one package must not cost the whole refresh, so each
       # is attempted independently and a failed one is reverted and reported.
@@ -120,9 +123,16 @@ jobs:
               continue
             fi
 
+            # A package may declare extra nix-update arguments (e.g. --version-regex
+            # for prefixed/suffixed release tags) as `passthru.nixUpdateArgs`.
+            extra=()
+            if args_json="$(nix eval --json ".#${attr}.nixUpdateArgs" 2>/dev/null)"; then
+              mapfile -t extra < <(jq -r '.[]' <<< "$args_json")
+            fi
+
             before="$(git hash-object "$file")"
             if nix run --inputs-from . nixpkgs#nix-update -- \
-              --flake --version=stable "$attr"; then
+              --flake --version=stable "${extra[@]}" "$attr"; then
               after="$(git hash-object "$file")"
               if [ "$before" = "$after" ]; then
                 echo "ok    ${attr}: already current"

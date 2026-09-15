@@ -56,14 +56,15 @@
 # set. `userSettings` below (an attrset of string to string) becomes that
 # file's `user_settings` dict; leave it `{ }` for no tool-level defaults.
 #
-# Pin/update path:
-#   1. Find the newest `cachyos-*-slr` tag:
-#        curl -s https://api.github.com/repos/CachyOS/proton-cachyos/releases/latest | jq -r .tag_name
-#   2. Bump `version` below to the tag with the leading `cachyos-` and
-#      trailing `-slr` stripped.
-#   3. Take the hex digest from that release's `.sha512sum` asset and
-#      convert it to SRI:
-#        python3 -c 'import base64,sys;print("sha512-"+base64.b64encode(bytes.fromhex(sys.argv[1])).decode())' <hex>
+# Pin/update path: the daily updater (`.github/workflows/update-flake-lock.yaml`)
+# bumps `version` and `hash` here automatically, using `passthru.nixUpdateArgs`
+# below — release tags are `cachyos-<version>-slr`, not a bare version, hence
+# the `--version-regex`. The hash it writes back is whatever SRI `nix-update`
+# computes (sha256, replacing the sha512 used for the first pin; `fetchurl`
+# accepts either). Manual path if ever needed: bump `version`, set `hash =
+# lib.fakeHash`, then take the real hash from the CI `packages` job's failure
+# output, or compute it from the release's `.sha512sum` asset as before:
+#   python3 -c 'import base64,sys;print("sha512-"+base64.b64encode(bytes.fromhex(sys.argv[1])).decode())' <hex>
 { lib
 , stdenvNoCC
 , fetchurl
@@ -122,6 +123,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru.steamDisplayName = steamDisplayName;
+  passthru.nixUpdateArgs = [ "--version-regex" "cachyos-(.+)-slr" ];
 
   meta = {
     description = "CachyOS's Proton fork with FSR 4 / OptiScaler auto-injection support";
