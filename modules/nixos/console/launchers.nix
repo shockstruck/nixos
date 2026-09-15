@@ -18,60 +18,111 @@ let
     userSettings = { PROTON_FSR4_UPGRADE = "1"; };
   };
 
-  # Steam keeps "Run other titles with" (Settings -> Compatibility) as
-  # `CompatToolMapping."0"` under `InstallConfigStore.Software.Valve.Steam`
-  # in `~/.local/share/Steam/config/config.vdf` (the shape ProtonUp-Qt writes
-  # in `pupgui2/steamutil.py steam_update_ctool`, and ChimeraOS
-  # `chimera_app/steam_config.py` edits the same map). Steam holds that file
-  # in memory and rewrites it whenever it exits, so an edit made during
-  # `nixos-rebuild switch` while Steam is running in the gamescope session
-  # would just be overwritten on the next Steam exit. This script instead
-  # runs from `console-session` (`./session.nix`) immediately before
-  # `steam-gamescope` starts, when Steam is guaranteed not to be running, so
-  # it re-asserts the default at the start of every session — the same
-  # pattern `heroic.nix` uses to re-assert Heroic's own toggle — and leaves
-  # every per-title mapping (any key other than `"0"`) untouched. The
-  # `Software.Valve.Steam` key has been observed with either `Valve`/`Steam`
-  # or lowercase `valve`/`steam` casing in the wild (ProtonUp-Qt's
-  # `steamutil.py` checks both), so this reads whichever is present. A
-  # missing `config.vdf` means Steam has not run yet on this profile; the
-  # script skips rather than creates one, since the file's other keys are
-  # entirely Steam's to initialize.
-  steamCompatDefault = pkgs.writeShellApplication {
-    name = "steam-compat-default";
+  # Declarative Steam per-title settings, the ChimeraOS `steam-tweaks` model
+  # (chimera_app/steam_config.py) rendered from Nix instead of a downloaded
+  # YAML database: compat tool per appid in config/config.vdf
+  # (`CompatToolMapping`; appid "0" is Steam's "Run other titles with"
+  # default), launch options per appid in every user's
+  # userdata/<id>/config/localconfig.vdf. Applied by `steam-tweaks` from
+  # console-session (session.nix) right before Steam starts — Steam holds both
+  # files in memory and rewrites them on exit, so a Home Manager activation
+  # edit during a rebuild would be lost. Re-asserted on every session start;
+  # entries not listed here are left exactly as Steam wrote them.
+  steamTweaks = {
+    compatToolMapping = {
+      "0" = protonCachyos.steamDisplayName;
+    };
+    launchOptions = { };
+  };
+
+  steamTweaksJson = pkgs.writeText "steam-tweaks.json" (builtins.toJSON steamTweaks);
+
+  steamTweaksApply = pkgs.writeShellApplication {
+    name = "steam-tweaks";
     runtimeInputs = [ pkgs.coreutils pkgs.procps (pkgs.python3.withPackages (ps: [ ps.vdf ])) ];
     text = ''
-      config="''${XDG_DATA_HOME:-$HOME/.local/share}/Steam/config/config.vdf"
+      steam_root="''${XDG_DATA_HOME:-$HOME/.local/share}/Steam"
       if pgrep -u "$(id -u)" -x steam > /dev/null 2>&1; then
-        echo "steam-compat-default: steam is running; leaving $config alone" >&2
+        echo "steam-tweaks: steam is running; leaving $steam_root alone" >&2
         exit 0
       fi
-      if [ ! -f "$config" ]; then
-        echo "steam-compat-default: $config not found (Steam has not run yet); skipping" >&2
-        exit 0
-      fi
-      python3 - "$config" ${lib.escapeShellArg protonCachyos.steamDisplayName} <<'PY'
-      import os, sys, vdf
+      exec python3 - "$steam_root" ${steamTweaksJson} <<'PY'
+      import json, os, sys, vdf
 
-      path, name = sys.argv[1], sys.argv[2]
-      with open(path, encoding="utf-8") as f:
-          data = vdf.load(f)
-      software = data["InstallConfigStore"]["Software"]
-      valve = software.get("Valve") or software.get("valve")
-      steam = valve.get("Steam") or valve.get("steam")
-      mapping = steam.setdefault("CompatToolMapping", {})
-      entry = mapping.get("0")
-      if entry is not None and entry.get("name") == name:
-          sys.exit(0)
-      if entry is not None:
-          entry["name"] = name
-      else:
-          mapping["0"] = {"name": name, "config": "", "priority": "250"}
-      tmp = path + ".steam-compat-default.tmp"
-      with open(tmp, "w", encoding="utf-8") as f:
-          vdf.dump(data, f, pretty=True)
-      os.replace(tmp, path)
-      print(f"steam-compat-default: set Steam's default compat tool to {name}", file=sys.stderr)
+      steam_root, tweaks_path = sys.argv[1], sys.argv[2]
+      with open(tweaks_path, encoding="utf-8") as f:
+          tweaks = json.load(f)
+      compat = tweaks.get("compatToolMapping", {})
+      launch = tweaks.get("launchOptions", {})
+
+
+      def get_ci(mapping, key):
+          # Steam has written both `Valve`/`valve` and `priority`/`Priority`
+          # over the years (ProtonUp-Qt steamutil.py, ChimeraOS steam_config.py).
+          for k in (key, key.lower(), key.capitalize()):
+              if k in mapping:
+                  return mapping[k]
+          mapping[key] = {}
+          return mapping[key]
+
+
+      def load(path, skeleton):
+          if os.path.exists(path):
+              with open(path, encoding="utf-8") as f:
+                  return vdf.load(f), True
+          return skeleton, False
+
+
+      def save(path, data):
+          os.makedirs(os.path.dirname(path), exist_ok=True)
+          tmp = path + ".steam-tweaks.tmp"
+          with open(tmp, "w", encoding="utf-8") as f:
+              vdf.dump(data, f, pretty=True)
+          os.replace(tmp, path)
+
+
+      def apply_compat(path):
+          data, existed = load(path, {"InstallConfigStore": {"Software": {"Valve": {"Steam": {}}}}})
+          steam = get_ci(get_ci(data["InstallConfigStore"], "Software"), "Valve")
+          steam = get_ci(steam, "Steam")
+          mapping = steam.setdefault("CompatToolMapping", {})
+          changed = not existed
+          for appid, tool in compat.items():
+              entry = mapping.get(appid)
+              if entry is None:
+                  mapping[appid] = {"name": tool, "config": "", "priority": "250"}
+                  changed = True
+              elif entry.get("name") != tool:
+                  entry["name"] = tool
+                  changed = True
+          if changed:
+              save(path, data)
+              print(f"steam-tweaks: wrote {len(compat)} compat tool mapping(s) to {path}", file=sys.stderr)
+
+
+      def apply_launch(path):
+          if not launch or not os.path.exists(path):
+              return
+          data, _ = load(path, None)
+          steam = get_ci(get_ci(get_ci(data["UserLocalConfigStore"], "Software"), "Valve"), "Steam")
+          apps = steam.setdefault("apps", {})
+          changed = False
+          for appid, options in launch.items():
+              app = apps.setdefault(appid, {})
+              if app.get("LaunchOptions") != options:
+                  app["LaunchOptions"] = options
+                  changed = True
+          if changed:
+              save(path, data)
+              print(f"steam-tweaks: wrote {len(launch)} launch option(s) to {path}", file=sys.stderr)
+
+
+      apply_compat(os.path.join(steam_root, "config", "config.vdf"))
+      userdata = os.path.join(steam_root, "userdata")
+      if os.path.isdir(userdata):
+          for entry in os.scandir(userdata):
+              if entry.is_dir() and entry.name.isdigit() and entry.name != "0":
+                  apply_launch(os.path.join(entry.path, "config", "localconfig.vdf"))
       PY
     '';
   };
@@ -127,7 +178,7 @@ in
     pkgs.bun
     # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar; see unrarFatboy above for why this is a wrapper.
     unrarFatboy
-    steamCompatDefault
+    steamTweaksApply
     # OGI does not use the umu-launcher above for its own Windows-game flow:
     # it downloads the upstream umu zipapp to
     # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
