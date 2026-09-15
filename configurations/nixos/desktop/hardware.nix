@@ -21,4 +21,21 @@
   # (services.lact.enable: desktop in ./graphics.nix, console in
   # modules/nixos/console/performance.nix).
   hardware.amdgpu.overdrive.enable = true;
+
+  # Verified against nixpkgs source before writing:
+  #   nixos/modules/services/hardware/openrgb.nix: `enable` is mkEnableOption;
+  #     `motherboard` is `nullOr (enum ["amd" "intel"])`, defaulting to "amd" on
+  #     these hosts anyway via hardware.cpu.amd.updateMicrocode (set by
+  #     nixos-hardware's common-cpu-amd from hardware.enableRedistributableFirmware
+  #     = true) — pinned explicitly so the i2c-piix4 module load does not depend
+  #     on that chain. The module adds `openrgb` to environment.systemPackages
+  #     and services.udev.packages, loads i2c-dev + i2c-piix4, and runs
+  #     `openrgb --server --server-port 6742` as systemd.services.openrgb
+  #     (Restart = "always", StateDirectory = OpenRGB).
+  # Imported by path into `console` too (../console/default.nix), so this one
+  # block reaches desktop and console, never laptop.
+  services.hardware.openrgb = {
+    enable = true;
+    motherboard = "amd";
+  };
 }
