@@ -195,7 +195,9 @@ titles with" to Proton-CachyOS at every gamescope-session start, and the
 same attrset takes per-title compat tools and launch options by Steam
 appid, so a title's `PROTON_USE_OPTISCALER=1 %command%` or
 `PROTON_FSR4_UPGRADE=0 %command%` can be declared instead of typed;
-anything not declared is left as Steam wrote it.
+anything not declared is left as Steam wrote it. It also refuses any
+compat-tool mapping for a Steam Linux Runtime app and clears a zeroed one
+so it can be reinstalled from Library → Tools.
 
 Game has native FSR 3.1 (the supported path): nothing to set. Optionally, on
 the first run, `PROTON_FSR4_INDICATOR=1 %command%` shows the FSR 4

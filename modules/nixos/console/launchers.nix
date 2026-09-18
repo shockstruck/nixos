@@ -46,6 +46,15 @@ let
   # keep working (ValveSoftware/steam-for-linux#13199, #13248).
   # An entry steam-tweaks already wrote at the wrong priority is corrected
   # in place below.
+  #
+  # steam-tweaks also (a) refuses to ever write, and removes any existing,
+  # `CompatToolMapping` entry for a Steam Linux Runtime app id, and (b)
+  # detects a runtime manifest left installed-but-empty by the failure mode
+  # above (`StateFlags 4` with a zero `buildid`/`SizeOnDisk` or no
+  # `InstalledDepots`) and deletes its install tree and manifest so Steam
+  # offers it for reinstall again from Library -> Tools (ValveSoftware/
+  # steam-for-linux#13248, #13199). The reinstall click itself stays manual;
+  # Steam exposes no reliable CLI for it.
   steamTweaks = {
     compatToolMapping = {
       "0" = protonCachyos.steamDisplayName;
@@ -65,13 +74,19 @@ let
         exit 0
       fi
       exec python3 - "$steam_root" ${steamTweaksJson} <<'PY'
-      import json, os, sys, vdf
+      import json, os, shutil, sys, vdf
 
       steam_root, tweaks_path = sys.argv[1], sys.argv[2]
       with open(tweaks_path, encoding="utf-8") as f:
           tweaks = json.load(f)
       compat = tweaks.get("compatToolMapping", {})
       launch = tweaks.get("launchOptions", {})
+
+      # Steam Linux Runtime app ids: scout, soldier, sniper, 4.0 and
+      # steamrt4-arm64 (Open-Wine-Components/umu-launcher
+      # umu/umu_runtime.py RUNTIME_VERSIONS, plus scout). A runtime must
+      # never be run through a compat tool; see apply_compat/repair_runtimes.
+      RUNTIME_APPIDS = {"1070560", "1391110", "1628350", "4183110", "4185400"}
 
 
       def get_ci(mapping, key):
@@ -106,6 +121,9 @@ let
           mapping = steam.setdefault("CompatToolMapping", {})
           changed = not existed
           for appid, tool in compat.items():
+              if appid in RUNTIME_APPIDS:
+                  print(f"steam-tweaks: refusing to map runtime app {appid}", file=sys.stderr)
+                  continue
               # Steam's own values: 75 for the "0" default, 250 per title.
               priority = "75" if appid == "0" else "250"
               entry = mapping.get(appid)
@@ -122,9 +140,56 @@ let
               if entry.get(priority_key) != priority:
                   entry[priority_key] = priority
                   changed = True
+          for appid in list(mapping):
+              if appid not in RUNTIME_APPIDS:
+                  continue
+              entry = mapping[appid]
+              name = entry.get("name") if isinstance(entry, dict) else None
+              if not name:
+                  continue
+              del mapping[appid]
+              changed = True
+              print(f"steam-tweaks: removed compat tool mapping for runtime app {appid} ({name})", file=sys.stderr)
           if changed:
               save(path, data)
               print(f"steam-tweaks: wrote {len(compat)} compat tool mapping(s) to {path}", file=sys.stderr)
+
+
+      def repair_runtimes(steam_root):
+          # Only the main library under $steam_root/steamapps is scanned;
+          # runtimes installed in a Steam library on another mount are not.
+          steamapps = os.path.join(steam_root, "steamapps")
+          for appid in RUNTIME_APPIDS:
+              manifest_path = os.path.join(steamapps, f"appmanifest_{appid}.acf")
+              if not os.path.exists(manifest_path):
+                  continue
+              with open(manifest_path, encoding="utf-8") as f:
+                  manifest = vdf.load(f)
+              state = manifest.get("AppState", {})
+              if state.get("StateFlags") != "4":
+                  continue
+              buildid_zero = state.get("buildid") in (None, "0")
+              size_zero = state.get("SizeOnDisk") in (None, "0")
+              depots_empty = not state.get("InstalledDepots")
+              if not (buildid_zero or size_zero or depots_empty):
+                  continue
+              installdir = state.get("installdir")
+              if not installdir or "/" in installdir or installdir in (".", ".."):
+                  print(f"steam-tweaks: not repairing runtime app {appid}: unexpected installdir {installdir}", file=sys.stderr)
+                  continue
+              common_dir = os.path.join(steamapps, "common", installdir)
+              if os.path.isdir(common_dir):
+                  shutil.rmtree(common_dir)
+              downloading_dir = os.path.join(steamapps, "downloading", appid)
+              if os.path.exists(downloading_dir):
+                  shutil.rmtree(downloading_dir)
+              os.remove(manifest_path)
+              name = state.get("name", appid)
+              print(
+                  f"steam-tweaks: runtime app {appid} ({name}) is installed-but-empty; "
+                  "removed its install so Steam offers it again (Library -> Tools -> Install)",
+                  file=sys.stderr,
+              )
 
 
       def apply_launch(path):
@@ -145,6 +210,7 @@ let
 
 
       apply_compat(os.path.join(steam_root, "config", "config.vdf"))
+      repair_runtimes(steam_root)
       userdata = os.path.join(steam_root, "userdata")
       if os.path.isdir(userdata):
           for entry in os.scandir(userdata):
