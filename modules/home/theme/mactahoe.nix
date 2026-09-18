@@ -160,5 +160,8 @@ in
       package = pkgs.kora-icon-theme;
     };
     gtk4.theme = config.gtk.theme;
+    # Drives gtk-application-prefer-dark-theme in gtk-3.0/gtk-4.0 settings.ini
+    # and the GSettings/portal color-scheme, via home-manager's gtk3/gtk4 modules.
+    colorScheme = "dark";
   };
 }
