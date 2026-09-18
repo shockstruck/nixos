@@ -199,9 +199,15 @@ declare -A effective_env=()
 for k in "${!leading_env[@]}"; do
   effective_env["$k"]="${leading_env[$k]}"
 done
-while IFS=$'\t' read -r k v; do
+# NUL-delimited rather than @tsv: @tsv backslash-escapes \, tab and
+# newline, which would double every backslash in a value — and upstream's
+# parseDllOverridesValue explicitly expects backslash-escaped quotes in a
+# WINEDLLOVERRIDES value (handler.umu.ts:194-198). Keys are trimmed and
+# null values skipped as in getEffectiveLaunchEnv (handler.umu.ts:264-267).
+while IFS= read -r -d '' k && IFS= read -r -d '' v; do
+  k="$(trim "$k")"
   [[ -n "$k" ]] && effective_env["$k"]="$v"
-done < <(@jq@ -r '(.launchEnv // {}) | to_entries[] | [.key, (.value | tostring)] | @tsv' "$library_json")
+done < <(@jq@ -j '(.launchEnv // {}) | to_entries[] | select(.value != null) | "\(.key)\u0000\(.value | tostring)\u0000"' "$library_json")
 
 if [[ -n "${effective_env[PROTONPATH]+x}" ]]; then
   pp_trimmed="$(trim "${effective_env[PROTONPATH]}")"
