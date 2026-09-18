@@ -160,5 +160,17 @@ in
       package = pkgs.kora-icon-theme;
     };
     gtk4.theme = config.gtk.theme;
+    # Apps that read gtk-application-prefer-dark-theme from settings.ini
+    # directly (rather than the GSettings/portal colour-scheme below) still
+    # need this stated explicitly.
+    gtk3.extraConfig.gtk-application-prefer-dark-theme = 1;
+    gtk4.extraConfig.gtk-application-prefer-dark-theme = 1;
+  };
+
+  # xdg-desktop-portal, Chromium/Electron and GTK4/libadwaita read the
+  # GSettings/portal colour-scheme rather than a GTK settings.ini key.
+  config.dconf.settings."org/gnome/desktop/interface" = {
+    color-scheme = "prefer-dark";
+    gtk-theme = config.gtk.theme.name;
   };
 }
