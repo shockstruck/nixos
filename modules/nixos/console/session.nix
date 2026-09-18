@@ -37,7 +37,29 @@
 #     cfg.gamescopeSession.enable;` and `steam-gamescope` is a writeShellScriptBin
 #     that calls plain `gamescope --steam ...` (resolved via PATH, so it picks
 #     up the wrapper above). gamescopeSession.args (listOf str, default [ ])
-#     is a submodule option passed straight to that `gamescope` invocation.
+#     is a submodule option passed straight to that `gamescope` invocation;
+#     gamescopeSession.env (attrsOf str, default { }) is exported by the
+#     same `steam-gamescope` script before gamescope starts, so every
+#     variable reaches gamescope, the Steam client and each game it runs.
+#   nixos/modules/programs/gamescope.nix: enableWsi (mkEnableOption) adds
+#     `gamescope-wsi` and `pkgsi686Linux.gamescope-wsi` to
+#     hardware.graphics.extraPackages / extraPackages32 — the Vulkan layer
+#     through which a game's HDR swapchain reaches gamescope.
+#   ValveSoftware/gamescope src/main.cpp (option table + help text; the
+#     nixpkgs package at the pinned rev is 3.16.28): `--hdr-enabled` "enable
+#     HDR output (needs Gamescope WSI layer enabled for support from
+#     clients). If this is not set, and there is a HDR client, it will be
+#     tonemapped SDR."; `--adaptive-sync` "Enable adaptive sync if available
+#     (variable rate refresh)"; `--hdr-sdr-content-nits` (default 400) is
+#     the brightness SDR content is shown at while HDR output is on;
+#     `--hdr-itm-enabled` (SDR->HDR inverse tone mapping) is left off here.
+#   ChimeraOS/gamescope-session usr/share/gamescope-session-plus/
+#     gamescope-session-plus (main): with ENABLE_GAMESCOPE_HDR=1 it appends
+#     `--hdr-enabled` and exports ENABLE_HDR_WSI=1 and DXVK_HDR=1 for the
+#     client; with ADAPTIVE_SYNC set it appends `--adaptive-sync`. Both are
+#     user opt-ins there (its README); this host opts in unconditionally
+#     because the only display is the HDR/VRR-capable TV described in
+#     ./cec.nix.
 #   nixos/modules/programs/wayland/hyprland.nix:
 #     `security.wrappers.Hyprland.capabilities = "cap_sys_nice+ep"` — `+ep`
 #     (effective+permitted), not `+pie` like gamescope's own wrapper above:
@@ -190,6 +212,10 @@ in
   # threads at normal priority.
   programs.gamescope.capSysNice = false;
 
+  # The Gamescope WSI Vulkan layer: without it `--hdr-enabled` below has no
+  # client-side path for a game's HDR swapchain (header note).
+  programs.gamescope.enableWsi = true;
+
   programs.steam = {
     enable = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
@@ -206,9 +232,27 @@ in
       disabledTests = (prev.disabledTests or [ ]) ++ [ "test_flatpak_xdg_user_dir" ];
     });
     gamescopeSession.enable = true;
-    # gamescope's own MangoHud overlay (spawns mangoapp inside the session),
-    # the SteamOS/Bazzite way of getting the HUD in a gamescope session.
-    gamescopeSession.args = [ "--mangoapp" ];
+    # --mangoapp: gamescope's own MangoHud overlay (spawns mangoapp inside
+    # the session), the SteamOS/Bazzite way of getting the HUD in a gamescope
+    # session. --hdr-enabled / --adaptive-sync: HDR10 output and variable
+    # refresh, the ChimeraOS opt-ins (header note) — the GPU drives the TV's
+    # HDMI 2.1 input directly (./cec.nix), so both capabilities are there to
+    # use; without these flags an HDR game is tone-mapped to SDR and VRR is
+    # never requested. Trade-offs: with HDR output on, SDR content (the Steam
+    # UI, SDR games) is shown at gamescope's default 400 nits
+    # (--hdr-sdr-content-nits is the knob if that reads wrong on the U8H),
+    # inverse tone mapping stays off so SDR titles keep their SDR look, and a
+    # display whose EDID carries no HDR block simply keeps SDR output. Steam's
+    # own Display settings expose the HDR toggle once gamescope reports an
+    # HDR-capable output.
+    gamescopeSession.args = [ "--mangoapp" "--hdr-enabled" "--adaptive-sync" ];
+    # Client-side pair of --hdr-enabled, as ChimeraOS exports them (header
+    # note): ENABLE_HDR_WSI lets the WSI layer offer HDR swapchains to games,
+    # DXVK_HDR makes DXVK advertise HDR support to Direct3D titles.
+    gamescopeSession.env = {
+      ENABLE_HDR_WSI = "1";
+      DXVK_HDR = "1";
+    };
     # Under gamescope the client shows the SteamOS-style power menu because
     # it checks IN_GAMESCOPE, but the "Switch to Desktop" action only calls
     # steamos-session-select when the client was ALSO started with
