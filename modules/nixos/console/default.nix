@@ -11,6 +11,7 @@
     ./launchers.nix
     ./streaming.nix
     ./desktop.nix
+    ./cec.nix
   ];
 
   # Quiet boot / plymouth, copied from modules/nixos/gui/default.nix. No
