@@ -1,26 +1,27 @@
-# OpenGameInstaller — Electron front-end for the OpenGameInstaller addon-server
-# (Nat3z/OpenGameInstaller). The addon-server runs in-process; there is no
-# separate service to wire up.
+# OpenGameInstaller — Electron front-end for the OpenGameInstaller addon-server,
+# built from shockstruck/OpenGameInstaller (a fork of Nat3z/OpenGameInstaller).
+# The addon-server runs in-process; there is no separate service to wire up.
 #
-# Not in nixpkgs; upstream ships a prebuilt AppImage. We unpack it with
-# `appimageTools.extract` and run its `resources/app.asar` on nixpkgs'
-# Electron of the same major — deliberately NOT `appimageTools.wrapType2`.
-# wrapType2 runs the app inside a bubblewrap FHS sandbox, and that sandbox
-# is fatal for OGI's Steam integration: a managed Steam shortcut starts OGI
-# from Steam with `--game-id=N -- %command%` and OGI spawns Steam's own
-# launch chain (steam-launch-wrapper → reaper → SteamLinuxRuntime →
-# Proton) as its child (handlers/handler.library.ts
-# executeWrapperCommandForAppSteam). From inside the appimage sandbox that
-# chain exits 255 with no diagnostics on OGI's stderr, so every OGI-managed
-# game sits on OGI's "Running wrapped launch" spinner. Run
-# unsandboxed, OGI lives in Steam's environment exactly as upstream's
-# AppImage does on a Steam Deck, and the chain runs where Steam expects it.
-# The same applies to OGI's own Play button, which runs pressure-vessel via
-# the umu zipapp it downloads.
+# Not in nixpkgs; the fork ships a prebuilt AppImage (its `Build/release`
+# workflow, same as upstream's). We unpack it with `appimageTools.extract`
+# and run its `resources/app.asar` on nixpkgs' Electron of the same major —
+# deliberately NOT `appimageTools.wrapType2`. wrapType2 runs the app inside a
+# bubblewrap FHS sandbox, and that sandbox is fatal for OGI's own Play
+# button, which runs pressure-vessel via the umu zipapp it downloads: from
+# inside the appimage sandbox that chain exits with no diagnostics on OGI's
+# stderr. Run unsandboxed, OGI's Play button lives in the same environment
+# upstream's AppImage does on a Steam Deck.
+#
+# As of the fork's v4.3.1-ss.1 release, Steam-managed shortcuts no longer
+# route through OGI at launch time: OGI writes the launch environment
+# straight into the shortcut's `LaunchOptions` and Steam starts the game
+# directly, so the sandbox question above does not apply to that path — it
+# only matters for OGI's own Play button.
 #
 # What the AppImage carries, and why nixpkgs' Electron can run it:
-#   - Electron 40.10.2 (upstream bun.lock at the pinned tag). nixpkgs marks
-#     every Electron below 42 EOL and refuses to evaluate it
+#   - Electron 40.10.2 (fork's bun.lock at the pinned tag, unchanged from
+#     upstream v4.3.1 for this workspace). nixpkgs marks every Electron
+#     below 42 EOL and refuses to evaluate it
 #     (electron/binary/generic.nix knownVulnerabilities), so electron_42 —
 #     the oldest supported major at the locked nixpkgs — runs it instead.
 #   - That works because `resources/app.asar` (no `app.asar.unpacked`)
@@ -39,7 +40,7 @@
 # try to disable it. Updates flow through a version bump in this file instead.
 #
 # No log exists for any of this without help: `packages/logger/src/index.ts`
-# (Nat3z/OpenGameInstaller) only ever calls `globalThis.console[...]` — it
+# (shockstruck/OpenGameInstaller) only ever calls `globalThis.console[...]` — it
 # never opens a file. `update/latest.log`, the file the upstream UMU
 # troubleshooting page (ogi.nat3z.com/docs/guide/umu) tells users to read for
 # `[umu]` lines, is produced by the separate `-Setup.AppImage` Node updater
@@ -54,23 +55,28 @@
 # spawns (handler.umu.ts, initChildEnv), so the umu zipapp's own verbosity is
 # already turned up — only the destination was missing.
 #
-# Licence: AGPL-3.0-only per the upstream LICENSE files; application/package.json's
-# "MIT" field is stale metadata.
+# Licence: AGPL-3.0-only per the upstream LICENSE files (kept by the fork);
+# application/package.json's "MIT" field is stale metadata.
 #
-# Pin/update path:
-#   1. Find the newest release tag:
-#        curl -s https://api.github.com/repos/Nat3z/OpenGameInstaller/releases/latest | jq -r .tag_name
+# Pin/update path (tracks shockstruck/OpenGameInstaller fork releases, not
+# Nat3z/OpenGameInstaller upstream directly — the fork's release tags are
+# `v<upstream-version>-ss.<n>` prereleases, so GitHub's `/releases/latest`
+# returns nothing for them):
+#   1. Find the newest fork release tag:
+#        gh api repos/shockstruck/OpenGameInstaller/releases --jq \
+#          '[.[] | select(.tag_name | test("-ss\\."))][0].tag_name'
 #   2. Bump `version` below to that tag without the leading `v`.
 #   3. Refresh the hash (SRI form). Either:
 #        nix store prefetch-file --json \
-#          "https://github.com/Nat3z/OpenGameInstaller/releases/download/v<version>/OpenGameInstaller-linux-pt.AppImage"
+#          "https://github.com/shockstruck/OpenGameInstaller/releases/download/v<version>/OpenGameInstaller-linux-pt.AppImage"
 #      or set `hash = lib.fakeHash;`, build once, and copy the expected hash Nix reports.
-#   4. Check the Electron major in upstream's `application/package.json`
-#      `electron` devDependency at the new tag (`application/bun.lock` is
-#      `bun.lockb`, Bun's binary lockfile format — not text-readable) and
-#      keep the `electron_<major>` argument below at or above it, within what
+#   4. Check the Electron major in the fork's `application/package.json`
+#      `electron` devDependency at the new tag (`bun.lock` at the repo root
+#      is plain JSON text — grep it for `"electron@` entries, in particular
+#      the `opengameinstaller-gui/electron` workspace entry) and keep the
+#      `electron_<major>` argument below at or above it, within what
 #      nixpkgs still supports (it refuses to evaluate EOL majors). A newer
-#      Electron than upstream tested is a runtime risk, not a build failure —
+#      Electron than the fork tested is a runtime risk, not a build failure —
 #      check the window comes up.
 #   5. If a release changes the internal `.desktop`/icon filenames or the Exec
 #      line, update `installPhase` (the `--replace-fail` will fail loudly
@@ -85,11 +91,11 @@
 }:
 let
   pname = "opengameinstaller";
-  version = "4.3.1";
+  version = "4.3.1-ss.1";
 
   src = fetchurl {
-    url = "https://github.com/Nat3z/OpenGameInstaller/releases/download/v${version}/OpenGameInstaller-linux-pt.AppImage";
-    hash = "sha256-xGfiCGrMrSWBC/Ipe1socwefW/gj6hqEKpyie7tlPig=";
+    url = "https://github.com/shockstruck/OpenGameInstaller/releases/download/v${version}/OpenGameInstaller-linux-pt.AppImage";
+    hash = "sha256-2zrUMjGiepX+2sfo5LSWunGQOnRxGmG36xLDStO3q5w=";
   };
 
   appimageContents = appimageTools.extract { inherit pname version src; };
@@ -115,21 +121,18 @@ stdenvNoCC.mkDerivation {
       --replace-fail 'Exec=AppRun --no-sandbox %U' 'Exec=opengameinstaller %U' \
       --replace-fail 'Categories=Development;' 'Categories=Game;'
 
-    # Flags come before "$@", so a Steam shortcut's
-    # `--game-id=N --no-sandbox -- %command%` lands after the asar path and
-    # reaches OGI's argv parser intact (lib/single-instance-launch.ts).
     # --no-sandbox matches upstream's own desktop Exec line.
     #
-    # OGI's Steam-shortcut and desktop-shortcut writers take the launcher
-    # path from $APPIMAGE (helpers.app/platform.ts getOgiExecutablePath),
-    # falling back to process.execPath — here nixpkgs' bare electron binary,
-    # which would start Electron's default app instead of OGI.
-    # /run/current-system/sw/bin rather than $out/bin so shortcuts survive
-    # version bumps (this package is in environment.systemPackages via
-    # modules/nixos/console/launchers.nix), and Steam's own FHS env
-    # bind-mounts /run so the path resolves from inside the shortcut.
-    # APPIMAGE has no other consumer in OGI (the self-updater uses relative
-    # ../OpenGameInstaller-Setup.AppImage paths).
+    # APPIMAGE stays set even though Steam-managed shortcuts no longer start
+    # OGI at all (see the header comment): OGI's desktop-shortcut writer
+    # (helpers.app/desktop-shortcut.ts) and its Windows launcher path still
+    # read $APPIMAGE to find the launcher, falling back to process.execPath
+    # — here nixpkgs' bare electron binary, which would start Electron's
+    # default app instead of OGI. /run/current-system/sw/bin rather than
+    # $out/bin so shortcuts survive version bumps (this package is in
+    # environment.systemPackages via modules/nixos/console/launchers.nix),
+    # and Steam's own FHS env bind-mounts /run so the path resolves from
+    # inside a shortcut that does still exec through it.
     #
     # Wrapping systemd-cat instead of electron directly (see the header
     # comment for why a log has to exist at all): systemd-cat's own argv
@@ -159,8 +162,8 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "Front-end GUI for OpenGameInstaller and the addon-server";
-    homepage = "https://github.com/Nat3z/OpenGameInstaller";
-    changelog = "https://github.com/Nat3z/OpenGameInstaller/releases/tag/v${version}";
+    homepage = "https://github.com/shockstruck/OpenGameInstaller";
+    changelog = "https://github.com/shockstruck/OpenGameInstaller/releases/tag/v${version}";
     license = lib.licenses.agpl3Only;
     mainProgram = "opengameinstaller";
     platforms = [ "x86_64-linux" ];
