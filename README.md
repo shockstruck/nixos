@@ -172,6 +172,10 @@ and OGI-launched games (via `PROTONPATH`), while remaining selectable as a
 Steam Play compatibility tool. It has its own, smaller Home Manager
 profile under `configurations/home/console/`.
 
+The physical power button suspends to RAM with the running game still in
+memory (SteamOS-style quick resume), holding it ~5s powers off; the
+controller or the power button resumes, and the TV follows over HDMI-CEC.
+
 ### FSR 4 and OptiScaler per game
 
 Proton-CachyOS's own directory carries a tool-level `user_settings.py`, so
