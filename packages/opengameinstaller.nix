@@ -76,8 +76,10 @@
 #      line, update `installPhase` (the `--replace-fail` will fail loudly
 #      if the Exec string drifts, which is intentional).
 { appimageTools
+, bash
 , electron_42
 , fetchurl
+, jq
 , lib
 , makeWrapper
 , stdenvNoCC
@@ -118,18 +120,27 @@ stdenvNoCC.mkDerivation {
     # Flags come before "$@", so a Steam shortcut's
     # `--game-id=N --no-sandbox -- %command%` lands after the asar path and
     # reaches OGI's argv parser intact (lib/single-instance-launch.ts).
-    # --no-sandbox matches upstream's own desktop Exec line.
+    # --no-sandbox matches upstream's own desktop Exec line. This wrapper
+    # is what the Play button inside OGI's own window still launches, and
+    # what a hook-only or malformed Steam shortcut invocation forwards to
+    # (opengameinstaller-steam-launch.sh step 1) — the direct-launch path
+    # below never starts this Electron process for an actual game launch.
     #
     # OGI's Steam-shortcut and desktop-shortcut writers take the launcher
     # path from $APPIMAGE (helpers.app/platform.ts getOgiExecutablePath),
     # falling back to process.execPath — here nixpkgs' bare electron binary,
-    # which would start Electron's default app instead of OGI.
-    # /run/current-system/sw/bin rather than $out/bin so shortcuts survive
-    # version bumps (this package is in environment.systemPackages via
-    # modules/nixos/console/launchers.nix), and Steam's own FHS env
-    # bind-mounts /run so the path resolves from inside the shortcut.
-    # APPIMAGE has no other consumer in OGI (the self-updater uses relative
-    # ../OpenGameInstaller-Setup.AppImage paths).
+    # which would start Electron's default app instead of OGI. We point it
+    # at opengameinstaller-steam-launch (built below) instead of at this
+    # wrapper: OGI's shortcut writer only ever consumes $APPIMAGE's value,
+    # never the wrapper's own behaviour, so every shortcut OGI (re)writes
+    # from now on invokes the shim, which reproduces the wrapper's launch
+    # effect (per-game env, UMU wine prefix, DLL overrides, launch
+    # arguments) with a single `exec`, no Electron. /run/current-system/sw/bin
+    # rather than $out/bin so shortcuts survive version bumps (this package
+    # is in environment.systemPackages via modules/nixos/console/launchers.nix),
+    # and Steam's own FHS env bind-mounts /run so the path resolves from
+    # inside the shortcut. APPIMAGE has no other consumer in OGI (the
+    # self-updater uses relative ../OpenGameInstaller-Setup.AppImage paths).
     #
     # Wrapping systemd-cat instead of electron directly (see the header
     # comment for why a log has to exist at all): systemd-cat's own argv
@@ -152,7 +163,18 @@ stdenvNoCC.mkDerivation {
       --add-flags "$out/share/opengameinstaller/app.asar" \
       --add-flags "--no-sandbox" \
       --set ELECTRON_FORCE_IS_PACKAGED 1 \
-      --set APPIMAGE /run/current-system/sw/bin/opengameinstaller
+      --set APPIMAGE /run/current-system/sw/bin/opengameinstaller-steam-launch
+
+    # Direct-launch shim for OGI-managed Steam shortcuts (see its own header
+    # for the full contract): reconstructs and execs the game's launch chain
+    # without starting Electron at all. $APPIMAGE above points every
+    # shortcut OGI writes at this binary instead of at the wrapper.
+    install -Dm755 ${./opengameinstaller-steam-launch.sh} \
+      $out/bin/opengameinstaller-steam-launch
+    substituteInPlace $out/bin/opengameinstaller-steam-launch \
+      --replace-fail '@bash@' '${bash}/bin/bash' \
+      --replace-fail '@jq@' '${jq}/bin/jq' \
+      --replace-fail '@systemdcat@' '${systemd}/bin/systemd-cat'
 
     runHook postInstall
   '';
