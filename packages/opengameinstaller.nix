@@ -124,15 +124,21 @@ stdenvNoCC.mkDerivation {
     # --no-sandbox matches upstream's own desktop Exec line.
     #
     # APPIMAGE stays set even though Steam-managed shortcuts no longer start
-    # OGI at all (see the header comment): OGI's desktop-shortcut writer
-    # (helpers.app/desktop-shortcut.ts) and its Windows launcher path still
-    # read $APPIMAGE to find the launcher, falling back to process.execPath
-    # — here nixpkgs' bare electron binary, which would start Electron's
-    # default app instead of OGI. /run/current-system/sw/bin rather than
-    # $out/bin so shortcuts survive version bumps (this package is in
-    # environment.systemPackages via modules/nixos/console/launchers.nix),
-    # and Steam's own FHS env bind-mounts /run so the path resolves from
-    # inside a shortcut that does still exec through it.
+    # OGI at all (see the header comment). getOgiExecutablePath
+    # (helpers.app/platform.ts) returns $APPIMAGE, falling back to
+    # process.execPath — here nixpkgs' bare electron binary, which would
+    # start Electron's default app instead of OGI — and on Linux it still
+    # has two readers: the per-game `.desktop` entries OGI writes under
+    # ~/.local/share/applications (handler.steam.ts, `Exec="<ogi>"
+    # --game-id=N`, which reaches OGI's argv parser through "$@" below), and
+    # the Steam shortcut re-sync (helpers.app/steam.ts identityFor), which
+    # lists the launcher as a legacy executable so a shortcut written by the
+    # pre-fork package is found and rewritten rather than duplicated. Other
+    # platforms still set the shortcut's Exe to it. /run/current-system/sw/bin
+    # rather than $out/bin so those entries survive version bumps (this
+    # package is in environment.systemPackages via
+    # modules/nixos/console/launchers.nix), and Steam's own FHS env
+    # bind-mounts /run so the path resolves from inside Steam too.
     #
     # Wrapping systemd-cat instead of electron directly (see the header
     # comment for why a log has to exist at all): systemd-cat's own argv
