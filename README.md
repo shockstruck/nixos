@@ -176,6 +176,11 @@ The physical power button suspends to RAM with the running game still in
 memory (SteamOS-style quick resume), holding it ~5s powers off; the
 controller or the power button resumes, and the TV follows over HDMI-CEC.
 
+The gamescope session runs with HDR output and adaptive sync (VRR) requested
+(`--hdr-enabled --adaptive-sync`, plus the Gamescope WSI layer): Steam's
+Display settings expose the HDR toggle, HDR-capable games output HDR10 to the
+TV, SDR titles stay SDR.
+
 ### FSR 4 and OptiScaler per game
 
 Proton-CachyOS's own directory carries a tool-level `user_settings.py`, so
