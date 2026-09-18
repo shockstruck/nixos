@@ -28,6 +28,24 @@ let
   # files in memory and rewrites them on exit, so a Home Manager activation
   # edit during a rebuild would be lost. Re-asserted on every session start;
   # entries not listed here are left exactly as Steam wrote them.
+  #
+  # Mapping priorities follow what the Steam client itself writes: "0" gets
+  # 75, a per-appid entry gets 250 (the value Steam writes for a per-game
+  # "Force the use of a specific Steam Play compatibility tool"). The two
+  # are not interchangeable. A per-game 250 outranks Steam's built-in
+  # preference for a title's native Linux build, which is what makes forcing
+  # a native game through Proton work; "0" at 75 does not, so native titles
+  # — including the Steam Linux Runtime tool apps themselves — stay native.
+  # Writing "0" at 250 forces every title without its own entry through the
+  # default Proton, Steam Linux Runtime 4.0 (appid 4183110) included, and
+  # Steam then cannot install or update that runtime ("Invalid platform",
+  # "unsupported version 0" in logs/compat_log.txt). Every tool whose
+  # toolmanifest requires it — Proton 11 and forks such as Proton-CachyOS
+  # 11.0 (`require_tool_appid 4183110`) — fails with "Compatibility tool
+  # failed", while Proton 10 lineage tools on runtime 3.0 (sniper, 1628350)
+  # keep working (ValveSoftware/steam-for-linux#13199, #13248).
+  # An entry steam-tweaks already wrote at the wrong priority is corrected
+  # in place below.
   steamTweaks = {
     compatToolMapping = {
       "0" = protonCachyos.steamDisplayName;
@@ -88,12 +106,21 @@ let
           mapping = steam.setdefault("CompatToolMapping", {})
           changed = not existed
           for appid, tool in compat.items():
+              # Steam's own values: 75 for the "0" default, 250 per title.
+              priority = "75" if appid == "0" else "250"
               entry = mapping.get(appid)
               if entry is None:
-                  mapping[appid] = {"name": tool, "config": "", "priority": "250"}
+                  mapping[appid] = {"name": tool, "config": "", "priority": priority}
                   changed = True
-              elif entry.get("name") != tool:
+                  continue
+              if entry.get("name") != tool:
                   entry["name"] = tool
+                  changed = True
+              # Steam has written both `priority` and `Priority`; keep the
+              # key that is there rather than adding a second one.
+              priority_key = "Priority" if "Priority" in entry else "priority"
+              if entry.get(priority_key) != priority:
+                  entry[priority_key] = priority
                   changed = True
           if changed:
               save(path, data)
