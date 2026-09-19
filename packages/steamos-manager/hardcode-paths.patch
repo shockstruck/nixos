@@ -1,0 +1,208 @@
+Replace the FHS paths steamos-manager compiles in with Nix store paths.
+
+Derived from Jovian-Experiments/Jovian-NixOS pkgs/steamos-manager/
+hardcode-paths.patch (development branch, same upstream tag v26.4.1),
+keeping only the hunks this repo needs:
+  - data/{system,user}/com.steampowered.SteamOSManager1.service: the D-Bus
+    activation stubs' Exec=/bin/false (never run: SystemdService= takes
+    over) pointed at coreutils so the file does not name a path NixOS
+    lacks;
+  - steamos-manager-macros/src/lib.rs, daemon/{root,user}.rs, hardware.rs,
+    platform.rs: the daemon's own data directories (remotes.d, system.d,
+    user.d, devices, platform.toml) under @out@/share/steamos-manager;
+  - manager/root.rs, power.rs, wifi.rs: dmidecode, scx_lavd, iw, iwd and
+    trace-cmd by store path.
+Dropped from Jovian's version: the platform.toml hunk (Steam Deck
+factory-reset/BIOS/dock scripts this host does not ship), the systemd unit
+hunks (the units are declared in modules/nixos/console/steamos-manager.nix
+instead of installed from upstream), and the manager/user.rs hunk that
+removes the /usr/bin/orca check (no screen reader here; upstream's check
+keeps that service off).
+
+@out@ is substituted by the package's postPatch; every other placeholder by
+replaceVars in packages/steamos-manager.nix.
+
+diff --git a/data/system/com.steampowered.SteamOSManager1.service b/data/system/com.steampowered.SteamOSManager1.service
+index 5fcbc63..1dd1cc6 100644
+--- a/data/system/com.steampowered.SteamOSManager1.service
++++ b/data/system/com.steampowered.SteamOSManager1.service
+@@ -1,5 +1,5 @@
+ [D-BUS Service]
+ Name=com.steampowered.SteamOSManager1
+-Exec=/bin/false
++Exec=@coreutils@/bin/false
+ User=root
+ SystemdService=steamos-manager.service
+diff --git a/data/user/com.steampowered.SteamOSManager1.service b/data/user/com.steampowered.SteamOSManager1.service
+index ac590d7..96340ab 100644
+--- a/data/user/com.steampowered.SteamOSManager1.service
++++ b/data/user/com.steampowered.SteamOSManager1.service
+@@ -1,5 +1,5 @@
+ [D-BUS Service]
+ Name=com.steampowered.SteamOSManager1
+-Exec=/bin/false
++Exec=@coreutils@/bin/false
+ SystemdService=steamos-manager.service
+ 
+diff --git a/steamos-manager-macros/src/lib.rs b/steamos-manager-macros/src/lib.rs
+index 4d74271..2400e80 100644
+--- a/steamos-manager-macros/src/lib.rs
++++ b/steamos-manager-macros/src/lib.rs
+@@ -1035,7 +1035,7 @@ pub fn remote_manager(input: TokenStream) -> TokenStream {
+                 let builder = ConfigBuilder::<AsyncState>::default();
+                 let builder = read_config_directory(
+                     builder,
+-                    path("/usr/share/steamos-manager/remotes.d"),
++                    path("@out@/share/steamos-manager/remotes.d"),
+                     FileFormat::Toml.file_extensions(),
+                     FileFormat::Toml,
+                 )
+diff --git a/steamos-manager/src/daemon/root.rs b/steamos-manager/src/daemon/root.rs
+index 7a71215..cf69c56 100644
+--- a/steamos-manager/src/daemon/root.rs
++++ b/steamos-manager/src/daemon/root.rs
+@@ -108,7 +108,7 @@ impl DaemonContext for RootContext {
+     }
+ 
+     fn system_config_path() -> Result<PathBuf> {
+-        Ok(path("/usr/share/steamos-manager/system.d"))
++        Ok(path("@out@/share/steamos-manager/system.d"))
+     }
+ 
+     fn state(&self) -> &RootState {
+diff --git a/steamos-manager/src/daemon/user.rs b/steamos-manager/src/daemon/user.rs
+index 51a4d95..c10227d 100644
+--- a/steamos-manager/src/daemon/user.rs
++++ b/steamos-manager/src/daemon/user.rs
+@@ -84,7 +84,7 @@ impl DaemonContext for UserContext {
+     }
+ 
+     fn system_config_path() -> Result<PathBuf> {
+-        Ok(path("/usr/share/steamos-manager/user.d"))
++        Ok(path("@out@/share/steamos-manager/user.d"))
+     }
+ 
+     fn state(&self) -> &UserState {
+diff --git a/steamos-manager/src/hardware.rs b/steamos-manager/src/hardware.rs
+index efd99df..686cb07 100644
+--- a/steamos-manager/src/hardware.rs
++++ b/steamos-manager/src/hardware.rs
+@@ -39,7 +39,7 @@ const SYS_VENDOR_PATH: &str = "/sys/class/dmi/id/sys_vendor";
+ const BOARD_NAME_PATH: &str = "/sys/class/dmi/id/board_name";
+ const PRODUCT_NAME_PATH: &str = "/sys/class/dmi/id/product_name";
+ #[cfg(not(test))]
+-const DEVICE_CONFIG_PATH: &str = "/usr/share/steamos-manager/devices";
++const DEVICE_CONFIG_PATH: &str = "@out@/share/steamos-manager/devices";
+ #[cfg(test)]
+ const DEVICE_CONFIG_PATH: &str = "../data/devices";
+ 
+diff --git a/steamos-manager/src/manager/root.rs b/steamos-manager/src/manager/root.rs
+index 4fe59ed..6d66475 100644
+--- a/steamos-manager/src/manager/root.rs
++++ b/steamos-manager/src/manager/root.rs
+@@ -295,7 +295,7 @@ impl SteamOSManager {
+             _ => return Vec::new(),
+         };
+         for index in indices {
+-            let result = script_output("/usr/bin/dmidecode", &["--oem-string", index]).await;
++            let result = script_output("@dmidecode@/bin/dmidecode", &["--oem-string", index]).await;
+             gains.push(match result {
+                 Ok(as_string) => as_string.trim().parse().unwrap_or(-1.0),
+                 Err(message) => {
+diff --git a/steamos-manager/src/platform.rs b/steamos-manager/src/platform.rs
+index 4ba91e9..30b0d6b 100644
+--- a/steamos-manager/src/platform.rs
++++ b/steamos-manager/src/platform.rs
+@@ -174,7 +174,7 @@ impl FormatDeviceConfig {
+ impl PlatformConfig {
+     #[cfg(not(test))]
+     async fn load() -> Result<Option<PlatformConfig>> {
+-        let path = "/usr/share/steamos-manager/platform.toml";
++        let path = "@out@/share/steamos-manager/platform.toml";
+         let config = read_to_string(path)
+             .await
+             .with_context(|| format!("Failed to read {path}"))?;
+diff --git a/steamos-manager/src/power.rs b/steamos-manager/src/power.rs
+index 5255428..b3987a6 100644
+--- a/steamos-manager/src/power.rs
++++ b/steamos-manager/src/power.rs
+@@ -57,7 +57,7 @@ const CPU_POLICY_NAME: &str = "policy";
+ const CPU_SCALING_GOVERNOR_SUFFIX: &str = "scaling_governor";
+ const CPU_SCALING_AVAILABLE_GOVERNORS_SUFFIX: &str = "scaling_available_governors";
+ 
+-const LAVD_PATH: &str = "/usr/bin/scx_lavd";
++const LAVD_PATH: &str = "@scx@/bin/scx_lavd";
+ 
+ const PLATFORM_PROFILE_PREFIX: &str = "/sys/class/platform-profile";
+ 
+diff --git a/steamos-manager/src/wifi.rs b/steamos-manager/src/wifi.rs
+index fcf84b7..01effa6 100644
+--- a/steamos-manager/src/wifi.rs
++++ b/steamos-manager/src/wifi.rs
+@@ -33,19 +33,18 @@ use crate::{path, read_config_directory};
+ 
+ const OVERRIDE_CONTENTS: &str = "[Service]
+ ExecStart=
+-ExecStart=/usr/lib/iwd/iwd -d
++ExecStart=@iwd@/libexec/iwd -d
+ ";
+ const OVERRIDE_FOLDER: &str = "/etc/systemd/system/iwd.service.d";
+ const OVERRIDE_PATH: &str = "/etc/systemd/system/iwd.service.d/99-valve-override.conf";
+ 
+ // Only use one path for output for now. If needed we can add a timestamp later
+ // to have multiple files, etc.
+-const TRACE_CMD_PATH: &str = "/usr/bin/trace-cmd";
++const TRACE_CMD_PATH: &str = "@traceCmd@/bin/trace-cmd";
+ 
+ const MIN_BUFFER_SIZE: u32 = 100;
+ 
+ const WIFI_BACKEND_PATHS: &[&str] = &[
+-    "/usr/lib/NetworkManager/conf.d",
+     "/etc/NetworkManager/conf.d",
+ ];
+ const WIFI_BACKEND_FILE: &str = "/etc/NetworkManager/conf.d/99-valve-wifi-backend.conf";
+@@ -280,7 +279,7 @@ async fn ensure_default_interface() -> Result<()> {
+     };
+     debug!("Missing wlan interace, creating it explicitly");
+     run_script(
+-        "/usr/bin/iw",
++        "@iw@/bin/iw",
+         &[
+             "phy",
+             phy.as_str(),
+@@ -386,7 +385,7 @@ pub(crate) async fn set_wifi_backend(backend: WifiBackend, connection: &Connecti
+ }
+ 
+ pub(crate) async fn list_wifi_interfaces() -> Result<Vec<String>> {
+-    let output = script_output("/usr/bin/iw", &["dev"]).await?;
++    let output = script_output("@iw@/bin/iw", &["dev"]).await?;
+     Ok(output
+         .lines()
+         .filter_map(|line| match line.trim().split_once(' ') {
+@@ -397,7 +396,7 @@ pub(crate) async fn list_wifi_interfaces() -> Result<Vec<String>> {
+ }
+ 
+ async fn list_wifi_phys() -> Result<Vec<String>> {
+-    let output = script_output("/usr/bin/iw", &["phy"]).await?;
++    let output = script_output("@iw@/bin/iw", &["phy"]).await?;
+     Ok(output
+         .lines()
+         .filter_map(|line| match line.trim().split_once(' ') {
+@@ -411,7 +410,7 @@ pub(crate) async fn get_wifi_power_management_state() -> Result<WifiPowerManagem
+     let mut found_any = false;
+     for iface in list_wifi_interfaces().await? {
+         let output =
+-            script_output("/usr/bin/iw", &["dev", iface.as_str(), "get", "power_save"]).await?;
++            script_output("@iw@/bin/iw", &["dev", iface.as_str(), "get", "power_save"]).await?;
+         for line in output.lines() {
+             match line.trim() {
+                 "Power save: on" => return Ok(WifiPowerManagement::Enabled),
+@@ -436,7 +435,7 @@ pub(crate) async fn set_wifi_power_management_state(
+ 
+     for iface in list_wifi_interfaces().await? {
+         run_script(
+-            "/usr/bin/iw",
++            "@iw@/bin/iw",
+             &["dev", iface.as_str(), "set", "power_save", str_state],
+         )
+         .await

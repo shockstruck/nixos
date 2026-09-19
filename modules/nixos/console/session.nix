@@ -178,6 +178,12 @@ let
         fi
 
         echo "console-session: starting gamescope session"
+        # steamos-manager's user daemon (./steamos-manager.nix) backs Steam's
+        # Quick Access Performance controls over the session bus. Its unit
+        # is bound to graphical-session.target, which this gamescope session
+        # never reaches (nothing here is a systemd session), so it is started
+        # by hand; a failure only costs those controls, not the session.
+        ${config.systemd.package}/bin/systemctl --user start steamos-manager.service || true
         # Declared Steam compat tools and launch options (ChimeraOS
         # steam-tweaks model), applied while Steam is not running; defined
         # in ./launchers.nix.

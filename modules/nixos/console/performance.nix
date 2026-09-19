@@ -6,8 +6,6 @@
 #   pkgs/top-level/linux-kernels.nix: `linux_default = packages.linux_6_18;` —
 #     the flake takes boot.kernelPackages from this default (no override in
 #     this repo), and 6.18 > 6.14, the version ntsync landed in upstream.
-#   nixos/modules/services/hardware/lact.nix: `services.lact.enable`
-#     (mkEnableOption).
 { pkgs, ... }:
 
 {
@@ -25,7 +23,11 @@
     KERNEL=="ntsync", MODE="0660", TAG+="uaccess"
   '';
 
-  services.lact.enable = true;
+  # No LACT on the console: Steam's Quick Access Performance controls own
+  # the amdgpu sysfs knobs here through steamos-manager
+  # (./steamos-manager.nix), and lactd re-applying its own profile to
+  # power_dpm_force_performance_level / power1_cap would silently undo them.
+  # The desktop keeps LACT (configurations/nixos/desktop/graphics.nix).
 
   # sched-ext; Valve's LAVD scheduler, tuned for gaming latency. Needs kernel
   # >= 6.12 — the flake's default linuxPackages on nixos-unstable satisfies

@@ -181,6 +181,15 @@ The gamescope session runs with HDR output and adaptive sync (VRR) requested
 Display settings expose the HDR toggle, HDR-capable games output HDR10 to the
 TV, SDR titles stay SDR.
 
+Steam's Quick Access "Performance" tab is backed by Valve's `steamos-manager`
+daemon (`packages/steamos-manager.nix`, wired in
+`modules/nixos/console/steamos-manager.nix`), run with a forced device config
+for this non-Deck board: GPU performance level / manual clock, GPU power
+profile, CPU governor and the `scx_lavd` scheduler toggle work through the
+same amdgpu and cpufreq sysfs files LACT would use, so LACT is not enabled on
+the console. The TDP slider is left out until the card's `power1_cap` range
+is known.
+
 ### FSR 4 and OptiScaler per game
 
 Proton-CachyOS's own directory carries a tool-level `user_settings.py`, so

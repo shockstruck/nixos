@@ -13,6 +13,7 @@
     ./desktop.nix
     ./cec.nix
     ./power.nix
+    ./steamos-manager.nix
   ];
 
   # Quiet boot / plymouth, copied from modules/nixos/gui/default.nix. No
