@@ -17,9 +17,10 @@
   #     0xfffd3fff with LACT's PP_OVERDRIVE_MASK 0x4000 set).
   #   nixos/modules/services/hardware/lact.nix recommends exactly this option.
   # Imported by path into `console` too (../console/default.nix), so this one
-  # line reaches desktop and console, the two hosts that run the LACT daemon
-  # (services.lact.enable: desktop in ./graphics.nix, console in
-  # modules/nixos/console/performance.nix).
+  # line reaches desktop and console: the desktop for the LACT daemon
+  # (services.lact.enable in ./graphics.nix), the console for
+  # steamos-manager's GPU clock control (modules/nixos/console/
+  # steamos-manager.nix writes pp_od_clk_voltage, which needs this mask).
   hardware.amdgpu.overdrive.enable = true;
 
   # Verified against nixpkgs source before writing:

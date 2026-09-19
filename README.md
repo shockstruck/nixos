@@ -186,8 +186,9 @@ daemon (`packages/steamos-manager.nix`, wired in
 `modules/nixos/console/steamos-manager.nix`), run with a forced device config
 for this non-Deck board: GPU performance level / manual clock, GPU power
 profile, CPU governor and the `scx_lavd` scheduler toggle work through the
-card's amdgpu and the CPU's cpufreq sysfs files. The TDP slider is left out
-until the card's `power1_cap` range is known.
+same amdgpu and cpufreq sysfs files LACT would use, so LACT is not enabled on
+the console. The TDP slider is left out until the card's `power1_cap` range
+is known.
 
 ### FSR 4 and OptiScaler per game
 
