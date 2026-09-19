@@ -1,0 +1,23 @@
+Do not start the ftrace relay in the root daemon.
+
+Verbatim Jovian-Experiments/Jovian-NixOS pkgs/steamos-manager/
+disable-ftrace.patch (development branch, upstream tag v26.4.1).
+Ftrace::init (steamos-manager/src/sls/ftrace.rs) creates a tracefs instance
+at /sys/kernel/tracing/instances/steamos-log-submitter, opens its
+trace_pipe and relays OOM events to steamos-log-submitter over D-Bus; the
+root daemon's start() propagates any failure there with `?`, and this host
+runs no steamos-log-submitter.
+
+diff --git a/steamos-manager/src/daemon/root.rs b/steamos-manager/src/daemon/root.rs
+index 47fcb01..ac7c7fc 100644
+--- a/steamos-manager/src/daemon/root.rs
++++ b/steamos-manager/src/daemon/root.rs
+@@ -124,8 +124,6 @@ impl DaemonContext for RootContext {
+         self.state = state;
+ 
+         let connection = daemon.get_connection();
+-        let ftrace = Ftrace::init(&connection).await?;
+-        daemon.add_service(ftrace);
+ 
+         let ip = DeckService::init(connection);
+         daemon.add_service(ip);
