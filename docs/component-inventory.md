@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `d8d02c4` (2026-09-19). This doc is not
+Captured against `origin/main` @ `b1f44e7` (2026-09-19). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -92,6 +92,7 @@ resolve to their `default.nix`.
 
 | Module | Purpose |
 | --- | --- |
+| `archives.nix` | `home.packages`: `zip`, `unzip`, `p7zip`; `xdg.mimeApps.enable` + `defaultApplications` mapping archive MIME types to `org.gnome.Nautilus.desktop` so Nautilus 50's `get_activation_action()` extracts in place on double-click with no dialog, instead of prompting; imported explicitly by `configurations/home/console/kevin.nix` since that profile has no `default.nix` and misses this directory's `readDir` autowiring |
 | `bitwarden.nix` | Bitwarden vault config + `bw-ssh-pull` helper script |
 | `brave.nix` | `programs.brave-origin.enable` + Bitwarden extension; activation script merges `brave.location_bar_is_wide=true` into the profile's `Preferences` (no policy exists for this pref) |
 | `direnv.nix` | direnv setup (`programs.direnv` with `nix-direnv`) |

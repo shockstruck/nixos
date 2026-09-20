@@ -23,7 +23,10 @@
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
 # it are enabled in modules/nixos/console/desktop.nix. heroic.nix asserts
 # Heroic's auto-add-to-Steam toggle for the shortcut-adding sessions this
-# profile exists for.
+# profile exists for. archives is imported explicitly (this profile has no
+# default.nix, so it misses modules/home/default.nix's readDir autowiring)
+# so the same Nautilus double-click auto-extract this Nautilus reaches for
+# shortcut-adding also works on this session.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -45,6 +48,7 @@ in
     self.homeModules.neovim
     self.homeModules.direnv
     self.homeModules.nix-index
+    self.homeModules.archives
 
     ./heroic.nix
   ];
