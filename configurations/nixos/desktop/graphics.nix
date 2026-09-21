@@ -25,7 +25,27 @@
 
   services.ollama = {
     enable = true;
-    package = pkgs.ollama-rocm;
+    # RX 7900 XT = Navi 31 = gfx1100; upstream nixpkgs ollama otherwise builds
+    # all 16 rocmPackages.clr.gpuTargets. CPU set matches the 7950X's Zen 4
+    # feature set (llama.cpp GGML_CPU_ALL_VARIANTS "zen4"); GGML_CPU_ALL_VARIANTS
+    # must be forced off or the per-target flags below are ignored.
+    package = (pkgs.ollama-rocm.override { rocmGpuTargets = [ "gfx1100" ]; }).overrideAttrs (
+      prev: {
+        cmakeFlags = (prev.cmakeFlags or [ ]) ++ [
+          "-DGGML_CPU_ALL_VARIANTS=OFF"
+          "-DGGML_SSE42=ON"
+          "-DGGML_AVX=ON"
+          "-DGGML_F16C=ON"
+          "-DGGML_FMA=ON"
+          "-DGGML_AVX2=ON"
+          "-DGGML_BMI2=ON"
+          "-DGGML_AVX512=ON"
+          "-DGGML_AVX512_VBMI=ON"
+          "-DGGML_AVX512_VNNI=ON"
+          "-DGGML_AVX512_BF16=ON"
+        ];
+      }
+    );
     loadModels = [ "qwen3.5:9b" ];
     environmentVariables = {
       OLLAMA_CONTEXT_LENGTH = "4096";

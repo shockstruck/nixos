@@ -262,6 +262,11 @@ The desktop runs the same boot-time service through Ollama's ROCm package,
 which natively supports its Radeon RX 7900 XT, and preloads `qwen3.5:9b`.
 Both services remain localhost-only.
 
+Each host's Ollama package is built only for that host's own GPU target and
+CPU feature set (`gfx1100` on the desktop, `sm_75` on the laptop) instead of
+every generation upstream ships, so both compile from source rather than
+hitting the binary cache.
+
 The first boot can finish before the background model download completes. Check
 its progress or run the model with:
 
