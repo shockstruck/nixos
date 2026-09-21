@@ -29,9 +29,10 @@
   services.ollama = {
     enable = true;
     # T500 is sm_75 (cudaCapabilities above already restricts the CUDA arch).
-    # CPU set matches Tiger Lake's feature set (llama.cpp GGML_CPU_ALL_VARIANTS
-    # "icelake" minus AVX512-BF16, which Tiger Lake lacks); GGML_CPU_ALL_VARIANTS
-    # must be forced off or the per-target flags below are ignored.
+    # CPU set is llama.cpp's GGML_CPU_ALL_VARIANTS "icelake" variant, which is
+    # Tiger Lake's feature set (no AVX512-BF16, unlike the desktop's "zen4");
+    # GGML_CPU_ALL_VARIANTS must be forced off or the per-target flags below
+    # are ignored.
     package = pkgs.ollama-cuda.overrideAttrs (
       prev: {
         cmakeFlags = (prev.cmakeFlags or [ ]) ++ [
