@@ -7,8 +7,8 @@
 # membership and is not a Nix trusted-user; `systemd-journal` is for reading
 # logs, `video`/`render` for the GPU probes. Its home holds the Multica CLI
 # config, the opencode provider credential and the task workspaces, so
-# `opencode auth login` and `multica login` run under it with `sudo -u multica
-# -H`. No credential is declared here.
+# `opencode auth login` and `multica login` run under it with
+# `sudo -u multica -H`. No credential is declared here.
 #
 # opencode is the only backend the daemon exposes: MULTICA_CLAUDE_PATH and
 # MULTICA_CODEX_PATH are pinned to an absolute path that never resolves, and
