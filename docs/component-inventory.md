@@ -106,7 +106,7 @@ resolve to their `default.nix`.
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
 | `neovim/nixvim.nix` | nixvim configuration for neovim |
 | `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its Nautilus/D-Bus integration files |
-| `multica.nix` | `home.packages = [ pkgs.multica-cli ]`; `systemd.user.services.multica-daemon` (`multica daemon start --foreground`, `WantedBy = [ "default.target" ]`, `Restart = "on-failure"`, `ConditionPathExists` on `~/.multica/config.json` so it stays inert before `multica login`, `MULTICA_DAEMON_AUTO_UPDATE=false`); guarded with `lib.mkIf pkgs.stdenv.hostPlatform.isLinux` |
+| `multica.nix` | `home.packages = [ pkgs.multica-cli pkgs.opencode ]` (opencode installed here directly since the console profile has no `packages.nix` import); `systemd.user.services.multica-daemon` (`multica daemon start --foreground`, `WantedBy = [ "default.target" ]`, `Restart = "on-failure"`, `ConditionPathExists` on `~/.multica/config.json` so it stays inert before `multica login`, `MULTICA_DAEMON_AUTO_UPDATE=false`, `MULTICA_OPENCODE_PATH` pinned to the opencode build, `MULTICA_CLAUDE_PATH`/`MULTICA_CODEX_PATH` pinned to a non-existent path so `probeAgentCLIs` hard-misses both and only opencode is exposed); guarded with `lib.mkIf pkgs.stdenv.hostPlatform.isLinux`; imported by `modules/home/default.nix`'s readDir on desktop/laptop and explicitly by `configurations/home/console/kevin.nix` on console |
 | `nix-index.nix` | nix-index database setup |
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service, founder palette) |
