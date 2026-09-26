@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `b1f44e7` (2026-09-19). This doc is not
+Captured against `origin/main` @ `0943578` (2026-09-26). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -106,6 +106,7 @@ resolve to their `default.nix`.
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
 | `neovim/nixvim.nix` | nixvim configuration for neovim |
 | `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its Nautilus/D-Bus integration files |
+| `multica.nix` | `home.packages = [ pkgs.multica-cli ]`; `systemd.user.services.multica-daemon` (`multica daemon start --foreground`, `WantedBy = [ "default.target" ]`, `Restart = "on-failure"`, `ConditionPathExists` on `~/.multica/config.json` so it stays inert before `multica login`, `MULTICA_DAEMON_AUTO_UPDATE=false`); guarded with `lib.mkIf pkgs.stdenv.hostPlatform.isLinux` |
 | `nix-index.nix` | nix-index database setup |
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service, founder palette) |
