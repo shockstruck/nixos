@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `0943578` (2026-09-26). This doc is not
+Captured against `origin/main` @ `2486f40` (2026-09-26). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,16 +13,16 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `ef34387ddd75` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `44a91898084f` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `cfcda3f99334` | nixpkgs |
-| disko | `github:nix-community/disko` | `ff8702b4de27` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `a3dfb887d40d` | nixpkgs |
+| disko | `github:nix-community/disko` | `725ea35e410a` | nixpkgs |
 | flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
-| nixos-hardware | `github:NixOS/nixos-hardware` | `24cfdc1f9344` | nixpkgs |
+| nixos-hardware | `github:NixOS/nixos-hardware` | `9ebcb7766700` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
 | stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
-| nix-index-database | `github:nix-community/nix-index-database` | `a74e17340755` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `afcfb8c1dc07` | nixpkgs, flake-parts |
+| nix-index-database | `github:nix-community/nix-index-database` | `9ad722673ab3` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `bcb5f577a365` | nixpkgs, flake-parts |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
