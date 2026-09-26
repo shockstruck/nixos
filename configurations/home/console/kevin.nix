@@ -26,7 +26,9 @@
 # profile exists for. archives is imported explicitly (this profile has no
 # default.nix, so it misses modules/home/default.nix's readDir autowiring)
 # so the same Nautilus double-click auto-extract this Nautilus reaches for
-# shortcut-adding also works on this session.
+# shortcut-adding also works on this session. multica is imported explicitly
+# for the same reason (no default.nix here to pick it up via readDir); it
+# installs opencode itself since this profile has no packages.nix import.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -49,6 +51,7 @@ in
     self.homeModules.direnv
     self.homeModules.nix-index
     self.homeModules.archives
+    self.homeModules.multica
 
     ./heroic.nix
   ];
