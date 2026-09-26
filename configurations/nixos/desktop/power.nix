@@ -1,8 +1,9 @@
 {
-  boot.kernelParams = [ "amd_pstate=active" 
-  "mem_sleep_default=s2idle"
-  "amdgpu.runpm=0"
-];
+  boot.kernelParams = [
+    "amd_pstate=active"
+    "mem_sleep_default=s2idle"
+    "amdgpu.runpm=0"
+  ];
 
   # amd-pstate-epp is a .setpolicy driver, so it never registers with the
   # generic cpufreq governor framework — schedutil (or any cpuFreqGovernor
