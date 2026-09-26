@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `0943578` (2026-09-26). This doc is not
+Captured against `origin/main` @ `2486f40` (2026-09-26). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,16 +13,16 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `ef34387ddd75` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `44a91898084f` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `cfcda3f99334` | nixpkgs |
-| disko | `github:nix-community/disko` | `ff8702b4de27` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `a3dfb887d40d` | nixpkgs |
+| disko | `github:nix-community/disko` | `725ea35e410a` | nixpkgs |
 | flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
-| nixos-hardware | `github:NixOS/nixos-hardware` | `24cfdc1f9344` | nixpkgs |
+| nixos-hardware | `github:NixOS/nixos-hardware` | `9ebcb7766700` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
 | stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
-| nix-index-database | `github:nix-community/nix-index-database` | `a74e17340755` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `afcfb8c1dc07` | nixpkgs, flake-parts |
+| nix-index-database | `github:nix-community/nix-index-database` | `9ad722673ab3` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `bcb5f577a365` | nixpkgs, flake-parts |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
@@ -123,9 +123,10 @@ resolve to their `default.nix`.
 
 | Module | Contents |
 | --- | --- |
-| `default.nix` | Imports `common`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
+| `default.nix` | Imports `common` and `./opencode-policy.nix`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
+| `opencode-policy.nix` | opencode managed config `environment.etc."opencode/opencode.json"`, reaching desktop, laptop and console through `default.nix` (not darwin: `modules/darwin/common` links only `common/`). Top level only `$schema`, `share = "disabled"`, `autoupdate = false` and `agent.multica-operator` (`mode = "primary"`, `model = "deepseek/deepseek-flash"`, a read-only diagnostics `prompt`, and a `permission` block: `bash` `"*": "allow"` then `deny` for activation/install/partitioning/privilege/network-send/cluster commands as `X` and `X *`; `edit` denied except the users' `multica_workspaces`; `read`/`external_directory` allow system paths then deny secret paths; `task`/`question` denied), selected by the Multica agent's `--agent multica-operator`. Rendered by a local ordered-object renderer instead of `builtins.toJSON` (which sorts keys) because opencode applies the last matching rule in file order. No provider key: `opencode auth login` stays imperative. Also exposed as `nixosModules.opencode-policy` by nixos-unified autowiring |
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search), force-pinned Bitwarden toolbar entry, and a `3rdparty.extensions` block presetting Bitwarden's managed-storage environment to `vault.panic.ac` (fresh installs only) |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |

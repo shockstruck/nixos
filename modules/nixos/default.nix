@@ -4,6 +4,7 @@
 {
   imports = [
     flake.inputs.self.nixosModules.common
+    ./opencode-policy.nix
   ];
 
   hardware.enableRedistributableFirmware = true;
