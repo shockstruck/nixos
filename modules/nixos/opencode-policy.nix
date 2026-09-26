@@ -1,31 +1,41 @@
-# opencode managed config: the deny policy for runs the Multica daemon
-# (modules/home/multica.nix) dispatches to opencode. The daemon starts
+# opencode managed config: the policy for runs the Multica daemon
+# (./multica.nix) dispatches to opencode. The daemon starts
 # `opencode run --dangerously-skip-permissions`, which auto-approves every
-# "ask", so an explicit "deny" is the only rule that binds, and the managed
-# file /etc/opencode/opencode.json is the only tier a user file, a checked-out
-# repo's opencode.json or OPENCODE_CONFIG_CONTENT cannot override
+# "ask", so only "allow" and "deny" bind, and the managed file
+# /etc/opencode/opencode.json is the top config tier
 # (anomalyco/opencode v1.18.31 packages/opencode/src/config/managed.ts:27,
 # config/config.ts:530-535). Home Manager's programs.opencode.settings writes
 # only the user file, so this is a NixOS module.
+#
+# It is advisory, not the boundary: the agent owns its workspace root, and a
+# lower tier can still append rules after these (a `mode.<name>` entry is
+# merged after the managed tier, config/config.ts:550). The `multica` system
+# user in ./multica.nix is what bounds a run. The policy keeps the model
+# inside that: every tool starts from deny, `bash` is an allowlist of
+# read-only commands, and the workspace allow in `edit` excludes the files
+# opencode loads as config or instructions, so the agent cannot plant one
+# that disables itself. `disable = false` is pinned for the same reason.
 #
 # Everything sits on the named agent `multica-operator`, which Multica selects
 # with `--agent multica-operator`; nothing is top-level, because the managed
 # tier also applies to interactive opencode sessions.
 #
 # Rule order is load-bearing: opencode keeps the file's key order and the last
-# matching rule wins (permission/index.ts:28-37, `findLast`). builtins.toJSON
-# sorts attribute names, which would put the `*.pem` deny ahead of the
-# `/etc/**` allow, so `ordered` objects are rendered in list order instead.
+# matching rule wins (permission/index.ts:28-37, `findLast`), with `*`
+# matching any run of characters, `/` and spaces included, and a trailing
+# ` *` also matching no arguments (util/wildcard.ts:3-19). builtins.toJSON
+# sorts attribute names, so `ordered` objects are rendered in list order.
 #
 # Path patterns: `~/` is expanded to the home directory
 # (permission/index.ts:178-184). The edit/write/read tools pass a path
 # relative to the project worktree, which is `/` for a task workdir that is not
-# a git repository (tool/write.ts:56, project/instance-context.ts:20-22), so
-# the workspaces allow is also written without its leading slash. Secret
-# directories are denied through external_directory, which receives an
-# absolute directory glob for reads and for `cat`/`cp`/`rm`-style shell
-# arguments outside the workdir (tool/external-directory.ts:28-38,
-# tool/shell.ts:397-404).
+# a git repository (tool/read.ts:257, tool/write.ts:56,
+# project/instance-context.ts:20-22), so every path is also written without
+# its leading slash. external_directory receives an absolute directory glob
+# for reads and for the arguments of `cat` and the other file commands in
+# tool/shell.ts:29-50 (tool/external-directory.ts:28-38, tool/shell.ts:
+# 397-404). `head`, `tail`, `grep` and the rest of the allowlist are not in
+# that set, so their path arguments are checked by nothing but the OS user.
 { config, lib, ... }:
 let
   ordered = pairs: { __ordered = pairs; };
@@ -45,108 +55,98 @@ let
   # Each command as both `X` and `X *`.
   withArgs = lib.concatMap (c: [ c "${c} *" ]);
 
-  deniedCommands = [
-    "nixos-rebuild"
-    "nixos-install"
-    "nixos-enter"
-    "home-manager"
-    "disko"
-    "nix build"
-    "nix run"
-    "nix shell"
-    "nix develop"
-    "nix profile"
-    "nix-env"
-    "nix-shell"
-    "nix flake update"
-    "nix flake check"
-    "nix-collect-garbage"
-    "nix-store --gc"
-    "nix-store --delete"
-    "just run"
-    "just check"
-    "just update"
-    "just dev"
-    "sudo"
-    "su"
-    "pkexec"
-    "doas"
-  ]
-  ++ map (verb: "systemctl ${verb}") [
-    "start"
-    "stop"
-    "restart"
-    "enable"
-    "disable"
-    "mask"
-    "daemon-reload"
-    "poweroff"
-    "reboot"
-    "kexec"
-  ]
-  ++ [
-    "reboot"
-    "shutdown"
-    "poweroff"
-    "halt"
-    "dd"
-    "mkfs*"
-    "wipefs"
-    "parted"
-    "sgdisk"
-    "sfdisk"
-    "cryptsetup"
-    "systemd-cryptenroll"
-    "tpm2*"
-    "mount"
-    "umount"
-    "rm -rf"
-    "chmod"
-    "chown"
-    "kill"
-    "pkill"
-    "killall"
-    "ssh"
-    "scp"
-    "rsync"
-    "curl"
-    "wget"
-    "gh"
-    "git push"
-    "git commit"
-    "kubectl"
-    "talosctl"
-    "flux"
-    "helm"
-    "sops"
-    "age"
-    "multica daemon"
-    "multica login"
-    "opencode"
+  # The whole bash surface: everything else falls to the leading `"*"` deny.
+  allowedCommands = [
+    "hostname"
+    "id"
+    "uname"
+    "uptime"
+    "date"
+    "journalctl"
+    "systemctl status"
+    "systemctl cat"
+    "systemctl list-units"
+    "systemctl list-timers"
+    "systemctl show"
+    "loginctl list-sessions"
+    "loginctl show-session"
+    "loginctl session-status"
+    "loginctl list-users"
+    "nmcli device show"
+    "nmcli device status"
+    "nmcli connection show"
+    "nmcli general status"
+    "ip"
+    "ss"
+    "lsblk"
+    "lspci"
+    "lsusb"
+    "free"
+    "df"
+    "sensors"
+    "nvidia-smi"
+    "rocm-smi"
+    "nix path-info"
+    "nix-store --query"
+    "nix log"
+    "ls"
+    "cat"
+    "grep"
+    "readlink"
+    "head"
+    "tail"
+    "wc"
+    "stat"
+    "file"
+    "multica issue get"
+    "multica issue comment list"
+    "multica issue comment add"
   ];
 
-  workspaceRoots = map (user: "${config.users.users.${user}.home}/multica_workspaces/**") config.myusers;
+  # Denied after the allows, so they win over any allowed command: redirection,
+  # command substitution (both forms), Nix settings passed to the daemon, and
+  # attachments on the one command that sends.
+  deniedForms = [
+    "*>*"
+    "*$(*"
+    "*`*"
+    "* --option *"
+    "*--attachment*"
+  ];
 
-  allowedPaths = [
+  # The daemon's home (./multica.nix). A pattern is written absolute, relative
+  # to `/` (what the read and edit tools match against), and as `~/`, which
+  # opencode expands to the running process's home.
+  multicaHome = config.users.users.multica.home;
+  relative = lib.removePrefix "/";
+  homePaths = p: [ "~/${p}" "${multicaHome}/${p}" (relative "${multicaHome}/${p}") ];
+  # Secret paths also in every other user's home.
+  secretPaths = p: homePaths p ++ [ "/home/*/${p}" "home/*/${p}" "/root/${p}" "root/${p}" ];
+
+  workspaceRoots = homePaths "multica_workspaces/**";
+
+  systemPaths = [
     "/etc/**"
     "/run/current-system/**"
     "/nix/**"
     "/var/log/**"
-    "/proc/**"
     "/sys/**"
-    "~/multica_workspaces/**"
   ];
 
-  deniedPaths = [
-    "~/.ssh/**"
-    "~/.kube/**"
-    "~/.talos/**"
-    "~/.config/sops/**"
-    "~/.config/gh/**"
-    "~/.multica/**"
-    "~/.local/share/opencode/**"
-    "~/.gnupg/**"
-    "~/.aws/**"
+  allowedPaths = systemPaths ++ map relative systemPaths ++ workspaceRoots;
+
+  deniedPaths = lib.concatMap secretPaths [
+    ".ssh/**"
+    ".kube/**"
+    ".talos/**"
+    ".config/sops/**"
+    ".config/gh/**"
+    ".multica/**"
+    ".local/share/opencode/**"
+    ".gnupg/**"
+    ".aws/**"
+  ]
+  ++ [
     "*.agekey"
     "*.key"
     "*.pem"
@@ -154,8 +154,19 @@ let
     "*.env.*"
   ];
 
-  # Allows first so a deny wins where the two overlap (`/etc/**/*.pem`).
-  pathRules = ordered (rules "allow" allowedPaths ++ rules "deny" deniedPaths);
+  # Deny everything, then allow the system and workspace paths, then deny
+  # secrets where the two overlap (`/etc/**/*.pem`).
+  pathRules = ordered (rules "deny" [ "*" ] ++ rules "allow" allowedPaths ++ rules "deny" deniedPaths);
+
+  # Files opencode loads as config or instructions: an agent that could write
+  # them could disable or reorder its own rules.
+  configFiles = [
+    "*opencode.json"
+    "*opencode.jsonc"
+    "*/.opencode/*"
+    ".opencode/*"
+    "*AGENTS.md"
+  ];
 
   policy = {
     "$schema" = "https://opencode.ai/config.json";
@@ -163,6 +174,7 @@ let
     autoupdate = false;
     agent.multica-operator = ordered [
       (lib.nameValuePair "mode" "primary")
+      (lib.nameValuePair "disable" false)
       (lib.nameValuePair "model" "deepseek/deepseek-flash")
       (lib.nameValuePair "prompt" (lib.concatStringsSep " " [
         "You are the NixOS Workstation Operator, a read-only diagnostics agent dispatched by Multica to this workstation."
@@ -172,13 +184,20 @@ let
         "This machine's opencode policy denies those commands; a denial is a finding to report, never something to route around."
       ]))
       (lib.nameValuePair "permission" (ordered [
-        (lib.nameValuePair "bash" (ordered (rules "allow" [ "*" ] ++ rules "deny" (withArgs deniedCommands))))
+        (lib.nameValuePair "bash" (ordered (
+          rules "deny" [ "*" ]
+          ++ rules "allow" (withArgs allowedCommands)
+          ++ rules "deny" deniedForms
+        )))
         (lib.nameValuePair "edit" (ordered (
           rules "deny" [ "*" ]
-          ++ rules "allow" ([ "~/multica_workspaces/**" ] ++ map (lib.removePrefix "/") workspaceRoots)
+          ++ rules "allow" workspaceRoots
+          ++ rules "deny" configFiles
         )))
         (lib.nameValuePair "read" pathRules)
         (lib.nameValuePair "external_directory" pathRules)
+        (lib.nameValuePair "webfetch" "deny")
+        (lib.nameValuePair "websearch" "deny")
         (lib.nameValuePair "task" "deny")
         (lib.nameValuePair "question" "deny")
       ]))

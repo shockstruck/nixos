@@ -4,6 +4,7 @@
 {
   imports = [
     flake.inputs.self.nixosModules.common
+    ./multica.nix
     ./opencode-policy.nix
   ];
 

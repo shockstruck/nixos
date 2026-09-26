@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `2486f40` (2026-09-26). This doc is not
+Captured against `origin/main` @ `0859e87` (2026-09-26). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -106,7 +106,6 @@ resolve to their `default.nix`.
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
 | `neovim/nixvim.nix` | nixvim configuration for neovim |
 | `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its Nautilus/D-Bus integration files |
-| `multica.nix` | `home.packages = [ pkgs.multica-cli pkgs.opencode ]` (opencode installed here directly since the console profile has no `packages.nix` import); `systemd.user.services.multica-daemon` (`multica daemon start --foreground`, `WantedBy = [ "default.target" ]`, `Restart = "on-failure"`, `ConditionPathExists` on `~/.multica/config.json` so it stays inert before `multica login`, `MULTICA_DAEMON_AUTO_UPDATE=false`, `MULTICA_OPENCODE_PATH` pinned to the opencode build, `MULTICA_CLAUDE_PATH`/`MULTICA_CODEX_PATH` pinned to a non-existent path so `probeAgentCLIs` hard-misses both and only opencode is exposed); guarded with `lib.mkIf pkgs.stdenv.hostPlatform.isLinux`; imported by `modules/home/default.nix`'s readDir on desktop/laptop and explicitly by `configurations/home/console/kevin.nix` on console |
 | `nix-index.nix` | nix-index database setup |
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service, founder palette) |
@@ -123,10 +122,11 @@ resolve to their `default.nix`.
 
 | Module | Contents |
 | --- | --- |
-| `default.nix` | Imports `common` and `./opencode-policy.nix`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
+| `default.nix` | Imports `common`, `./multica.nix` and `./opencode-policy.nix`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
-| `opencode-policy.nix` | opencode managed config `environment.etc."opencode/opencode.json"`, reaching desktop, laptop and console through `default.nix` (not darwin: `modules/darwin/common` links only `common/`). Top level only `$schema`, `share = "disabled"`, `autoupdate = false` and `agent.multica-operator` (`mode = "primary"`, `model = "deepseek/deepseek-flash"`, a read-only diagnostics `prompt`, and a `permission` block: `bash` `"*": "allow"` then `deny` for activation/install/partitioning/privilege/network-send/cluster commands as `X` and `X *`; `edit` denied except the users' `multica_workspaces`; `read`/`external_directory` allow system paths then deny secret paths; `task`/`question` denied), selected by the Multica agent's `--agent multica-operator`. Rendered by a local ordered-object renderer instead of `builtins.toJSON` (which sorts keys) because opencode applies the last matching rule in file order. No provider key: `opencode auth login` stays imperative. Also exposed as `nixosModules.opencode-policy` by nixos-unified autowiring |
+| `multica.nix` | Dedicated `multica` system user (`isSystemUser`, own `multica` group, home `/var/lib/multica` created with mode `700`, `bashInteractive` shell for `sudo -u multica -H opencode auth login` / `multica login`, `extraGroups = [ "systemd-journal" "video" "render" ]` only — no `wheel`/`docker`/`libvirtd`/`networkmanager`/`i2c`, not a Nix `trusted-user`); `environment.systemPackages = [ pkgs.multica-cli pkgs.opencode ]`; `systemd.services.multica-daemon` (`multica daemon start --foreground` as `User`/`Group` `multica`, `wantedBy multi-user.target`, after/wants `network-online.target`, `ConditionPathExists` on `/var/lib/multica/.multica/config.json` so it stays inert before `multica login`, `Restart = "on-failure"`, `RestartSec = 10`; environment `HOME`, `MULTICA_DAEMON_AUTO_UPDATE=false`, `MULTICA_OPENCODE_PATH` pinned to the opencode build, `MULTICA_CLAUDE_PATH`/`MULTICA_CODEX_PATH` pinned to a non-existent path so only opencode is exposed, `MULTICA_WORKSPACES_ROOT=/var/lib/multica/multica_workspaces`, `PATH=/run/wrappers/bin:/run/current-system/sw/bin` with `enableDefaultPath = false`; hardening `NoNewPrivileges`, `ProtectHome`, `PrivateTmp`, `ProtectKernelTunables`, `RestrictSUIDSGID`, `ProtectSystem = "strict"` with `ReadWritePaths` the home only). Reaches desktop, laptop and console through `default.nix`; no credential declared. Also exposed as `nixosModules.multica` by nixos-unified autowiring |
+| `opencode-policy.nix` | opencode managed config `environment.etc."opencode/opencode.json"`, reaching desktop, laptop and console through `default.nix` (not darwin: `modules/darwin/common` links only `common/`). Top level only `$schema`, `share = "disabled"`, `autoupdate = false` and `agent.multica-operator` (`mode = "primary"`, `disable = false`, `model = "deepseek/deepseek-flash"`, a read-only diagnostics `prompt`, and a `permission` block: `bash` `"*": "deny"` then an allowlist of read-only commands as `X` and `X *`, then trailing denies for redirection, command substitution, `--option` and `--attachment`; `edit` denied except the `multica` user's `multica_workspaces`, and within it denied for `opencode.json(c)`, `.opencode/` and `AGENTS.md`; `read`/`external_directory` `"*": "deny"`, allow system paths and the workspaces, then deny secret paths in `~/`, absolute and `/`-relative forms; `webfetch`/`websearch`/`task`/`question` denied), selected by the Multica agent's `--agent multica-operator`. Advisory against a process that owns its workspace root: the `multica` user in `multica.nix` is the boundary. Rendered by a local ordered-object renderer instead of `builtins.toJSON` (which sorts keys) because opencode applies the last matching rule in file order. No provider key: `opencode auth login` stays imperative. Also exposed as `nixosModules.opencode-policy` by nixos-unified autowiring |
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search), force-pinned Bitwarden toolbar entry, and a `3rdparty.extensions` block presetting Bitwarden's managed-storage environment to `vault.panic.ac` (fresh installs only) |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
@@ -182,7 +182,9 @@ console's `shell` import gets the tools its aliases need.
 ### System packages
 
 `environment.systemPackages = [ pkgs.docker-compose ]` in `modules/nixos/default.nix`
-(only system-level package; everything else is installed per-user via home-manager).
+and `[ pkgs.multica-cli pkgs.opencode ]` in `modules/nixos/multica.nix`, on every
+NixOS host; everything else is installed per-user via home-manager or by a host
+profile's own modules.
 
 ## Repo-local packages — `packages/`
 
