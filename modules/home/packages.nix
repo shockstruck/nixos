@@ -91,10 +91,5 @@ in
     jq.enable = true;
     # Install btop https://github.com/aristocratos/btop
     btop.enable = true;
-    # Tmate terminal sharing.
-    tmate = {
-      enable = true;
-      #host = ""; #In case you wish to use a server other than tmate.io
-    };
   };
 }

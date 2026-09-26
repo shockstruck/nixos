@@ -173,7 +173,7 @@ resolve to their `default.nix`.
 
 ### `programs.*` enabled in `modules/home/packages.nix`
 
-`jq`, `btop`, `tmate` (all `enable = true`). `bat`, `fzf`, `eza` moved to
+`jq`, `btop` (both `enable = true`). `bat`, `fzf`, `eza` moved to
 `modules/home/shell.nix`, along with `ripgrep` (`home.packages`), so the
 console's `shell` import gets the tools its aliases need.
 
