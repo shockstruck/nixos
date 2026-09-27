@@ -105,7 +105,8 @@ let
   # command substitution (both forms), Nix settings passed to the daemon,
   # attachments, and every flag that points an allowed command at another host:
   # a URL, the multica CLI's server/profile/workspace overrides, a Nix store or
-  # substituter, and systemctl/loginctl `-H`/`--host`, which run ssh.
+  # substituter, systemctl/loginctl `-H`/`--host`, which run ssh, and the
+  # arguments that make ss or lspci resolve a name the agent chose over DNS.
   deniedForms = [
     "*>*"
     "*$(*"
@@ -123,6 +124,13 @@ let
     "systemctl *--host*"
     "loginctl * -H*"
     "loginctl *--host*"
+    "ss *dst*"
+    "ss *src*"
+    "ss *F*"
+    "ss *--filter*"
+    "lspci *q*"
+    "lspci *Q*"
+    "lspci *O*"
   ];
 
   # The daemon's home (./multica.nix). A pattern is written absolute, relative
