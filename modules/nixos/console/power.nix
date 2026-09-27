@@ -24,9 +24,21 @@
 # TV standby-before-sleep/wake-on-resume over HDMI-CEC and controller wake
 # are already handled in ./cec.nix and ./input.nix respectively. This file
 # is only the missing physical-button path.
+#
+# Suspend to RAM means S3 here. The console host imports
+# configurations/nixos/desktop/power.nix, whose kernelParams set
+# mem_sleep_default=s2idle; on this board s2idle
+# freezes userspace but leaves the fans and platform running, and amdgpu
+# logs "S3 suspend aborted, resetting" on every resume. MemorySleepMode is
+# written to /sys/power/mem_sleep by systemd-sleep before each suspend
+# (systemd/systemd man/systemd-sleep.conf.xml, v256+), so it overrides the
+# kernel default for the console only. nixos/modules/system/boot/systemd.nix
+# renders systemd.sleep.settings.Sleep into /etc/systemd/sleep.conf.
 {
   services.logind.settings.Login = {
     HandlePowerKey = "suspend";
     HandlePowerKeyLongPress = "poweroff";
   };
+
+  systemd.sleep.settings.Sleep.MemorySleepMode = "deep";
 }
