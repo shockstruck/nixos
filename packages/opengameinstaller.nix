@@ -7,10 +7,22 @@
 # and run its `resources/app.asar` on nixpkgs' Electron of the same major —
 # deliberately NOT `appimageTools.wrapType2`. wrapType2 runs the app inside a
 # bubblewrap FHS sandbox, and that sandbox is fatal for OGI's own Play
-# button, which runs pressure-vessel via the umu zipapp it downloads: from
-# inside the appimage sandbox that chain exits with no diagnostics on OGI's
-# stderr. Run unsandboxed, OGI's Play button lives in the same environment
-# upstream's AppImage does on a Steam Deck.
+# button, which runs pressure-vessel via umu: from inside the appimage
+# sandbox that chain exits with no diagnostics on OGI's stderr. Run
+# unsandboxed, OGI's Play button lives in the same environment upstream's
+# AppImage does on a Steam Deck.
+#
+# `OGI_UMU_RUN` below points OGI (fork v4.3.1-ss.9+) at this package's own
+# nixpkgs `umu-launcher` (an FHS-wrapped `steam.buildRuntimeEnv`, same as
+# Heroic/Lutris use) instead of the upstream umu zipapp OGI downloads to
+# `~/.local/share/OpenGameInstaller/bin/umu/`: that zipapp's pressure-vessel
+# is a generic-Linux dynamically linked binary NixOS refuses to exec
+# (`Could not start dynamically linked executable`). Both OGI's Play button
+# and its redistributable installer (winetricks: dotnet/vcrun/xna) go
+# through the resolved `umu-run`, so both now work. Community addons that
+# spawn the downloaded zipapp path directly, outside OGI's own code, are
+# not covered by this override — see the caveat in
+# `modules/nixos/console/launchers.nix`.
 #
 # As of the fork's v4.3.1-ss.1 release, Steam-managed shortcuts no longer
 # route through OGI at launch time: OGI writes the launch environment
@@ -88,14 +100,15 @@
 , makeWrapper
 , stdenvNoCC
 , systemd
+, umu-launcher
 }:
 let
   pname = "opengameinstaller";
-  version = "4.3.1-ss.8";
+  version = "4.3.1-ss.10";
 
   src = fetchurl {
     url = "https://github.com/shockstruck/OpenGameInstaller/releases/download/v${version}/OpenGameInstaller-linux-pt.AppImage";
-    hash = "sha256-M+9FNlnT1Rc+kQU5U8LzNEjNqUFr5Rz9MKj3d2+RYhA=";
+    hash = "sha256-ydmHj6S06AEx0HHkHr0LHJJgzu7Q3IiLNZ8UPMTWwO4=";
   };
 
   appimageContents = appimageTools.extract { inherit pname version src; };
@@ -161,7 +174,8 @@ stdenvNoCC.mkDerivation {
       --add-flags "$out/share/opengameinstaller/app.asar" \
       --add-flags "--no-sandbox" \
       --set ELECTRON_FORCE_IS_PACKAGED 1 \
-      --set APPIMAGE /run/current-system/sw/bin/opengameinstaller
+      --set APPIMAGE /run/current-system/sw/bin/opengameinstaller \
+      --set OGI_UMU_RUN "${lib.getExe umu-launcher}"
 
     runHook postInstall
   '';
