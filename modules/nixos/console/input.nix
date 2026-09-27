@@ -31,10 +31,26 @@
   #     configuration. Only the interfaces are re-registered — the
   #     usb_device itself gets no further "add" uevent — so a rule matching
   #     ACTION=="add" with ENV{DEVTYPE}=="usb_device" cannot re-fire on its
-  #     own reauthorization. No loop.
+  #     own reauthorization. The chip's own re-enumeration does; see the
+  #     xone_dongle_probe entry below.
   #   systemd/systemd man/systemd.device.xml: SYSTEMD_WANTS= is honoured
   #     only with TAG+="systemd", and only when the device first becomes
   #     active.
+  #   dlundqvist/xone tag v0.5.8, transport/dongle.c xone_dongle_probe: on
+  #     cold boot the MT76 chip disconnects from USB as a normal part of its
+  #     firmware startup, so the dongle re-enumerates and the rule above
+  #     fires again for the new device. An unconditional re-authorize a few
+  #     seconds after every "add" therefore interrupts the firmware load it
+  #     is meant to rescue, which triggers the next re-enumeration: a
+  #     self-sustaining loop (control message failed: -121, load firmware
+  #     failed: -19, a disconnect every ~7s) that never reaches a working
+  #     dongle.
+  #   Same file, xone_dongle_fw_load: device_wakeup_enable() on the USB
+  #     device is called only once the firmware and radio are up
+  #     (XONE_DONGLE_FW_STATE_READY), so power/wakeup reading "enabled" is
+  #     the driver's own readiness signal.
+  # Hence the script waits for that signal and re-authorizes at most once
+  # per boot (stamp in /run), only if the dongle never became ready.
   # Remove once a fixed xone release lands in nixpkgs.
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="045e", ATTR{idProduct}=="02e6|02fe|02f9|091e", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xone-dongle-reauthorize@%k.service"
@@ -45,8 +61,15 @@
       script = pkgs.writeShellScript "xone-dongle-reauthorize" ''
         set -eu
         dev=/sys/bus/usb/devices/$1
-        sleep 3
+        stamp=/run/xone-dongle-reauthorized-$1
+        [ -e "$stamp" ] && exit 0
+        for _ in {1..30}; do
+          wakeup=$(cat "$dev/power/wakeup" 2>/dev/null || true)
+          [ "$wakeup" = enabled ] && exit 0
+          sleep 1
+        done
         [ -e "$dev/authorized" ] || exit 0
+        touch "$stamp"
         echo 0 > "$dev/authorized"
         sleep 1
         echo 1 > "$dev/authorized"
