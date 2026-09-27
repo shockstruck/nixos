@@ -272,14 +272,18 @@ in
     # OGI addons, Lutris and umu extract RAR archives by shelling out to unrar; see unrarFatboy above for why this is a wrapper.
     unrarFatboy
     steamTweaksApply
-    # OGI does not use the umu-launcher above for its own Windows-game flow:
-    # it downloads the upstream umu zipapp to
-    # ~/.local/share/OpenGameInstaller/bin/umu/umu-run (application/src/
-    # electron/startup.ts, handlers/handler.umu.ts) and addons spawn it
-    # directly for setup.exe / winetricks. That zipapp is a `python3` script
-    # (umu-launcher Makefile.in, `python3 -m zipapp … -p`) with pure-Python
-    # deps, resolved from PATH — absent here until this line (OGI runs
-    # unsandboxed on the host, see packages/opengameinstaller.nix).
+    # OGI's own Windows-game flow (fork v4.3.1-ss.9+) now resolves umu-run
+    # through OGI_UMU_RUN, which packages/opengameinstaller.nix's wrapper
+    # points at the umu-launcher above instead of the upstream umu zipapp
+    # OGI downloads to ~/.local/share/OpenGameInstaller/bin/umu/
+    # (application/src/electron/startup.ts, handlers/handler.umu.ts): that
+    # zipapp's pressure-vessel is a generic-Linux dynamically linked binary
+    # NixOS refuses to exec. Community addons that spawn the zipapp path
+    # directly, outside OGI's own code, are not covered by OGI_UMU_RUN and
+    # still need it: that zipapp is a `python3` script (umu-launcher
+    # Makefile.in, `python3 -m zipapp … -p`) with pure-Python deps, resolved
+    # from PATH — absent here until this line (OGI runs unsandboxed on the
+    # host, see packages/opengameinstaller.nix).
     pkgs.python3
   ];
 
