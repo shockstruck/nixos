@@ -91,11 +91,11 @@
 }:
 let
   pname = "opengameinstaller";
-  version = "4.3.1-ss.6";
+  version = "4.3.1-ss.7";
 
   src = fetchurl {
     url = "https://github.com/shockstruck/OpenGameInstaller/releases/download/v${version}/OpenGameInstaller-linux-pt.AppImage";
-    hash = "sha256-OjW4yqhcyTHFI8aWmbHYIwv6bJS4Ed1LwwaiKAtqcfc=";
+    hash = "sha256-4Y40F2UZpeYMSydFC/eTv/Or1As/F//UIny8iQsOWzU=";
   };
 
   appimageContents = appimageTools.extract { inherit pname version src; };
