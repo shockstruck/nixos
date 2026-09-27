@@ -6,7 +6,7 @@ name: automerge-flake-lock
 # Why not `gh pr merge --auto` from update-flake-lock.yaml: `--auto` only waits
 # for checks that a ruleset or branch protection marks as *required*. `main` has
 # no such rule, so `--auto` merges the moment it is enabled — validated or not.
-# That is the SHOC-46 failure. This workflow gates on the CI run itself, so the
+# That is the failure this avoids. This workflow gates on the CI run itself, so the
 # lock PR lands automatically whether or not a ruleset ever exists.
 #
 # `workflow_run` runs from the default branch with the repository's secrets and
@@ -14,6 +14,7 @@ name: automerge-flake-lock
 # It also means this file has no effect until it is merged to the default
 # branch — a workflow_run trigger is only ever read from there.
 on:
+  # zizmor: ignore[dangerous-triggers] runs from the default branch; gated to a successful same-repo CI run on the lock branch at the tested head SHA; checks out no PR content
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -56,7 +57,7 @@ jobs:
 
       - name: Mint GitHub App token
         id: app-token
-        uses: ./.github/actions/app-token
+        uses: ./.github/actions/app-token # zizmor: ignore[self-repository] actionlint 1.7.12 rejects the $/ form
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           # Prefer the secret name shockstruck/k8s-gitops uses, so one working

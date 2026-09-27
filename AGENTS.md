@@ -4,6 +4,29 @@ Authoritative agent-contribution guidance for this NixOS configuration repo.
 Applies to every agent (Claude, Codex, etc.); `CLAUDE.md` is a symlink to this
 file.
 
+## Generic agent conduct
+
+Generic agent conduct arrives with the agent and must not be restated here.
+`agent-platform:agents/shared/conduct.md` is composed into every agent's
+instructions and carries exactly these sections:
+
+<!-- shared-conduct-sections: kept in step with agents/shared/conduct.md by
+     scripts/tests/test_repo_policy_template.py -->
+
+- Work notes belong on the issue, not in the repository
+- Work that crosses a domain becomes a sub-issue
+- When a hook refuses you
+- Reading a large tool response
+- Validated work ships without a person
+
+The agent's own instructions carry the rest — evidence, secret handling and
+writing style. Those are deliberately worded per domain rather than shared, so
+they are not in `conduct.md`, but they still reach the agent before it reads
+this file. Either way, a repository restating any of it is duplicating a live
+original.
+
+This file is only what is true of **this** repository.
+
 ## Validation policy — cheap validation only
 
 Nix compiles/realises and CI runs each take an hour or more. Agents must not

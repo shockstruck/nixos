@@ -53,7 +53,7 @@ in
   # everything under modules/programs via readDir. Its option declarations
   # collide with the ones in the noctalia flake's homeModules.default, which
   # broke evaluation outright when the weekly lock bump pulled that
-  # home-manager in (SHOC-46).
+  # home-manager in.
   #
   # Keep the flake's module and disable home-manager's copy: the flake is pinned
   # to v5.0.0-beta.9, defaults `package` to the flake's own build, and provides
@@ -103,7 +103,7 @@ in
           };
           screen_corners.enabled = true;
 
-          # Greeter appearance sync stays OFF (SHOC-83, decided on SHOC-33).
+          # Greeter appearance sync stays OFF, by decision.
           #
           # With auto_sync on, Noctalia re-syncs the greeter whenever the
           # wallpaper, colors, theme mode or shell font change, and each sync

@@ -53,7 +53,7 @@ jobs:
       # PRs opened by, a GitHub Action using GITHUB_TOKEN. On 2026-08-30 that
       # produced a lock-bump PR whose CI run had zero jobs, which auto-merge
       # then treated as no obstacle — landing an evaluation-breaking
-      # home-manager bump on main with no validation anywhere (SHOC-46).
+      # home-manager bump on main with no validation anywhere.
       #
       # A GitHub App installation token is not subject to that suppression:
       # PRs and merge commits it creates do trigger ci.yaml. It is also
@@ -61,7 +61,7 @@ jobs:
       # ends — unlike the long-lived PAT this previously called for.
       - name: Mint GitHub App token
         id: app-token
-        uses: ./.github/actions/app-token
+        uses: ./.github/actions/app-token # zizmor: ignore[self-repository] actionlint 1.7.12 rejects the $/ form
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           # Prefer the secret name shockstruck/k8s-gitops uses, so one working
