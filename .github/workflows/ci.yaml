@@ -80,7 +80,7 @@ jobs:
               CHANGED_PACKAGES="$CHANGED_PACKAGES $name"
             fi
           done
-          CHANGED_PACKAGES=$(echo $CHANGED_PACKAGES)
+          CHANGED_PACKAGES="${CHANGED_PACKAGES# }"
           echo "changed packages:"
           echo "$CHANGED_PACKAGES"
           echo "packages=$CHANGED_PACKAGES" >> "$GITHUB_OUTPUT"
@@ -223,7 +223,7 @@ jobs:
           while read -r p; do [ -e "$p" ] && echo "$p"; done < "$RUNNER_TEMP/push.list" > "$RUNNER_TEMP/push.valid" || true
           if [ -s "$RUNNER_TEMP/push.valid" ]; then
             xargs nix copy --to "file://$RUNNER_TEMP/nix-cache-new?compression=zstd" < "$RUNNER_TEMP/push.valid"
-            echo "closure narinfos: $(ls "$RUNNER_TEMP"/nix-cache-new/*.narinfo | wc -l)"
+            echo "closure narinfos: $(find "$RUNNER_TEMP/nix-cache-new" -maxdepth 1 -name '*.narinfo' | wc -l)"
             for info in "$RUNNER_TEMP"/nix-cache-new/*.narinfo; do
               path=$(sed -n 's/^StorePath: //p' "$info")
               if ! grep -qxF -- "$path" "$RUNNER_TEMP/push.valid"; then
@@ -231,7 +231,7 @@ jobs:
                 rm -f -- "$info" "$RUNNER_TEMP/nix-cache-new/$nar"
               fi
             done
-            echo "kept narinfos: $(ls "$RUNNER_TEMP"/nix-cache-new/*.narinfo | wc -l)"
+            echo "kept narinfos: $(find "$RUNNER_TEMP/nix-cache-new" -maxdepth 1 -name '*.narinfo' | wc -l)"
             rm -rf "$RUNNER_TEMP/nix-cache"
             mv "$RUNNER_TEMP/nix-cache-new" "$RUNNER_TEMP/nix-cache"
           fi
@@ -284,7 +284,7 @@ jobs:
   # Single stable check name to mark as a required status check on main. The
   # matrix job names change whenever the host list changes; this one does not,
   # so a branch ruleset that requires "CI / ci-passed" keeps working. Without a
-  # required check, `gh pr merge --auto` merges immediately (SHOC-46).
+  # required check, `gh pr merge --auto` merges immediately.
   ci-passed:
     name: ci-passed
     if: always()

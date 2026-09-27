@@ -1,4 +1,4 @@
-# Libvirt/QEMU virtualisation and Cockpit (SHOC-46). Desktop only — nothing
+# Libvirt/QEMU virtualisation and Cockpit. Desktop only — nothing
 # here touches modules/, so the laptop is unaffected. The Looking Glass
 # client itself is a Home Manager package (modules/home/packages.nix, both
 # hosts); this file only carries the host-side kvmfr plumbing a VM guest
