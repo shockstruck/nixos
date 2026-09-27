@@ -1,0 +1,90 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+#
+# Template file: identical in every repository that adopts repo-policy. Change
+# it in shockstruck/agent-platform, not here.
+#
+# This is the gate a human commit or a non-hooked tool cannot bypass: the
+# session hooks only protect an agent run. `python3 scripts/check-agent-policy.py`
+# is the one repository-specific step -- the adopter's own copy, next to its
+# own policy.json -- everything above it is the generic validator suite.
+#
+# The adopter's own `.mise.toml` must provide `actionlint`, `zizmor`,
+# `shellcheck`, `gitleaks` and `python`; see repo-policy/README.md.
+name: Agent policy
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+# A newer pull request head supersedes the older one, so its run is cancelled.
+# A default-branch push is not: the secret scan covers `before..sha`, and a
+# cancelled run would leave that range unscanned.
+concurrency:
+  group: agent-policy-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  agent-policy:
+    name: agent-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: >-
+      github.event_name != 'push' ||
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Tool versions come from the adopter's own .mise.toml, not this
+      # workflow: naming a tool here instead would install it without the
+      # version the adopter picked.
+      - name: Install validators
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          cache: false
+          version: 2026.9.10
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Run zizmor
+        run: zizmor --offline .github/workflows/
+
+      - name: Run ShellCheck
+        run: shellcheck .claude/hooks/*.sh
+
+      - name: Scan pull request commits for secrets
+        if: github.event_name == 'pull_request'
+        run: gitleaks git --redact --no-banner --log-opts="-m ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" .
+
+      - name: Scan pushed commits for secrets
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: gitleaks git --redact --no-banner --log-opts="-m ${{ github.event.before }}..${{ github.sha }}" .
+
+      - name: Scan the current revision for secrets
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000')
+        run: gitleaks dir --redact --no-banner .
+
+      # The backstop for a commit that never went through block-attribution.sh
+      # at all -- a human push, or a tool that does not run hooks.
+      - name: Scan pull request commit messages for attribution
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/check-agent-policy.py --commits "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      - name: Scan pushed commit messages for attribution
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: python3 scripts/check-agent-policy.py --commits "${{ github.event.before }}..${{ github.sha }}"
+
+      - name: Test agent hooks
+        run: python3 scripts/test-agent-hooks.py
+
+      - name: Check agent policy
+        run: python3 scripts/check-agent-policy.py

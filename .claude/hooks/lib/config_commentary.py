@@ -107,16 +107,23 @@ def added_lines(old_text: str, new_text: str) -> list[tuple[int, str]]:
     return added
 
 
-def in_scope(relative_path: str, policy: Policy) -> bool:
-    """True when either rule has anything to say about this path."""
-    return policy.checks_task_identifiers(relative_path) or policy.checks_comments(relative_path)
+def in_scope(relative_path: str, policy: Policy, indexed: bool = True) -> bool:
+    """True when either rule has anything to say about this path.
+
+    The task-identifier scan only ever applies to a tracked path: an
+    untracked scratch file (a commit message body, a delegation note) is
+    never the committed config the rule protects.
+    """
+    return (indexed and policy.checks_task_identifiers(relative_path)) or policy.checks_comments(
+        relative_path
+    )
 
 
 def violations(
-    relative_path: str, old_text: str, new_text: str, policy: Policy
+    relative_path: str, old_text: str, new_text: str, policy: Policy, indexed: bool = True
 ) -> list[str]:
     """Commentary and task-identifier violations the edit would introduce."""
-    checks_identifiers = policy.checks_task_identifiers(relative_path)
+    checks_identifiers = indexed and policy.checks_task_identifiers(relative_path)
     checks_comments = policy.checks_comments(relative_path)
     if not checks_identifiers and not checks_comments:
         return []

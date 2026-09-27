@@ -65,6 +65,36 @@ def invocations(command: str, strict: bool = True) -> list[Invocation]:
     return found
 
 
+def directory_before(command: str, *subcommands: str) -> list[str | None]:
+    """The last literal `cd <path>` argument before each matching `git` invocation.
+
+    One entry per invocation whose subcommand is in `subcommands`, in the
+    order `invocations()` reports them, so callers that also call
+    `invocations()` over the same command can zip the two together. `cd -`,
+    a bare `cd`, and a `$`-expanded argument are not a literal destination,
+    so they are skipped rather than clearing a path already resolved earlier
+    in the same command.
+    """
+    names = set(subcommands)
+    current_dir: str | None = None
+    directories: list[str | None] = []
+
+    def visit(executable: str, arguments: list[str]) -> None:
+        nonlocal current_dir
+        if executable == "cd":
+            if len(arguments) == 1 and arguments[0] != "-" and "$" not in arguments[0]:
+                current_dir = arguments[0]
+            return
+        if executable == "git" and subcommand(arguments).subcommand in names:
+            directories.append(current_dir)
+
+    try:
+        walk(command, visit)
+    except Denial:
+        pass
+    return directories
+
+
 def parse(
     arguments: list[str],
     value_letters: str = "",

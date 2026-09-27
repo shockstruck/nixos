@@ -2,7 +2,10 @@
 # PreToolUse(Write|Edit): keep change rationale and task identifiers out of the
 # files this repository guards. Blocks only what the edit ADDS: a new
 # non-directive `#` comment under `comments.paths`, or a new task identifier
-# under `taskIdentifiers.paths`. Pre-existing lines never trip the hook.
+# under `taskIdentifiers.paths`. Pre-existing lines never trip the hook. The
+# identifier scan applies only to a path already in the index -- an untracked
+# scratch file is never the config the rule protects -- while the comment scan
+# still applies to it.
 #
 # Both path lists are this repository's slots in .claude/hooks/policy.json; the
 # rule itself lives in lib/config_commentary.py.
@@ -23,6 +26,7 @@ set +e
 python3 - 3<<<"${CLAUDE_HOOK_PAYLOAD}" <<'PYEOF'
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,6 +34,24 @@ sys.path.insert(0, os.environ["HOOK_LIB_DIR"])
 
 from config_commentary import in_scope, violations  # noqa: E402
 from repo_policy import PolicyError, load  # noqa: E402
+
+
+def path_indexed(directory: Path, relative: str) -> bool:
+    """Whether `relative` is tracked in the Git index at `directory`.
+
+    `ls-files --error-unmatch` exits 1 for a path that matches no tracked
+    file; anything else -- a genuine Git error, `directory` not a checkout --
+    cannot show the path is safe to exempt, so it counts as indexed.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(directory), "ls-files", "--error-unmatch", "--", relative],
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return True
+    return result.returncode != 1
 
 DEFAULT_GUIDANCE = (
     "Change rationale belongs in the pull request body, not in a guarded file, and task "
@@ -69,7 +91,8 @@ try:
     relative = path.relative_to(project_root).as_posix()
 except ValueError:
     sys.exit(0)
-if not in_scope(relative, policy):
+indexed = path_indexed(project_root, relative)
+if not in_scope(relative, policy, indexed=indexed):
     sys.exit(0)
 
 try:
@@ -99,7 +122,7 @@ else:
 if not isinstance(candidate, str):
     deny("proposed file content was not text")
 
-found = violations(relative, existing, candidate, policy)
+found = violations(relative, existing, candidate, policy, indexed=indexed)
 if found:
     for violation in found[:20]:
         sys.stderr.write(f"[block-config-commentary BLOCK] {relative}: {violation}\n")
