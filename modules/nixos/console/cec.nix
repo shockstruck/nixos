@@ -37,10 +37,12 @@
 #     resume the console.
 { pkgs, ... }:
 let
-  # TV input the GPU is plugged into (an HDMI 2.1 port on the Hisense U8H).
-  # Only consulted when libcec cannot read the physical address from the
-  # GPU's EDID; Kevin confirms the number from the TV's rear-panel label.
-  hdmiPort = 3;
+  # TV input the GPU is plugged into: HDMI 4 on the Hisense U8H (HDMI 3 is
+  # the eARC input the soundbar uses). Consulted whenever libcec cannot read
+  # the physical address from the GPU's EDID -- e.g. the adapter enumerating
+  # at boot before a DRM connector reports "enabled" -- and a wrong value
+  # here makes `as` switch the TV to that input instead of the console.
+  hdmiPort = 4;
 
   cecClient = "${pkgs.libcec}/bin/cec-client -s -d 1 -o Console -b 0 -p ${toString hdmiPort}";
   cecCommand =
