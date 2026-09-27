@@ -155,13 +155,31 @@ jobs:
         with:
           persist-credentials: false
 
-      # Same as validate.
+      # nix-quick-install-action installs Nix single-user, whose build
+      # sandbox needs unprivileged user namespaces. Ubuntu 24.04 runners
+      # restrict those through AppArmor, and Nix's default
+      # `sandbox-fallback = true` then silently builds unsandboxed: the
+      # runner's /lib is visible to builders, and the ROCm clang in the
+      # desktop's ollama build links the host's Scrt1.o and fails the
+      # purity check. Lift the restriction so builds run sandboxed, as they
+      # do on the workstations themselves.
+      - name: Allow unprivileged user namespaces for the Nix sandbox
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      # Same as validate, plus a mandatory sandbox: `sandbox-fallback =
+      # false` fails the build outright if the sandbox cannot start, rather
+      # than degrading to an impure build.
       - name: Install Nix
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_conf: |
             extra-substituters = https://cache.nixos-cuda.org
             extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
+            sandbox = true
+            sandbox-fallback = false
 
       # Repo-scoped Nix binary cache carried in the GitHub Actions cache
       # (free, CI-only, no external account or secret). `actions/cache`
