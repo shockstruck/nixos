@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `b2206eb` (2026-09-27). This doc is not
+Captured against `origin/main` @ `e9a7cfa` (2026-09-27). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,16 +13,16 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `44a91898084f` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `e158d9ed9b51` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `a3dfb887d40d` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `7b4c5ec4beda` | nixpkgs |
 | disko | `github:nix-community/disko` | `725ea35e410a` | nixpkgs |
 | flake-parts | `github:hercules-ci/flake-parts` | `31729ca8cbdb` | — |
-| nixos-hardware | `github:NixOS/nixos-hardware` | `9ebcb7766700` | nixpkgs |
+| nixos-hardware | `github:NixOS/nixos-hardware` | `30d48a0ec603` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
 | stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
-| nix-index-database | `github:nix-community/nix-index-database` | `9ad722673ab3` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `bcb5f577a365` | nixpkgs, flake-parts |
+| nix-index-database | `github:nix-community/nix-index-database` | `161d7c91accd` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `4571c7a95787` | nixpkgs, flake-parts |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
@@ -49,7 +49,8 @@ boot/hardware/graphics/power/storage modules. `console` is a hardware variant
 of `desktop` (same AMD CPU/GPU, single NVMe, LUKS2/TPM2 layout): it imports
 `self.nixosModules.default` + `self.nixosModules.console` (not `gui`) +
 `inputs.disko.nixosModules.disko`, reuses `desktop`'s boot/hardware/power/storage
-files by path, and supplies its own `graphics.nix` (no ROCm/OpenCL/Ollama):
+files by path, and supplies its own `graphics.nix` (no ROCm OpenCL/Ollama;
+`rocmPackages.rocm-smi` only, for GPU telemetry):
 
 | Host | Config | Hostname | Host platform | State version | Local imports |
 | --- | --- | --- | --- | --- | --- |
@@ -122,7 +123,7 @@ resolve to their `default.nix`.
 
 | Module | Contents |
 | --- | --- |
-| `default.nix` | Imports `common`, `./multica.nix` and `./opencode-policy.nix`; firmware, `environment.systemPackages = [ pkgs.docker-compose ]`, networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
+| `default.nix` | Imports `common`, `./multica.nix` and `./opencode-policy.nix`; firmware, `environment.systemPackages = [ pkgs.docker-compose pkgs.lm_sensors pkgs.pciutils pkgs.usbutils ]` (`sensors`, `lspci`, `lsusb` on every host), networkmanager, `nix.settings.experimental-features = [ "nix-command" "flakes" ]` pin, `nixpkgs.config.allowUnfree`, netbird, openssh, timezone `America/Detroit`, docker, zramSwap |
 | `common/default.nix` | Imports `./myusers.nix` |
 | `common/myusers.nix` | Declares the `myusers` and `myhome.dir` options and per-user top-level configuration; system-wide `programs.zsh.enable` |
 | `multica.nix` | Dedicated `multica` system user (`isSystemUser`, own `multica` group, home `/var/lib/multica` created with mode `700`, `bashInteractive` shell for `sudo -u multica -H opencode auth login` / `multica login`, `extraGroups = [ "systemd-journal" "video" "render" ]` only — no `wheel`/`docker`/`libvirtd`/`networkmanager`/`i2c`, not a Nix `trusted-user`); `environment.systemPackages = [ pkgs.multica-cli pkgs.opencode ]`; `systemd.services.multica-daemon` (`multica daemon start --foreground` as `User`/`Group` `multica`, `wantedBy multi-user.target`, after/wants `network-online.target`, `ConditionPathExists` on `/var/lib/multica/.multica/config.json` so it stays inert before `multica login`, `Restart = "on-failure"`, `RestartSec = 10`; environment `HOME`, `MULTICA_DAEMON_AUTO_UPDATE=false`, `MULTICA_OPENCODE_PATH` pinned to the opencode build, `MULTICA_CLAUDE_PATH`/`MULTICA_CODEX_PATH` pinned to a non-existent path so only opencode is exposed, `MULTICA_WORKSPACES_ROOT=/var/lib/multica/multica_workspaces`, `PATH=/run/wrappers/bin:/run/current-system/sw/bin` with `enableDefaultPath = false`; hardening `NoNewPrivileges`, `ProtectHome`, `PrivateTmp`, `ProtectKernelTunables`, `RestrictSUIDSGID`, `ProtectSystem = "strict"` with `ReadWritePaths` the home only). Reaches desktop, laptop and console through `default.nix`; no credential declared. Also exposed as `nixosModules.multica` by nixos-unified autowiring |
@@ -181,10 +182,10 @@ console's `shell` import gets the tools its aliases need.
 
 ### System packages
 
-`environment.systemPackages = [ pkgs.docker-compose ]` in `modules/nixos/default.nix`
-and `[ pkgs.multica-cli pkgs.opencode ]` in `modules/nixos/multica.nix`, on every
-NixOS host; everything else is installed per-user via home-manager or by a host
-profile's own modules.
+`environment.systemPackages = [ pkgs.docker-compose pkgs.lm_sensors pkgs.pciutils
+pkgs.usbutils ]` in `modules/nixos/default.nix` and `[ pkgs.multica-cli
+pkgs.opencode ]` in `modules/nixos/multica.nix`, on every NixOS host; everything
+else is installed per-user via home-manager or by a host profile's own modules.
 
 ## Repo-local packages — `packages/`
 
