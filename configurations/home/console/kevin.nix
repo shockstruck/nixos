@@ -55,6 +55,22 @@ in
 
   home.packages = [ pkgs.nautilus ];
 
+  # Console-only: start OGI hidden at login so it's ready with a tray icon in
+  # Noctalia's bar instead of showing a window. `extraConfig` is
+  # `lib.types.lines` (nix-community/home-manager
+  # modules/services/window-managers/hyprland/default.nix), so this
+  # concatenates with modules/home/hyprland.nix's own `extraConfig` rather
+  # than overriding it; desktop/laptop never import this file. `hl.on`/
+  # `hl.exec_cmd` are the same calls that module's lid-switch/keybind Lua
+  # already uses, wrapped in the "hyprland.start" hook (home-manager's own
+  # generated systemd-activation startup code uses the identical hook) so the
+  # command fires once at session start rather than on every config reload.
+  wayland.windowManager.hyprland.extraConfig = ''
+    hl.on("hyprland.start", function()
+      hl.exec_cmd("opengameinstaller --hidden")
+    end)
+  '';
+
   me = {
     username = "kevin";
     fullname = "shockstruck";
