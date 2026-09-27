@@ -9,7 +9,13 @@
   ];
 
   hardware.enableRedistributableFirmware = true;
-  environment.systemPackages = [ pkgs.docker-compose ];
+  environment.systemPackages = [
+    pkgs.docker-compose
+    # Hardware inspection on every host: lspci, lsusb, sensors.
+    pkgs.lm_sensors
+    pkgs.pciutils
+    pkgs.usbutils
+  ];
   networking.networkmanager.enable = true;
   # Pin as a list: nixos-unified's mkDefault sets this as a string, which no longer type-checks.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
