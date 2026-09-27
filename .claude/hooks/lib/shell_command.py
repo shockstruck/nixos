@@ -27,14 +27,29 @@ from typing import Callable, Iterable
 ENV_ASSIGN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 VARIABLE_REF = re.compile(r'^\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))$')
 SHELLS = {"bash", "dash", "ksh", "sh", "zsh"}
+# Tokens that stand in front of the real command, or close the construct one
+# opened. Both kinds are skipped the same way: step past them and keep looking.
+#
+# The closing words matter because `split_clauses` breaks on `;`, so
+# `mk(){ echo hi; }; mk` yields a clause that is just `}`. Without them,
+# `command_index` returned that `}` as the executable and `resolve_executable`
+# denied the whole command with "cannot safely resolve brace-expanded
+# executable `}`" — a false positive on any shell function definition. A clause
+# made only of these resolves to no command at all, which is correct: `}` runs
+# nothing, and `walk` skips an index of -1.
 SIMPLE_WRAPPERS = {
     "!",
     "{",
+    "}",
     "command",
     "builtin",
     "do",
+    "done",
     "elif",
+    "else",
+    "esac",
     "exec",
+    "fi",
     "if",
     "nohup",
     "then",
@@ -140,8 +155,51 @@ def lex(command: str) -> list[str]:
     return []
 
 
+def strip_line_continuations(command: str) -> str:
+    """Turn an unescaped `\\` immediately followed by a newline into whitespace.
+
+    Bash deletes that pair as a line continuation everywhere except inside
+    single quotes, where a backslash is always literal. Left alone, the
+    tokeniser reads the joined line as one word: `\\`-newline-`echo a && \\`-
+    newline-`echo b` resolves to a single dynamic executable whose name
+    contains a newline, denied rather than walked as the two commands it is.
+    """
+    output = []
+    quote = ""
+    escaped = False
+    index = 0
+    length = len(command)
+    while index < length:
+        char = command[index]
+        if escaped:
+            output.append(char)
+            escaped = False
+            index += 1
+            continue
+        if char == "\\" and quote != "'":
+            if command[index + 1 : index + 2] == "\n":
+                output.append(" ")
+                index += 2
+                continue
+            output.append(char)
+            escaped = True
+            index += 1
+            continue
+        if char in ("'", '"'):
+            if not quote:
+                quote = char
+            elif quote == char:
+                quote = ""
+            output.append(char)
+            index += 1
+            continue
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
 def tokenize(command: str) -> list[Word]:
-    normalized = normalize_newlines(command)
+    normalized = normalize_newlines(strip_line_continuations(command))
     plain = lex(normalized)
     masked = lex(mask_literals(normalized))
     if len(masked) != len(plain):
@@ -346,11 +404,20 @@ def strip_heredocs(command: str) -> tuple[str, list[str]]:
     word in executable position and reads its braces, parens and backticks as
     shell syntax. Returns the command without the bodies, plus the bodies whose
     delimiter was unquoted for the caller to scan for expansions.
+
+    A `$( … )` command substitution opens its own quoting context, so a `"`
+    that opened before it does not carry inside: `"$(cat <<'EOF' … )"` still
+    opens a heredoc right after `cat`. `quote_stack`/`paren_depth_stack` track
+    that nesting -- push and reset the quote on `$(`, count bare parens inside
+    so a literal `(...)` in ordinary (non-heredoc) substitution text does not
+    close it early, and pop back to the saved quote on the matching `)`.
     """
     output = []
     expanding_bodies = []
     pending: list[tuple[str, bool, bool]] = []
     quote = ""
+    quote_stack: list[str] = []
+    paren_depth_stack: list[int] = []
     escaped = False
     index = 0
     length = len(command)
@@ -371,6 +438,27 @@ def strip_heredocs(command: str) -> tuple[str, list[str]]:
                 quote = char
             elif quote == char:
                 quote = ""
+            output.append(char)
+            index += 1
+            continue
+        if quote != "'" and command.startswith("$(", index):
+            quote_stack.append(quote)
+            paren_depth_stack.append(0)
+            quote = ""
+            output.append("$(")
+            index += 2
+            continue
+        if quote_stack and not quote and char == "(":
+            paren_depth_stack[-1] += 1
+            output.append(char)
+            index += 1
+            continue
+        if quote_stack and not quote and char == ")":
+            if paren_depth_stack[-1] > 0:
+                paren_depth_stack[-1] -= 1
+            else:
+                quote = quote_stack.pop()
+                paren_depth_stack.pop()
             output.append(char)
             index += 1
             continue

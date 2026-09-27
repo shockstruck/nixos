@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash): block Git commands that bypass review gates or destroy work.
 # Never bypass hooks, force-push, amend someone else's work, or revert unrelated
-# changes. Wrappers (`bash -c`, `eval`, `xargs`, `&&` chains) are inspected
-# through lib/shell_command.py, the same walker block-runtime.sh uses.
+# changes. `reset --hard`, `checkout .` and `restore .` are allowed on a clean
+# worktree -- untracked files survive all three, so a clean tracked tree has
+# nothing to lose -- and denied otherwise, or if that cannot be checked.
+# Wrappers (`bash -c`, `eval`, `xargs`, `&&` chains) are inspected through
+# lib/shell_command.py, the same walker block-runtime.sh uses.
 #
 # Template file: identical in every repository that adopts repo-policy. Change
 # it in shockstruck/agent-platform, not here.
@@ -20,19 +23,50 @@ set +e
 python3 - 3<<<"${CLAUDE_HOOK_PAYLOAD}" <<'PYEOF'
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.environ["HOOK_LIB_DIR"])
 
-from git_command import invocations, parse  # noqa: E402
+from git_command import directory_before, invocations, parse  # noqa: E402
 from shell_command import Denial  # noqa: E402
 
 PROTECTED_BRANCHES = {"main", "master", "origin/main"}
+DISCARD_SUBCOMMANDS = ("reset", "checkout", "restore")
 
 
 def deny(message: str) -> None:
     sys.stderr.write(f"[block-git-unsafe] {message}\n")
     sys.exit(2)
+
+
+def resolve_directory(cwd: str | None, cd_argument: str | None) -> str:
+    """`cwd` after applying a `cd <cd_argument>` seen earlier in the command."""
+    if cd_argument:
+        if os.path.isabs(cd_argument):
+            return cd_argument
+        base = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or "."
+        return os.path.join(base, cd_argument)
+    return cwd or os.environ.get("CLAUDE_PROJECT_DIR") or "."
+
+
+def worktree_clean(directory: str) -> bool:
+    """Whether `directory`'s tracked tree has no staged or unstaged change.
+
+    Untracked files are excluded on purpose: `reset --hard`, `checkout .` and
+    `restore .` never touch them, so they do not make a discard unsafe. Any
+    failure -- not a checkout, a Git error -- cannot show the tree is clean,
+    so it is treated as dirty: fail closed.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", directory, "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0 and not result.stdout.strip()
 
 
 try:
@@ -48,6 +82,11 @@ if not isinstance(cmd, str):
     deny("Bash command was not text")
 if not cmd.strip():
     sys.exit(0)
+
+# One `cd`-resolved directory per `reset`/`checkout`/`restore` invocation, in
+# the same order `invocations()` reports them, so `check()` can pop one per
+# matching invocation regardless of whether that invocation goes on to deny.
+discard_directories = iter(directory_before(cmd, *DISCARD_SUBCOMMANDS))
 
 
 def check(name: str, arguments: list[str]) -> None:
@@ -141,12 +180,15 @@ def check(name: str, arguments: list[str]) -> None:
         )
 
     if name == "reset":
+        directory_hint = next(discard_directories, None)
         _, longs, _ = parse(arguments)
         if "--hard" in longs:
-            deny(
-                "`git reset --hard` discards uncommitted work with no recovery path. Restore the "
-                "specific path, or commit the work first and reset to that commit."
-            )
+            directory = resolve_directory(payload.get("cwd"), directory_hint)
+            if not worktree_clean(directory):
+                deny(
+                    "`git reset --hard` discards uncommitted work with no recovery path. Restore "
+                    "the specific path, or commit the work first and reset to that commit."
+                )
         return
 
     if name == "stash":
@@ -165,13 +207,16 @@ def check(name: str, arguments: list[str]) -> None:
         return
 
     if name in ("checkout", "restore"):
+        directory_hint = next(discard_directories, None)
         value_letters = "bB" if name == "checkout" else "s"
         _, _, operands = parse(arguments, value_letters, {"--orphan", "--source", "--track"})
         if "." in operands:
-            deny(
-                f"`git {name} .` discards every uncommitted change in the worktree. Restore the "
-                "specific path you meant instead."
-            )
+            directory = resolve_directory(payload.get("cwd"), directory_hint)
+            if not worktree_clean(directory):
+                deny(
+                    f"`git {name} .` discards every uncommitted change in the worktree. Restore "
+                    "the specific path you meant instead."
+                )
         return
 
     if name == "branch":
