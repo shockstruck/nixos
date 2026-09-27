@@ -86,9 +86,7 @@ let
     "sensors"
     "nvidia-smi"
     "rocm-smi"
-    "nix path-info"
     "nix-store --query"
-    "nix log"
     "ls"
     "cat"
     "grep"
@@ -104,14 +102,35 @@ let
   ];
 
   # Denied after the allows, so they win over any allowed command: redirection,
-  # command substitution (both forms), Nix settings passed to the daemon, and
-  # attachments on the one command that sends.
+  # command substitution (both forms), Nix settings passed to the daemon,
+  # attachments, and every flag that points an allowed command at another host:
+  # a URL, the multica CLI's server/profile/workspace overrides, a Nix store or
+  # substituter, systemctl/loginctl `-H`/`--host`, which run ssh, and the
+  # arguments that make ss or lspci resolve a name the agent chose over DNS.
   deniedForms = [
     "*>*"
     "*$(*"
     "*`*"
     "* --option *"
     "*--attachment*"
+    "*://*"
+    "* --server-url*"
+    "* --profile*"
+    "* --workspace-id*"
+    "* --store*"
+    "* --eval-store*"
+    "*substituters*"
+    "systemctl *H*"
+    "systemctl *--host*"
+    "loginctl *H*"
+    "loginctl *--host*"
+    "ss *dst*"
+    "ss *src*"
+    "ss *F*"
+    "ss *--filter*"
+    "lspci *q*"
+    "lspci *Q*"
+    "lspci *O*"
   ];
 
   # The daemon's home (./multica.nix). A pattern is written absolute, relative
