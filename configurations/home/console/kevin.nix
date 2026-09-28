@@ -26,7 +26,10 @@
 # profile exists for. archives is imported explicitly (this profile has no
 # default.nix, so it misses modules/home/default.nix's readDir autowiring)
 # so the same Nautilus double-click auto-extract this Nautilus reaches for
-# shortcut-adding also works on this session.
+# shortcut-adding also works on this session. limo.nix installs Limo as this
+# session's Nexus Mods client and makes it the default nxm:// handler, so
+# Nexus's "Mod Manager Download" links deploy mods into the game directory
+# from here for both Steam and OGI/Heroic shortcuts.
 { flake, pkgs, ... }:
 let
   inherit (flake) inputs;
@@ -51,6 +54,7 @@ in
     self.homeModules.archives
 
     ./heroic.nix
+    ./limo.nix
   ];
 
   home.packages = [ pkgs.nautilus ];
