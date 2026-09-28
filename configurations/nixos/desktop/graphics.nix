@@ -1,7 +1,8 @@
 { pkgs, ... }:
 
 {
-  # Desktop-only: keep the GPU out of runtime suspend so it stays hot for ollama/ROCm workloads.
+  # Desktop only: amdgpu runtime PM off. Kept out of ./power.nix, which the
+  # console imports, so the console's GPU can still runtime-suspend.
   boot.kernelParams = [ "amdgpu.runpm=0" ];
 
   hardware.graphics = {
