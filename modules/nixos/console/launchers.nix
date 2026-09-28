@@ -66,9 +66,9 @@ let
   # compatibilitytools.d the same `user_settings.py` the store tool
   # (protonCachyos above) gets. OGI and Steam's own compat-tool picker can
   # both select a ProtonUp-Qt-installed copy there instead of the store
-  # tool — OGI's `auto` mode did until fork ss.15
-  # (application/src/electron/lib/steam-installation.ts), and a user can
-  # still pick one by hand — and a copy installed that way never ran
+  # tool — OGI's `auto` mode falls back to one whenever the store tool is
+  # not visible to it (see the PROTONPATH comment further down), and a user
+  # can pick one by hand — and a copy installed that way never ran
   # through proton-cachyos-bin.nix, so it carries none of this tool's
   # defaults (the FSR 4 upgrade above). `protonCachyosUserSettings` is the
   # one source of truth for that dict; it reaches the store tool via
@@ -375,16 +375,16 @@ in
   #
   # Heroic and Lutris set PROTONPATH per game themselves, so this default is
   # only what they fall back to when a game has no per-game Proton chosen.
-  # OGI (fork v4.3.1-ss.15+) also lists the tool directories named by
+  # OGI (fork v4.3.1-ss.15+) also scans the tool directories named by
   # PROTONPATH and STEAM_EXTRA_COMPAT_TOOLS_PATHS, not only
   # `compatibilitytools.d` (listSteamCompatibilityTools,
-  # application/src/electron/lib/steam-installation.ts). That is load-bearing,
-  # not cosmetic: OGI's Steam shortcuts run under the compat tool its default
-  # `auto` setting resolves, which prefers the id `proton-cachyos`
-  # (case-insensitive; this tool's is `Proton-CachyOS`). Before ss.15 this
-  # store tool was invisible to that lookup, so shortcuts fell back to a
-  # ProtonUp-Qt copy in `compatibilitytools.d` that has none of this tool's
-  # `user_settings.py` defaults (the FSR 4 upgrade above).
+  # application/src/electron/lib/steam-installation.ts). Which tool OGI sees
+  # matters: its Steam shortcuts run under the compat tool its default `auto`
+  # setting resolves, which prefers the id `proton-cachyos`
+  # (case-insensitive; this tool's is `Proton-CachyOS`). When the store tool
+  # is not visible to OGI, `auto` falls back to a ProtonUp-Qt copy in
+  # `compatibilitytools.d`, which is why steamTweaks above also seeds those
+  # copies with this tool's `user_settings.py` defaults (the FSR 4 upgrade).
   environment.sessionVariables.PROTONPATH = "${protonCachyos.steamcompattool}";
 
   # Also registers as a selectable Steam Play compat tool (Steam reads
