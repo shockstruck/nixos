@@ -215,7 +215,11 @@ appid, so a title's `PROTON_USE_OPTISCALER=1 %command%` or
 `PROTON_FSR4_UPGRADE=0 %command%` can be declared instead of typed;
 anything not declared is left as Steam wrote it. It also refuses any
 compat-tool mapping for a Steam Linux Runtime app and clears a zeroed one
-so it can be reinstalled from Library → Tools.
+so it can be reinstalled from Library → Tools, and gives every
+Proton-CachyOS copy under `compatibilitytools.d` (a ProtonUp-Qt or OGI
+install, picked instead of the store tool) the same `user_settings.py`
+FSR 4 default as the store tool, so the upgrade applies whichever copy
+gets picked.
 
 Game has native FSR 3.1 (the supported path): nothing to set. Optionally, on
 the first run, `PROTON_FSR4_INDICATOR=1 %command%` shows the FSR 4

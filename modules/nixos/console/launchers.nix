@@ -13,9 +13,15 @@ let
   # not defaulted here — it injects a DLL into every game, and upstream
   # calls that path work-in-progress — so it stays per-game via
   # `PROTON_USE_OPTISCALER`. GE-Proton (session.nix) is unaffected: the
-  # setting lives in this tool's own directory, not the session.
+  # setting lives in this tool's own directory, not the session. Hoisted to
+  # its own binding (rather than inlined into `userSettings` below) because
+  # `steamTweaks` also needs it, to give the same defaults to a
+  # ProtonUp-Qt/OGI-downloaded Proton-CachyOS copy — see steamTweaks' own
+  # comment for why that copy exists at all.
+  protonCachyosUserSettings = { PROTON_FSR4_UPGRADE = "1"; };
+
   protonCachyos = pkgs.callPackage ../../../packages/proton-cachyos-bin.nix {
-    userSettings = { PROTON_FSR4_UPGRADE = "1"; };
+    userSettings = protonCachyosUserSettings;
   };
 
   # Declarative Steam per-title settings, the ChimeraOS `steam-tweaks` model
@@ -55,11 +61,26 @@ let
   # offers it for reinstall again from Library -> Tools (ValveSoftware/
   # steam-for-linux#13248, #13199). The reinstall click itself stays manual;
   # Steam exposes no reliable CLI for it.
+  #
+  # steam-tweaks also (c) gives every Proton-CachyOS copy under
+  # compatibilitytools.d the same `user_settings.py` the store tool
+  # (protonCachyos above) gets. OGI and Steam's own compat-tool picker can
+  # both select a ProtonUp-Qt-installed copy there instead of the store
+  # tool — OGI's `auto` mode falls back to one whenever the store tool is
+  # not visible to it (see the PROTONPATH comment further down), and a user
+  # can pick one by hand — and a copy installed that way never ran
+  # through proton-cachyos-bin.nix, so it carries none of this tool's
+  # defaults (the FSR 4 upgrade above). `protonCachyosUserSettings` is the
+  # one source of truth for that dict; it reaches the store tool via
+  # protonCachyos's `userSettings` argument above and every other copy via
+  # this key, so the two paths can never drift apart. A copy's own file is
+  # left alone if it was not steam-tweaks that wrote it.
   steamTweaks = {
     compatToolMapping = {
       "0" = protonCachyos.steamDisplayName;
     };
     launchOptions = { };
+    protonCachyosUserSettings = protonCachyosUserSettings;
   };
 
   steamTweaksJson = pkgs.writeText "steam-tweaks.json" (builtins.toJSON steamTweaks);
@@ -74,13 +95,14 @@ let
         exit 0
       fi
       exec python3 - "$steam_root" ${steamTweaksJson} <<'PY'
-      import json, os, shutil, sys, vdf
+      import json, os, re, shutil, sys, vdf
 
       steam_root, tweaks_path = sys.argv[1], sys.argv[2]
       with open(tweaks_path, encoding="utf-8") as f:
           tweaks = json.load(f)
       compat = tweaks.get("compatToolMapping", {})
       launch = tweaks.get("launchOptions", {})
+      proton_cachyos_user_settings = tweaks.get("protonCachyosUserSettings", {})
 
       # Steam Linux Runtime app ids: scout, soldier, sniper, 4.0 and
       # steamrt4-arm64 (Open-Wine-Components/umu-launcher
@@ -112,6 +134,56 @@ let
           with open(tmp, "w", encoding="utf-8") as f:
               vdf.dump(data, f, pretty=True)
           os.replace(tmp, path)
+
+
+      def save_text(path, content):
+          tmp = path + ".steam-tweaks.tmp"
+          with open(tmp, "w", encoding="utf-8") as f:
+              f.write(content)
+          os.replace(tmp, path)
+
+
+      # First line of every user_settings.py steam-tweaks writes, so a
+      # rewrite can tell "ours, stale" from "the user's own file" (see
+      # sync_proton_cachyos_defaults). Must never match anything a human or
+      # proton-cachyos-bin.nix's own userSettingsFile would write.
+      PROTON_CACHYOS_MARKER = "# Managed by steam-tweaks (modules/nixos/console/launchers.nix); do not edit by hand.\n"
+      PROTON_CACHYOS_NAME_RE = re.compile(r"^proton-cachyos-.+-slr", re.IGNORECASE)
+
+
+      def sync_proton_cachyos_defaults(steam_root, user_settings):
+          # Give every Proton-CachyOS copy under compatibilitytools.d
+          # (ProtonUp-Qt/OGI installs) the same tool-level user_settings.py
+          # the Nix-built store tool gets, so whichever copy Steam or OGI
+          # runs a game through behaves the same. See steamTweaks' comment
+          # in launchers.nix for why such a copy can exist at all.
+          if not user_settings:
+              return
+          tools_dir = os.path.join(steam_root, "compatibilitytools.d")
+          if not os.path.isdir(tools_dir):
+              return
+          content = PROTON_CACHYOS_MARKER + f"user_settings = {json.dumps(user_settings)}\n"
+          for entry in os.scandir(tools_dir):
+              if not entry.is_dir():  # follows a symlink to a directory
+                  continue
+              if not PROTON_CACHYOS_NAME_RE.match(entry.name):
+                  continue
+              if not os.path.isfile(os.path.join(entry.path, "proton")):
+                  continue
+              target = os.path.join(entry.path, "user_settings.py")
+              try:
+                  if os.path.exists(target):
+                      with open(target, encoding="utf-8") as f:
+                          existing = f.read()
+                      if existing == content:
+                          continue
+                      if not existing.startswith(PROTON_CACHYOS_MARKER):
+                          print(f"steam-tweaks: leaving {target} alone (not ours)", file=sys.stderr)
+                          continue
+                  save_text(target, content)
+                  print(f"steam-tweaks: wrote {target}", file=sys.stderr)
+              except OSError as exc:
+                  print(f"steam-tweaks: could not write {target}: {exc}", file=sys.stderr)
 
 
       def apply_compat(path):
@@ -211,6 +283,7 @@ let
 
       apply_compat(os.path.join(steam_root, "config", "config.vdf"))
       repair_runtimes(steam_root)
+      sync_proton_cachyos_defaults(steam_root, proton_cachyos_user_settings)
       userdata = os.path.join(steam_root, "userdata")
       if os.path.isdir(userdata):
           for entry in os.scandir(userdata):
@@ -302,16 +375,16 @@ in
   #
   # Heroic and Lutris set PROTONPATH per game themselves, so this default is
   # only what they fall back to when a game has no per-game Proton chosen.
-  # OGI (fork v4.3.1-ss.15+) also lists the tool directories named by
+  # OGI (fork v4.3.1-ss.15+) also scans the tool directories named by
   # PROTONPATH and STEAM_EXTRA_COMPAT_TOOLS_PATHS, not only
   # `compatibilitytools.d` (listSteamCompatibilityTools,
-  # application/src/electron/lib/steam-installation.ts). That is load-bearing,
-  # not cosmetic: OGI's Steam shortcuts run under the compat tool its default
-  # `auto` setting resolves, which prefers the id `proton-cachyos`
-  # (case-insensitive; this tool's is `Proton-CachyOS`). Before ss.15 this
-  # store tool was invisible to that lookup, so shortcuts fell back to a
-  # ProtonUp-Qt copy in `compatibilitytools.d` that has none of this tool's
-  # `user_settings.py` defaults (the FSR 4 upgrade above).
+  # application/src/electron/lib/steam-installation.ts). Which tool OGI sees
+  # matters: its Steam shortcuts run under the compat tool its default `auto`
+  # setting resolves, which prefers the id `proton-cachyos`
+  # (case-insensitive; this tool's is `Proton-CachyOS`). When the store tool
+  # is not visible to OGI, `auto` falls back to a ProtonUp-Qt copy in
+  # `compatibilitytools.d`, which is why steamTweaks above also seeds those
+  # copies with this tool's `user_settings.py` defaults (the FSR 4 upgrade).
   environment.sessionVariables.PROTONPATH = "${protonCachyos.steamcompattool}";
 
   # Also registers as a selectable Steam Play compat tool (Steam reads
