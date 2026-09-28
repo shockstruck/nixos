@@ -1,6 +1,9 @@
 { pkgs, ... }:
 
 {
+  # Desktop-only: keep the GPU out of runtime suspend so it stays hot for ollama/ROCm workloads.
+  boot.kernelParams = [ "amdgpu.runpm=0" ];
+
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
