@@ -12,6 +12,7 @@
     ./streaming.nix
     ./desktop.nix
     ./cec.nix
+    ./rgb.nix
     ./power.nix
     ./steamos-manager.nix
   ];
