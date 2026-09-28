@@ -302,9 +302,16 @@ in
   #
   # Heroic and Lutris set PROTONPATH per game themselves, so this default is
   # only what they fall back to when a game has no per-game Proton chosen.
-  # OGI's own per-game Proton picker still lists only entries under
-  # `compatibilitytools.d`, not PROTONPATH — Proton-CachyOS being the session
-  # default is not currently visible there, a known cosmetic gap.
+  # OGI (fork v4.3.1-ss.15+) also lists the tool directories named by
+  # PROTONPATH and STEAM_EXTRA_COMPAT_TOOLS_PATHS, not only
+  # `compatibilitytools.d` (listSteamCompatibilityTools,
+  # application/src/electron/lib/steam-installation.ts). That is load-bearing,
+  # not cosmetic: OGI's Steam shortcuts run under the compat tool its default
+  # `auto` setting resolves, which prefers the id `proton-cachyos`
+  # (case-insensitive; this tool's is `Proton-CachyOS`). Before ss.15 this
+  # store tool was invisible to that lookup, so shortcuts fell back to a
+  # ProtonUp-Qt copy in `compatibilitytools.d` that has none of this tool's
+  # `user_settings.py` defaults (the FSR 4 upgrade above).
   environment.sessionVariables.PROTONPATH = "${protonCachyos.steamcompattool}";
 
   # Also registers as a selectable Steam Play compat tool (Steam reads
