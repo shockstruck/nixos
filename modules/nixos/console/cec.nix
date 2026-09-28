@@ -33,8 +33,19 @@
 #     device_wakeup_enable() and sets needs_remote_wakeup once firmware is
 #     ready, so the xone dongle is already armed as a wakeup source with no
 #     config change needed here; only the CEC adapter's own USB remote
-#     wakeup is disabled below, so idle CEC traffic from the TV cannot
-#     resume the console.
+#     wakeup is disabled below.
+#   Pulse-Eight/libcec libcec-8.1.7 src/cec-client/cec-client.cpp: the `am
+#     {1|0}` command sets the adapter's autonomous mode, "whether the adapter
+#     stays active on the CEC bus when the host isn't running. Disable to
+#     stop the TV/CEC bus from waking the host. Saved to the adapter
+#     eeprom." ProcessCommandAM is reached from -s single-command mode like
+#     `on`/`as`. src/libcec/CECProcessor.cpp RegisterClient copies the
+#     adapter's stored autonomous mode into every client, so the `on`,
+#     `standby` and `as` runs below keep whatever `am 0` set. The `-am` flag
+#     is not used: RegisterClient overwrites it with the stored value.
+#     src/libcec/adapter/Pulse-Eight/USBCECAdapterCommands.cpp
+#     SetSettingAutoEnabled returns early when the value is unchanged, so
+#     re-asserting it before every sleep costs no eeprom write.
 { pkgs, ... }:
 let
   # TV input the GPU is plugged into: HDMI 4 on the Hisense U8H (HDMI 3 is
@@ -82,6 +93,12 @@ in
         TimeoutStartSec = 60;
       };
     };
+    # Both sleep paths first switch the adapter out of autonomous mode, so
+    # that while the console is asleep the TV powering on (or any other CEC
+    # traffic) cannot wake it. That leaves the keyboard, the controller and
+    # the power button as the intended wake paths, so cec-onboot's resume run
+    # turns the TV on and switches it to this input only after a deliberate
+    # wake, never because the TV itself came on.
     cec-onsleep = {
       description = "HDMI-CEC: put the TV on standby before suspend";
       unitConfig.DefaultDependencies = false;
@@ -95,7 +112,10 @@ in
       wantedBy = sleepTargets;
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "-${cecCommand "tv-standby" "standby 0"}";
+        ExecStart = [
+          "-${cecCommand "autonomous-off" "am 0"}"
+          "-${cecCommand "tv-standby" "standby 0"}"
+        ];
         TimeoutStartSec = 30;
       };
     };
@@ -109,7 +129,10 @@ in
       wantedBy = [ "poweroff.target" ];
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "-${cecCommand "tv-standby" "standby 0"}";
+        ExecStart = [
+          "-${cecCommand "autonomous-off" "am 0"}"
+          "-${cecCommand "tv-standby" "standby 0"}"
+        ];
         TimeoutStartSec = 30;
       };
     };
