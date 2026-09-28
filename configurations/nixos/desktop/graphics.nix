@@ -1,6 +1,10 @@
 { pkgs, ... }:
 
 {
+  # Desktop only: amdgpu runtime PM off. Kept out of ./power.nix, which the
+  # console imports, so the console's GPU can still runtime-suspend.
+  boot.kernelParams = [ "amdgpu.runpm=0" ];
+
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
