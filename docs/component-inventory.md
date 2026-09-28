@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `7302b87` (2026-09-28). This doc is not
+Captured against `origin/main` @ `726490c` (2026-09-28). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -75,7 +75,13 @@ out of `packages`, the file manager the shared Noctalia dock pins; imports
 `./heroic.nix` by relative path, a `home.activation` script that merges
 `defaultSettings.addSteamShortcuts = true` into the mutable
 `~/.config/heroic/config.json` at activation so games Heroic installs land in
-Steam's library for Big Picture), selected via
+Steam's library for Big Picture; imports `./limo.nix` by relative path,
+console-only, `home.packages = [ pkgs.limo ]` plus `xdg.mimeApps.enable` and
+`defaultApplications."x-scheme-handler/nxm" = "limo.desktop"` so Limo is the
+default Nexus Mods `nxm://` handler for this desktop session — Nexus Mods
+discontinued its own cross-platform app in January 2026, and Limo deploys
+mods into the game directory itself, so no launch hook is needed for Steam,
+OGI or Heroic titles), selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
