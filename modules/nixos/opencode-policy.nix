@@ -125,7 +125,6 @@ let
     "wc"
     "stat"
     "file"
-    "find"
     "du"
     "getfacl"
     "which"
@@ -141,10 +140,9 @@ let
   # substituter, systemctl/loginctl/systemd-analyze `-H`/`--host`, which run
   # ssh, and the arguments that make ss, lspci or lsof resolve a name the
   # agent chose over DNS. Then the forms that turn an allowed read into a
-  # write or an exec: find's actions and output files, vulkaninfo's output
-  # file, and dmesg's clear and console flags, matched on the bare letter as
-  # for lspci so a bundled short flag cannot slip past (`journalctl -k` is the
-  # unrestricted kernel log).
+  # write: vulkaninfo's output file, and dmesg's clear and console flags,
+  # matched on the bare letter as for lspci so a bundled short flag cannot slip
+  # past (`journalctl -k` is the unrestricted kernel log).
   deniedForms = [
     "*>*"
     "*$(*"
@@ -172,11 +170,6 @@ let
     "systemd-analyze *H*"
     "systemd-analyze *--host*"
     "lsof *@*"
-    "find *-exec*"
-    "find *-ok*"
-    "find *-delete*"
-    "find *-fprint*"
-    "find *-fls*"
     "vulkaninfo *-o*"
     "dmesg *c*"
     "dmesg *C*"
