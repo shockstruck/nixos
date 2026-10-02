@@ -68,6 +68,19 @@ let
     "systemctl list-units"
     "systemctl list-timers"
     "systemctl show"
+    "systemctl list-unit-files"
+    "systemctl list-dependencies"
+    "systemctl is-active"
+    "systemctl is-enabled"
+    "systemctl is-failed"
+    "systemd-analyze time"
+    "systemd-analyze blame"
+    "systemd-analyze critical-chain"
+    "systemd-analyze security"
+    "systemd-analyze cat-config"
+    "coredumpctl list"
+    "coredumpctl info"
+    "dmesg"
     "loginctl list-sessions"
     "loginctl show-session"
     "loginctl session-status"
@@ -86,7 +99,23 @@ let
     "sensors"
     "nvidia-smi"
     "rocm-smi"
+    "lscpu"
+    "lsmod"
+    "modinfo"
+    "vulkaninfo"
+    "eglinfo"
+    "ps"
+    "pgrep"
+    "top -b -n1"
+    "lsof"
+    "findmnt"
+    "flatpak list"
+    "flatpak info"
+    "flatpak ps"
+    "flatpak remotes"
+    "flatpak history"
     "nix-store --query"
+    "nix-store -q"
     "ls"
     "cat"
     "grep"
@@ -96,6 +125,9 @@ let
     "wc"
     "stat"
     "file"
+    "du"
+    "getfacl"
+    "which"
     "multica issue get"
     "multica issue comment list"
     "multica issue comment add"
@@ -105,8 +137,12 @@ let
   # command substitution (both forms), Nix settings passed to the daemon,
   # attachments, and every flag that points an allowed command at another host:
   # a URL, the multica CLI's server/profile/workspace overrides, a Nix store or
-  # substituter, systemctl/loginctl `-H`/`--host`, which run ssh, and the
-  # arguments that make ss or lspci resolve a name the agent chose over DNS.
+  # substituter, systemctl/loginctl/systemd-analyze `-H`/`--host`, which run
+  # ssh, and the arguments that make ss, lspci or lsof resolve a name the
+  # agent chose over DNS. Then the forms that turn an allowed read into a
+  # write: vulkaninfo's output file, and dmesg's clear and console flags,
+  # matched on the bare letter as for lspci so a bundled short flag cannot slip
+  # past (`journalctl -k` is the unrestricted kernel log).
   deniedForms = [
     "*>*"
     "*$(*"
@@ -131,6 +167,15 @@ let
     "lspci *q*"
     "lspci *Q*"
     "lspci *O*"
+    "systemd-analyze *H*"
+    "systemd-analyze *--host*"
+    "lsof *@*"
+    "vulkaninfo *-o*"
+    "dmesg *c*"
+    "dmesg *C*"
+    "dmesg *D*"
+    "dmesg *E*"
+    "dmesg *n*"
   ];
 
   # The daemon's home (./multica.nix). A pattern is written absolute, relative
@@ -144,6 +189,10 @@ let
 
   workspaceRoots = homePaths "multica_workspaces/**";
 
+  # Kevin's game library, bound read-only into the daemon's view (./multica.nix).
+  gamesDir = "${config.users.users.kevin.home}/UGI_Games";
+  gamesPaths = [ gamesDir "${gamesDir}/**" ];
+
   systemPaths = [
     "/etc/**"
     "/run/current-system/**"
@@ -152,7 +201,7 @@ let
     "/sys/**"
   ];
 
-  allowedPaths = systemPaths ++ map relative systemPaths ++ workspaceRoots;
+  allowedPaths = systemPaths ++ gamesPaths ++ map relative (systemPaths ++ gamesPaths) ++ workspaceRoots;
 
   deniedPaths = lib.concatMap secretPaths [
     ".ssh/**"
@@ -197,7 +246,7 @@ let
       (lib.nameValuePair "model" "deepseek/deepseek-flash")
       (lib.nameValuePair "prompt" (lib.concatStringsSep " " [
         "You are the NixOS Workstation Operator, a read-only diagnostics agent dispatched by Multica to this workstation."
-        "You collect evidence from the machine itself (journal entries, unit state, hardware and session probes, configuration under /etc and /run/current-system)"
+        "You collect evidence from the machine itself (journal entries, unit state, session, process, kernel, hardware and graphics probes, coredumps, Flatpak state, configuration under /etc and /run/current-system, and the game library under ${gamesDir}, which is read-only)"
         "and report the exact commands you ran with their raw output."
         "You never change the machine: no activation, installation, service or package changes, privilege escalation, network sends, or writes outside your task workspace."
         "This machine's opencode policy denies those commands; a denial is a finding to report, never something to route around."

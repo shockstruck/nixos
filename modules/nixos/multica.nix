@@ -33,9 +33,23 @@
 # and its cache (core/src/npm.ts:79), and otherwise writes only inside the task
 # workdir. PrivateTmp gives both a private /tmp and /var/tmp; the home is the
 # only other writable path.
+#
+# Kevin's game library is the one path under /home a run can see.
+# ProtectHome=tmpfs hides /home, /root and /run/user behind empty read-only
+# tmpfs mounts, and BindReadOnlyPaths= mounts the library back into that view
+# read-only (systemd.exec(5): tmpfs "is useful to hide home directories not
+# relevant to the processes invoked by the unit, while still allowing
+# necessary directories to be made visible when listed in BindPaths= or
+# BindReadOnlyPaths="). The leading `-` skips the mount on a host without the
+# directory. The ACL gives the user read on files whose modes exclude
+# "other"; nothing grants it /home/kevin, so outside the unit, where that home
+# is mode 700, the ACL reaches nothing. tmpfiles re-applies it recursively at
+# boot and on activation without following symlinks (tmpfiles.d(5) `A+`), and
+# the default ACL covers what is created in between.
 { config, lib, pkgs, ... }:
 let
   home = config.users.users.multica.home;
+  gamesDir = "${config.users.users.kevin.home}/UGI_Games";
 in
 {
   users.groups.multica = { };
@@ -54,7 +68,15 @@ in
   environment.systemPackages = [
     pkgs.multica-cli
     pkgs.opencode
+    # Probes on the operator's allowlist (./opencode-policy.nix) that the base
+    # system lacks: lsof, vulkaninfo, eglinfo.
+    pkgs.lsof
+    pkgs.vulkan-tools
+    pkgs.mesa-demos
   ];
+
+  systemd.tmpfiles.settings."10-multica-games".${gamesDir}."A+".argument =
+    "u:multica:rX,d:u:multica:rX";
 
   systemd.services.multica-daemon = {
     description = "Multica agent runtime daemon";
@@ -83,8 +105,10 @@ in
       RestartSec = 10;
 
       NoNewPrivileges = true;
-      # /home, /root and /run/user are unreachable whatever their modes.
-      ProtectHome = true;
+      # /home, /root and /run/user are empty whatever their modes, apart from
+      # the read-only game library.
+      ProtectHome = "tmpfs";
+      BindReadOnlyPaths = [ "-${gamesDir}" ];
       PrivateTmp = true;
       ProtectKernelTunables = true;
       RestrictSUIDSGID = true;
