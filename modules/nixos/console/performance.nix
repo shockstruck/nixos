@@ -49,4 +49,15 @@
   # SteamOS/Fedora default for games that map many regions (mmap-heavy
   # engines, wine/proton).
   boot.kernel.sysctl."vm.max_map_count" = 2147483642;
+
+  # NixOS's sysctl.d/55-nixos-aslr-entropy.conf (nixos/modules/config/sysctl.nix)
+  # raises this to CONFIG_ARCH_MMAP_RND_BITS_MAX, 32 on x86-64; the upstream
+  # default is 28. Proton's Wine seccomp filter is inherited across execve and
+  # traps syscalls below 0x7001_0000_0000, and at 32 bits a 64-bit mapping
+  # often lands under that line. Exec'd wine64-preloader children then die
+  # with SIGSYS at _start, which is how FitGirl's cls-magic2_x64.exe fails to
+  # start (https://github.com/omacom/omarchy/issues/12209). 60-nixos.conf,
+  # where boot.kernel.sysctl lands, is applied after 55-..., so this wins.
+  # Lowers 64-bit mmap ASLR entropy on this host only, from 32 to 28 bits.
+  boot.kernel.sysctl."vm.mmap_rnd_bits" = 28;
 }
