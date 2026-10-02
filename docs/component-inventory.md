@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `770fe6f` (2026-10-02). This doc is not
+Captured against `origin/main` @ `395b539` (2026-10-02). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,7 +13,7 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `e158d9ed9b51` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `7a0f122f5090` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `4cff07de74b5` | nixpkgs |
 | home-manager | `github:nix-community/home-manager` | `7b4c5ec4beda` | nixpkgs |
 | disko | `github:nix-community/disko` | `725ea35e410a` | nixpkgs |
@@ -22,8 +22,8 @@ no `ref` fields are captured — so the URL refs below are the declared refs fro
 | nixos-unified | `github:srid/nixos-unified` | `c411aafef1a2` | — |
 | stasis | `github:saltnpepper97/stasis/v1.6.3` | `aa1dde4d058f` | nixpkgs, flake-parts |
 | nix-index-database | `github:nix-community/nix-index-database` | `161d7c91accd` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `4571c7a95787` | nixpkgs, flake-parts |
-| noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `c7b9197af77f` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `5980a6267944` | nixpkgs, flake-parts |
+| noctalia | `github:noctalia-dev/noctalia-shell/v5.1.0` | `ec704377180f` | nixpkgs |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
 `nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`.
