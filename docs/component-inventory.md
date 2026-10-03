@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `727c759` (2026-10-02). This doc is not
+Captured against `origin/main` @ `5222ba6` (2026-10-03). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -81,7 +81,13 @@ console-only, `home.packages = [ pkgs.limo ]` plus `xdg.mimeApps.enable` and
 default Nexus Mods `nxm://` handler for this desktop session — Nexus Mods
 discontinued its own cross-platform app in January 2026, and Limo deploys
 mods into the game directory itself, so no launch hook is needed for Steam,
-OGI or Heroic titles), selected via
+OGI or Heroic titles; imports `./qbittorrent.nix` by relative path,
+console-only, `systemd.user.services.qbittorrent-nox` running `qbittorrent-nox`
+as kevin with a Nix-generated `qBittorrent.conf` copied into
+`~/.local/share/qbittorrent-nox` on every start — WebUI on `127.0.0.1:8080`
+with `WebUI\LocalHostAuth=false`, so OpenGameInstaller's qBittorrent client
+works with no credential in the source; a user service rather than
+`services.qbittorrent` because that module sets `ProtectHome`), selected via
 `modules/nixos/common/myusers.nix`'s `myhome.dir` option, which the console
 host sets to `self + /configurations/home/console`. The subdirectory has no
 `default.nix`, so neither nixos-unified autowiring nor `myusers`'s own
