@@ -36,17 +36,32 @@
 # merges equal values for `types.bool` options) and its
 # `defaultApplications` maps disjoint MIME keys (archive types, not `nxm`).
 #
-# Limo 1.2.2 uses `uint64_t` in `src/core/progressnode.{h,cpp}` and
-# `src/core/installer.cpp` without including `<cstdint>`, and nixos-unstable's
-# toolchain no longer provides it transitively, so the build fails with
-# "'uint64_t' was not declared in this scope". Upstream is unmaintained, so
-# the include is added here; it is a no-op wherever the header already arrives.
-{ pkgs, ... }:
+# Limo 1.2.2 leans on standard headers arriving transitively, which GCC 16's
+# libstdc++ no longer does: the build stops at "'uint64_t' was not declared"
+# (<cstdint>), then "'put_time' is not a member of 'std'" (<iomanip>), and the
+# sources use more of the standard library the same way. Upstream is
+# unmaintained, so every C++ translation unit force-includes the headers it
+# relies on. The project is C++-only (`LANGUAGES CXX`), and a header that is
+# already included is a no-op. `cmakeFlagsArray` keeps the space-separated
+# value as a single flag.
+{ lib, pkgs, ... }:
 let
+  forcedIncludes = [
+    "algorithm"
+    "array"
+    "chrono"
+    "cstdint"
+    "functional"
+    "iomanip"
+    "limits"
+    "memory"
+    "optional"
+    "sstream"
+    "stdexcept"
+  ];
   limo = pkgs.limo.overrideAttrs (prev: {
-    postPatch = (prev.postPatch or "") + ''
-      sed -i '/#pragma once/a #include <cstdint>' src/core/progressnode.h
-      sed -i '1i #include <cstdint>' src/core/progressnode.cpp src/core/installer.cpp
+    preConfigure = (prev.preConfigure or "") + ''
+      cmakeFlagsArray+=("-DCMAKE_CXX_FLAGS=${lib.concatMapStringsSep " " (h: "-include ${h}") forcedIncludes}")
     '';
   });
 in
