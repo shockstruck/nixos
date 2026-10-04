@@ -139,10 +139,11 @@ let
     # `steam_app_configs` to ${LIMO_INSTALL_PREFIX}/share/limo, which
     # nixpkgs' limo package sets to $out (package.nix, `LIMO_INSTALL_PREFIX`).
     configsDir = "${limo}/share/limo/steam_app_configs";
-    # DeployerFactory::DEPLOYER_TYPES (src/core/deployerfactory.h @ v1.2.2).
+    # DeployerFactory::DEPLOYER_TYPES (src/core/deployerfactory.h:33-39 @ v1.2.2).
     deployerTypes = [
       "Case Matching Deployer"
       "Simple Deployer"
+      "Loot Deployer"
       "Reverse Deployer"
       "OpenMW Plugin Deployer"
       "OpenMW Archive Deployer"
@@ -414,7 +415,11 @@ let
                   if not os.path.exists(target):
                       continue
                   mode = str(d.get("deploy_mode", "")).lower()
-                  if mode == "hard link":
+                  # Deliberate deviation from Limo: its parser (addappdialog.cpp:201)
+                  # only accepts "hard link", so it drops the deployers of the five
+                  # shipped configs that spell it "hard_link" (22380, 264710, 413150,
+                  # 489830, 848450). They clearly mean a hard link; accept both.
+                  if mode in ("hard link", "hard_link"):
                       mode = 0
                   elif mode in ("sym link", "soft link"):
                       mode = 1
@@ -458,19 +463,34 @@ let
               return 1
 
 
+      # DeployerFactory::AUTONOMOUS_DEPLOYERS (deployerfactory.h:72-79). Their
+      # `source_path` is the deployer's own source dir and updateSettings
+      # (moddedapplication.cpp:1604-1640) writes no `profiles` for them. A Reverse
+      # Deployer would need a rev_depl_N source dir (moddedapplication.cpp:536-544);
+      # no shipped config or default uses one, so it is skipped.
+      AUTONOMOUS_TYPES = {"Loot Deployer", "OpenMW Plugin Deployer", "OpenMW Archive Deployer",
+                          "Baldurs Gate 3 Deployer"}
+
+
       def seed_json(game, name, staging, deployers, tags):
           out = []
           for dtype, dname, target, mode, source in deployers:
-              autonomous = dtype != "Case Matching Deployer" and dtype != "Simple Deployer"
-              out.append({
+              autonomous = dtype in AUTONOMOUS_TYPES
+              if (autonomous and not source) or dtype == "Reverse Deployer":
+                  log(f"skipping deployer {dname} ({dtype}) of {name}: no usable source")
+                  continue
+              entry = {
                   "dest_path": target,
                   "source_path": source if autonomous else staging,
                   "name": dname,
                   "type": dtype,
-                  "deploy_mode": fix_link_mode(staging, target, mode),
+                  # The Loot Deployer constructor forces copy (lootdeployer.cpp:24).
+                  "deploy_mode": 2 if dtype == "Loot Deployer" else fix_link_mode(staging, target, mode),
                   "enable_unsafe_sorting": True,
-                  "profiles": [] if autonomous else [{"name": "Default"}],
-              })
+              }
+              if not autonomous:
+                  entry["profiles"] = [{"name": "Default"}]
+              out.append(entry)
           doc = {"name": name, "command": game["command"], "icon_path": "",
                  "profiles": [{"name": "Default", "app_version": ""}],
                  "deployers": out, "steam_app_id": game["steam_id"]}
