@@ -35,9 +35,23 @@
 # `modules/home/archives.nix`'s own `xdg.mimeApps.enable = true` (home-manager
 # merges equal values for `types.bool` options) and its
 # `defaultApplications` maps disjoint MIME keys (archive types, not `nxm`).
+#
+# Limo 1.2.2 uses `uint64_t` in `src/core/progressnode.{h,cpp}` and
+# `src/core/installer.cpp` without including `<cstdint>`, and nixos-unstable's
+# toolchain no longer provides it transitively, so the build fails with
+# "'uint64_t' was not declared in this scope". Upstream is unmaintained, so
+# the include is added here; it is a no-op wherever the header already arrives.
 { pkgs, ... }:
+let
+  limo = pkgs.limo.overrideAttrs (prev: {
+    postPatch = (prev.postPatch or "") + ''
+      sed -i '/#pragma once/a #include <cstdint>' src/core/progressnode.h
+      sed -i '1i #include <cstdint>' src/core/progressnode.cpp src/core/installer.cpp
+    '';
+  });
+in
 {
-  home.packages = [ pkgs.limo ];
+  home.packages = [ limo ];
 
   xdg.mimeApps = {
     enable = true;
