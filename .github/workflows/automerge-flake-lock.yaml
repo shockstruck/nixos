@@ -81,7 +81,7 @@ jobs:
             exit 0
           fi
 
-          pr="$(gh pr view "$number" --repo "$REPO" --json headRefOid,isDraft,author,files)"
+          pr="$(gh pr view "$number" --repo "$REPO" --json headRefOid,isDraft,author,files,title,body)"
 
           head_oid="$(jq -r '.headRefOid' <<<"$pr")"
           is_draft="$(jq -r '.isDraft' <<<"$pr")"
@@ -121,15 +121,23 @@ jobs:
 
           echo "PR #${number} at ${head_oid} passed CI and changes only: ${changed[*]}"
 
+          # An explicit subject and body are used verbatim. Without them GitHub
+          # composes the squash message itself and appends a Co-authored-by
+          # trailer for every other commit author on the branch -- including a
+          # person who ran "Update branch" -- which agent-policy then rejects
+          # on the push to main.
+          subject="$(jq -r '.title' <<<"$pr") (#${number})"
+          body="$(jq -r '.body' <<<"$pr")"
+
           # --match-head-commit closes the window between the check above and
           # the merge itself. If a ruleset later adds required checks that have
           # not reported yet, the direct merge is rejected — fall back to
           # queueing auto-merge, which then waits for them.
           if gh pr merge "$number" --repo "$REPO" --squash --delete-branch \
-            --match-head-commit "$head_oid"; then
+            --subject "$subject" --body "$body" --match-head-commit "$head_oid"; then
             echo "Merged PR #${number}."
           else
             echo "Direct merge rejected; queueing auto-merge instead."
             gh pr merge "$number" --repo "$REPO" --squash --delete-branch --auto \
-              --match-head-commit "$head_oid"
+              --subject "$subject" --body "$body" --match-head-commit "$head_oid"
           fi
