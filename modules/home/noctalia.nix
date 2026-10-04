@@ -55,14 +55,19 @@ in
   # broke evaluation outright when the weekly lock bump pulled that
   # home-manager in.
   #
-  # Keep the flake's module and disable home-manager's copy: the flake is pinned
-  # to v5.0.0-beta.9, defaults `package` to the flake's own build, and provides
-  # the `settings` / `validateConfig` interface configured below, none of which
-  # home-manager's module offers. The path is spelled absolutely because
-  # home-manager does not set `modulesPath`, so a relative entry would not
-  # resolve.
+  # Keep the flake's module and disable home-manager's copy: the flake's module
+  # defaults `package` to the pinned flake's own build rather than nixpkgs'
+  # `noctalia`. The paths are spelled absolutely because home-manager does not
+  # set `modulesPath`, so a relative entry would not resolve.
+  #
+  # home-manager later moved the module to a directory
+  # (modules/programs/noctalia/default.nix, 2026-09-30), and readDir imports a
+  # directory under the directory's own path, so that is the key to disable.
+  # Both layouts are listed so either home-manager revision evaluates; a key
+  # that matches no imported module is ignored by the module system.
   disabledModules = [
     "${flake.inputs.home-manager}/modules/programs/noctalia.nix"
+    "${flake.inputs.home-manager}/modules/programs/noctalia"
   ];
 
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
