@@ -81,8 +81,10 @@
 #   Prefix    GamesConfig/<app_name>.json -> `<app_name>.winePrefix`, nested
 #             under the app name (src/backend/game_config.ts, GameConfigV0
 #             `getSettings`: `settings[this.appName]`). Heroic's default-prefix
-#             fallback is not reimplemented: no `winePrefix`, or no such
-#             directory, means no prefix deployer.
+#             fallback is not reimplemented: no `winePrefix`, no such
+#             directory, or neither `drive_c` nor `pfx/drive_c` (Proton) inside
+#             it, means no prefix deployer. OGI's `umu.winePrefixPath` resolves
+#             the same way.
 # The Limo command is Heroic's own protocol URL, `heroic://launch/<runner>/
 # <app_name>`, which `handleLaunch` still parses (src/backend/protocol.ts,
 # "Old-style pathname URLs"); the path form needs no shell quoting for `&`.
@@ -422,6 +424,17 @@ let
           return games
 
 
+      def windows_tree(wp):
+          # A plain Wine prefix keeps its Windows tree in <wp>/drive_c; a Proton
+          # prefix (Heroic sets STEAM_COMPAT_DATA_PATH to winePrefix, launcher.ts
+          # setupWineEnvVars) keeps it in <wp>/pfx/drive_c, as Steam's compatdata
+          # does. Neither present means no prefix deployer; never the bare prefix.
+          for sub in ("drive_c", os.path.join("pfx", "drive_c")):
+              if os.path.isdir(os.path.join(wp, sub)):
+                  return os.path.join(wp, sub)
+          return ""
+
+
       def ogi_games():
           lib = os.path.join(OGI_DIR, "library")
           try:
@@ -448,7 +461,7 @@ let
                       steam_id = int(m.group(1))
                   wp = umu.get("winePrefixPath")
                   if isinstance(wp, str) and wp:
-                      prefix = os.path.join(wp, "drive_c") if os.path.isdir(os.path.join(wp, "drive_c")) else wp
+                      prefix = windows_tree(wp)
               games.append({"key": f"ogi-{app_id}", "source": "OGI", "title": name,
                             "command": f"opengameinstaller --game-id={app_id}",
                             "steam_id": steam_id, "install": cwd, "prefix": prefix})
@@ -469,7 +482,7 @@ let
           wp = wp.replace("~", HOME, 1) if "~" in wp else wp
           if not os.path.isdir(wp):
               return ""
-          return os.path.join(wp, "drive_c") if os.path.isdir(os.path.join(wp, "drive_c")) else wp
+          return windows_tree(wp)
 
 
       def heroic_game(runner, app_name, title, install, platform):
