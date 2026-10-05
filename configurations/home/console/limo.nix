@@ -49,14 +49,43 @@
 # detection of its own: its Steam import is a manual dialog, one game per run
 # (src/ui/importfromsteamdialog.cpp), and it cannot see OGI installs at all.
 # Opening Limo through the wrapper first runs `limo-sync`, which registers
-# every installed Steam and OGI game Limo does not already manage, seeded the
-# way Limo's own import would seed it. It never touches an existing app's
+# every installed Steam, OGI and Heroic game Limo does not already manage,
+# seeded the way Limo's own import would seed it. It never touches an existing app's
 # `lmm_mods.json`, and edits only the `[staging_directories]` section of
 # `~/.config/Limo.conf` (the `[nexus]` section holds the encrypted API key).
 # It also writes `~/.config/limo-sync/nxm-domains.json`, mapping a Nexus
 # `game_domain` to a Limo app name; the patch in
 # `limo-nxm-domain-routing.patch` reads it so an nxm link installs into that
 # app (Limo 1.2.2 alone uses the app currently selected).
+#
+# Heroic (nixpkgs build, v2.22.1) is read-only: its install records are
+# electron-store and legendary files it rewrites itself. All paths are under
+# `${XDG_CONFIG_HOME:-~/.config}/heroic` (Electron `appData`/`heroic`,
+# src/backend/constants/paths.ts:9-20 @ v2.22.1; electron-store resolves a
+# relative `cwd` under `userData`, and src/backend has no `setPath` override):
+#   Epic      legendaryConfig/legendary/installed.json, an object keyed by
+#             `app_name` (storeManagers/legendary/constants.ts:5-9,
+#             legendary/library.ts `refreshInstalled`; fields title,
+#             install_path, platform, is_dlc: common/types/legendary.ts
+#             InstalledJsonMetadata);
+#   GOG       gog_store/installed.json -> `installed[]` of appName,
+#             install_path, platform, is_dlc (gog/electronStores.ts:7-12,
+#             gog/library.ts `refreshInstalled`; common/types.ts InstalledInfo).
+#             It carries no title: that comes from the library cache
+#             store_cache/gog_library.json -> `games[]` (gog/electronStores.ts:17,
+#             backend/cache.ts `cwd: 'store_cache'`), else the basename of
+#             install_path;
+#   Sideload  sideload_apps/library.json -> `games[]` with is_installed, title,
+#             app_name, install.executable, install.platform
+#             (sideload/electronStores.ts:3-7, sideload/library.ts:15-60);
+#   Prefix    GamesConfig/<app_name>.json -> `<app_name>.winePrefix`, nested
+#             under the app name (src/backend/game_config.ts, GameConfigV0
+#             `getSettings`: `settings[this.appName]`). Heroic's default-prefix
+#             fallback is not reimplemented: no `winePrefix`, or no such
+#             directory, means no prefix deployer.
+# The Limo command is Heroic's own protocol URL, `heroic://launch/<runner>/
+# <app_name>`, which `handleLaunch` still parses (src/backend/protocol.ts,
+# "Old-style pathname URLs"); the path form needs no shell quoting for `&`.
 { lib, pkgs, ... }:
 let
   forcedIncludes = [
@@ -81,14 +110,20 @@ let
     '';
   });
 
-  # Nexus `game_domain` for a game, keyed by Steam appid or by exact lowercased
+  # Nexus `game_domain` for a game, keyed by Steam appid, by Heroic store id
+  # (`epic`: legendary `app_name`; `gog`: GOG product id) or by exact lowercased
   # title (for an OGI install with no Steam id). Every slug was checked
   # against Nexus's own games list (data.nexusmods.com/file/nexus-data/
   # games.json) and the appid against its Steam store page. To add a game:
   # find its `domain_name` in that list (the path of its nexusmods.com page),
   # then add `"<steam appid>" = "<domain>";` under `steam` and, for a game
   # installed outside Steam, `"<title in lowercase>" = "<domain>";` under
-  # `title`. Skyrim VR has no domain of its own on Nexus: its mods live under
+  # `title`. The `epic` and `gog` ids are hand-entered from the game's
+  # extension in Nexus-Mods/Vortex (`EPIC_ID`/`GOG_ID` under
+  # extensions/games/game-*/src/index.*, read at 826298d); Vortex matches them
+  # against Epic's manifest `AppName` and GOG's `gameID`, which are legendary's
+  # `app_name` (legendary-gl/legendary models/egl.py:79) and Heroic's GOG
+  # `app_name` (gog/library.ts, `String(info.external_id)`). Skyrim VR has no domain of its own on Nexus: its mods live under
   # `skyrimspecialedition` (Vortex's game-skyrimvr extension, nexusPageId).
   nexusDomains = {
     steam = {
@@ -109,6 +144,25 @@ let
       "292030" = "witcher3"; # The Witcher 3: Wild Hunt
       "1245620" = "eldenring"; # Elden Ring
       "1716740" = "starfield"; # Starfield
+    };
+    epic = {
+      "5daeb974a22a435988892319b3a4f476" = "newvegas"; # Fallout: New Vegas
+      "61d52ce4d09d41e48800c22784d13ae8" = "fallout4"; # Fallout 4
+      "725a22e15ed74735bb0d6a19f3cc82d0" = "witcher3"; # The Witcher 3
+      "ac82db5035584c7f8a2c548d98c86b2c" = "skyrimspecialedition"; # Skyrim Special Edition
+      "adeae8bbfc94427db57c7dfecce3f1d4" = "fallout3"; # Fallout 3: GOTY
+    };
+    gog = {
+      "1207664643" = "witcher3"; # The Witcher 3 (Vortex GOG_WH_ID)
+      "1207664663" = "witcher3"; # The Witcher 3 (Vortex GOG_ID)
+      "1454315831" = "fallout3"; # Fallout 3: GOTY
+      "1454587428" = "newvegas"; # Fallout: New Vegas
+      "1456460669" = "baldursgate3"; # Baldur's Gate 3
+      "1458058109" = "oblivion"; # The Elder Scrolls IV: Oblivion
+      "1495134320" = "witcher3"; # The Witcher 3 (Vortex GOG_ID_GOTY)
+      "1640424747" = "witcher3"; # The Witcher 3 (Vortex GOG_WH_GOTY)
+      "1711230643" = "skyrimspecialedition"; # Skyrim Special Edition
+      "1998527297" = "fallout4"; # Fallout 4
     };
     title = {
       "baldur's gate 3" = "baldursgate3";
@@ -160,7 +214,7 @@ let
     runtimeInputs = [ pkgs.coreutils (pkgs.python3.withPackages (ps: [ ps.vdf ])) ];
     text = ''
       exec python3 - ${limoSyncJson} <<'PY'
-      import json, os, re, shutil, sys, tempfile, vdf
+      import json, os, re, shutil, sys, tempfile, urllib.parse, vdf
 
       with open(sys.argv[1], encoding="utf-8") as f:
           CFG = json.load(f)
@@ -169,6 +223,7 @@ let
       DATA_HOME = os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local/share")
       CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
       STEAM_ROOT = os.path.join(DATA_HOME, "Steam")
+      HEROIC_DIR = os.path.join(CONFIG_HOME, "heroic")
       OGI_DIR = os.environ.get("OGI_DIRECTORY") or os.path.join(DATA_HOME, "OpenGameInstaller")
       STAGING_ROOT = os.path.join(DATA_HOME, "limo", "staging")
       LIMO_CONF = os.path.join(CONFIG_HOME, "Limo.conf")
@@ -181,6 +236,8 @@ let
       SKIP_NAME_RES = [re.compile(p) for p in CFG["skip"]["namePatterns"]]
       DOMAINS_STEAM = CFG["nexusDomains"]["steam"]
       DOMAINS_TITLE = CFG["nexusDomains"]["title"]
+      # Heroic store id tables, keyed by Heroic's runner name.
+      DOMAINS_STORE = {"legendary": CFG["nexusDomains"]["epic"], "gog": CFG["nexusDomains"]["gog"]}
 
 
       def log(msg):
@@ -398,6 +455,84 @@ let
           return games
 
 
+      def heroic_prefix(app_name, platform):
+          # Per-game GamesConfig/<app_name>.json nests settings under the app name
+          # (game_config.ts GameConfigV0.getSettings); `~` is Heroic's own shorthand
+          # for the home directory. A native game has no Wine prefix.
+          if str(platform).lower() not in ("windows", "win32"):
+              return ""
+          cfg = read_json(os.path.join(HEROIC_DIR, "GamesConfig", app_name + ".json"))
+          wp = cfg.get(app_name) if isinstance(cfg, dict) else None
+          wp = wp.get("winePrefix") if isinstance(wp, dict) else None
+          if not isinstance(wp, str) or not wp:
+              return ""
+          wp = wp.replace("~", HOME, 1) if "~" in wp else wp
+          if not os.path.isdir(wp):
+              return ""
+          return os.path.join(wp, "drive_c") if os.path.isdir(os.path.join(wp, "drive_c")) else wp
+
+
+      def heroic_game(runner, app_name, title, install, platform):
+          if not isinstance(app_name, str) or not app_name or not isinstance(title, str) or not title:
+              return None
+          if not isinstance(install, str) or not os.path.isdir(install):
+              return None
+          safe = re.sub(r"[^A-Za-z0-9._-]", "_", app_name)
+          url = "heroic://launch/" + runner + "/" + urllib.parse.quote(app_name, safe="")
+          return {"key": f"heroic-{runner}-{safe}", "source": "Heroic", "title": title,
+                  "command": f"heroic {url}", "steam_id": -1, "install": install,
+                  "prefix": heroic_prefix(app_name, platform),
+                  "store": (runner, app_name)}
+
+
+      def heroic_games():
+          games = []
+          # Epic (legendary): object keyed by app_name.
+          epic = read_json(os.path.join(HEROIC_DIR, "legendaryConfig", "legendary", "installed.json"))
+          if isinstance(epic, dict):
+              for app_name in sorted(epic):
+                  rec = epic[app_name]
+                  if not isinstance(rec, dict) or rec.get("is_dlc"):
+                      continue
+                  g = heroic_game("legendary", app_name, rec.get("title"), rec.get("install_path"),
+                                  rec.get("platform"))
+                  if g:
+                      games.append(g)
+          # GOG: no title in installed.json; take it from the library cache.
+          gog = read_json(os.path.join(HEROIC_DIR, "gog_store", "installed.json"))
+          lib = read_json(os.path.join(HEROIC_DIR, "store_cache", "gog_library.json"))
+          titles = {}
+          if isinstance(lib, dict) and isinstance(lib.get("games"), list):
+              titles = {g.get("app_name"): g.get("title") for g in lib["games"] if isinstance(g, dict)}
+          if isinstance(gog, dict) and isinstance(gog.get("installed"), list):
+              for rec in sorted((r for r in gog["installed"] if isinstance(r, dict)),
+                                key=lambda r: str(r.get("appName"))):
+                  if rec.get("is_dlc"):
+                      continue
+                  path = rec.get("install_path")
+                  title = titles.get(rec.get("appName"))
+                  if not (isinstance(title, str) and title) and isinstance(path, str):
+                      title = os.path.basename(os.path.normpath(path))
+                  g = heroic_game("gog", rec.get("appName"), title, path, rec.get("platform"))
+                  if g:
+                      games.append(g)
+          # Sideloaded apps: installed entries of games[].
+          side = read_json(os.path.join(HEROIC_DIR, "sideload_apps", "library.json"))
+          if isinstance(side, dict) and isinstance(side.get("games"), list):
+              for rec in sorted((r for r in side["games"] if isinstance(r, dict)),
+                                key=lambda r: str(r.get("app_name"))):
+                  inst = rec.get("install") if isinstance(rec.get("install"), dict) else {}
+                  if rec.get("is_installed") is not True or inst.get("platform") == "Browser":
+                      continue
+                  exe = inst.get("executable")
+                  folder = os.path.dirname(exe) if isinstance(exe, str) and exe else rec.get("folder_name")
+                  g = heroic_game("sideload", rec.get("app_name"), rec.get("title"), folder,
+                                  inst.get("platform"))
+                  if g:
+                      games.append(g)
+          return games
+
+
       def default_deployers(install, prefix):
           return [("Case Matching Deployer", "Install", install, 0, None),
                   ("Case Matching Deployer", "Prefix", prefix, 0, None)]
@@ -516,7 +651,7 @@ let
           if start is not None:
               registered, count = registry_paths(lines, start, end)
 
-          apps = []  # registered apps: dicts with name, steam_id, dests, titles
+          apps = []  # registered apps: dicts with name, steam_id, dests, titles, key, store
           reg_set = set(norm(p) for p in registered)
           for p in registered:
               doc = read_json(os.path.join(p, CONFIG_FILE_NAME))
@@ -525,13 +660,18 @@ let
               apps.append({"name": doc.get("name", ""), "steam_id": doc.get("steam_app_id", -1),
                            "dests": [norm(d.get("dest_path", "")) for d in doc.get("deployers") or []
                                      if isinstance(d, dict)],
-                           "titles": [doc.get("name", "")]})
+                           "titles": [doc.get("name", "")], "key": os.path.basename(norm(p))})
           names = set(a["name"] for a in apps)
           steam_ids = set(a["steam_id"] for a in apps if isinstance(a["steam_id"], int) and a["steam_id"] != -1)
           dests = set(d for a in apps for d in a["dests"])
 
+          heroic = heroic_games()
+          store_ids = {g["key"]: g["store"] for g in heroic}
+          for a in apps:
+              a["store"] = store_ids.get(a["key"])
+
           new_paths = []
-          for game in steam_games() + ogi_games():
+          for game in steam_games() + ogi_games() + heroic:
               staging = os.path.join(STAGING_ROOT, game["key"])
               if norm(staging) in reg_set:
                   continue
@@ -567,7 +707,8 @@ let
               for d in doc.get("deployers") or []:
                   dests.add(norm(d.get("dest_path", "")))
               apps.append({"name": name, "steam_id": game["steam_id"], "dests": [],
-                           "titles": [name, game["title"]]})
+                           "titles": [name, game["title"]], "key": game["key"],
+                           "store": game.get("store")})
               log(f"added {name} ({game['key']})")
 
           if new_paths:
@@ -598,6 +739,8 @@ let
           claims = {}
           for a in apps:
               dom = DOMAINS_STEAM.get(str(a["steam_id"])) if isinstance(a["steam_id"], int) else None
+              if dom is None and a.get("store"):
+                  dom = DOMAINS_STORE.get(a["store"][0], {}).get(a["store"][1])
               if dom is None:
                   for t in a["titles"]:
                       dom = DOMAINS_TITLE.get(str(t).lower())
