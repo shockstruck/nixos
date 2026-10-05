@@ -54,8 +54,9 @@
 # `lmm_mods.json`, and edits only the `[staging_directories]` section of
 # `~/.config/Limo.conf` (the `[nexus]` section holds the encrypted API key).
 # It also writes `~/.config/limo-sync/nxm-domains.json`, mapping a Nexus
-# `game_domain` to a Limo app name, for a later nxm routing change; Limo
-# 1.2.2 itself routes every nxm link to the app currently selected.
+# `game_domain` to a Limo app name; the patch in
+# `limo-nxm-domain-routing.patch` reads it so an nxm link installs into that
+# app (Limo 1.2.2 alone uses the app currently selected).
 { lib, pkgs, ... }:
 let
   forcedIncludes = [
@@ -72,6 +73,9 @@ let
     "stdexcept"
   ];
   limo = pkgs.limo.overrideAttrs (prev: {
+    # Routes an nxm:// link to the Limo app named for its game domain in
+    # limo-sync's nxm-domains.json; Limo 1.2.2 installs into the selected app.
+    patches = (prev.patches or [ ]) ++ [ ./limo-nxm-domain-routing.patch ];
     preConfigure = (prev.preConfigure or "") + ''
       cmakeFlagsArray+=("-DCMAKE_CXX_FLAGS=${lib.concatMapStringsSep " " (h: "-include ${h}") forcedIncludes}")
     '';
