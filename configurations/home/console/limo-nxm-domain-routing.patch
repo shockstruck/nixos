@@ -1,0 +1,210 @@
+diff --git a/src/ui/mainwindow.cpp b/src/ui/mainwindow.cpp
+index 5699b8a..cc8c8eb 100644
+--- a/src/ui/mainwindow.cpp
++++ b/src/ui/mainwindow.cpp
+@@ -23,6 +23,9 @@
+ #include "tablepushbutton.h"
+ #include "versionboxdelegate.h"
+ #include <QCheckBox>
++#include <QFile>
++#include <QJsonDocument>
++#include <QJsonObject>
+ #include <QDesktopServices>
+ #include <QMessageBox>
+ #include <QMetaType>
+@@ -31,6 +34,8 @@
+ #include <QPushButton>
+ #include <QScrollBar>
+ #include <QSettings>
++#include <QStandardPaths>
++#include <QTimer>
+ #include <QToolButton>
+ #include <QtConcurrent/QtConcurrent>
+ #include <ranges>
+@@ -723,6 +728,96 @@ int MainWindow::currentApp()
+   return ui->app_selection_box->currentIndex();
+ }
+ 
++int MainWindow::appIdForNxmUrl(const std::string& url)
++{
++  const std::string prefix = "nxm://";
++  if(!url.starts_with(prefix))
++    return -1;
++  const auto end = url.find('/', prefix.size());
++  const QString domain =
++    QString::fromStdString(
++      url.substr(prefix.size(), end == std::string::npos ? end : end - prefix.size()))
++      .toLower();
++  const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
++                       "/limo-sync/nxm-domains.json";
++  QFile file(path);
++  if(!file.open(QIODevice::ReadOnly))
++  {
++    Log::debug("No nxm domain map at \"" + path.toStdString() + "\".");
++    return -1;
++  }
++  QJsonParseError parse_error;
++  const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parse_error);
++  if(parse_error.error != QJsonParseError::NoError || !doc.isObject())
++  {
++    Log::warning("Malformed nxm domain map at \"" + path.toStdString() + "\".");
++    return -1;
++  }
++  const QJsonValue value = doc.object().value(domain);
++  if(!value.isString())
++  {
++    Log::warning("No app mapped to nxm domain \"" + domain.toStdString() + "\".");
++    return -1;
++  }
++  const QString name = value.toString();
++  int found = -1;
++  int matches = 0;
++  for(int i = 0; i < ui->app_selection_box->count(); i++)
++  {
++    if(ui->app_selection_box->itemText(i) == name)
++    {
++      found = i;
++      matches++;
++    }
++  }
++  if(matches != 1)
++  {
++    Log::warning("Found " + std::to_string(matches) + " apps named \"" + name.toStdString() +
++                 "\" for nxm domain \"" + domain.toStdString() + "\".");
++    return -1;
++  }
++  Log::debug("Routing nxm domain \"" + domain.toStdString() + "\" to app \"" +
++             name.toStdString() + "\".");
++  return found;
++}
++
++void MainWindow::enqueueNxmDownload(const std::string& url)
++{
++  const int target = appIdForNxmUrl(url);
++  // Switching apps while an import is queued, an install dialog is open or a
++  // previous switch is still loading would let the dialog and installer read
++  // the deployer lists of one app and the app id of another, so wait.
++  const bool busy = nxm_pending_ || !mod_import_queue_.empty() || add_mod_dialog_->isVisible();
++  if(target >= 0 && target != currentApp())
++  {
++    if(busy)
++    {
++      Log::debug("Delaying download request until the current import is done.");
++      QTimer::singleShot(1000, this, [this, url]() { enqueueNxmDownload(url); });
++      return;
++    }
++    nxm_pending_ = true;
++    nxm_pending_url_ = url;
++    nxm_pending_app_ = ui->app_selection_box->itemText(target).toStdString();
++    ui->app_selection_box->setCurrentIndex(target);
++    return;
++  }
++  if(nxm_pending_)
++  {
++    QTimer::singleShot(1000, this, [this, url]() { enqueueNxmDownload(url); });
++    return;
++  }
++  if(target < 0)
++    Log::warning("Using the selected app for download request \"" + url + "\".");
++  ImportModInfo info;
++  info.app_id = currentApp();
++  info.action_type = ImportModInfo::download;
++  info.remote_request_url = url;
++  mod_import_queue_.push(info);
++  if(mod_import_queue_.size() == 1)
++    importMod();
++}
++
+ int MainWindow::currentDeployer()
+ {
+   return ui->deployer_selection_box->currentIndex();
+@@ -1469,10 +1564,7 @@ void MainWindow::onGetModInfo(std::vector<ModInfo> mod_info)
+   {
+     ImportModInfo info = mod_import_queue_.top();
+     mod_import_queue_.pop();
+-    info.app_id = currentApp();
+-    info.queue_time = std::chrono::high_resolution_clock::now();
+-    mod_import_queue_.push(info);
+-    importMod();
++    enqueueNxmDownload(info.remote_request_url);
+   }
+   is_initialized_ = true;
+ }
+@@ -1902,6 +1994,25 @@ void MainWindow::onGetAppInfo(AppInfo app_info)
+   ignore_tool_changes_ = false;
+ 
+   initRootLevelConditions();
++
++  if(nxm_pending_ && app_info_.name == ui->app_selection_box->currentText().toStdString() &&
++     app_info_.name == nxm_pending_app_)
++  {
++    nxm_pending_ = false;
++    ImportModInfo info;
++    info.app_id = currentApp();
++    info.action_type = ImportModInfo::download;
++    info.remote_request_url = nxm_pending_url_;
++    mod_import_queue_.push(info);
++    if(mod_import_queue_.size() == 1)
++      importMod();
++  }
++  else if(nxm_pending_ && ui->app_selection_box->currentText().toStdString() != nxm_pending_app_)
++  {
++    Log::warning("App selection changed while waiting to route \"" + nxm_pending_url_ + "\".");
++    nxm_pending_ = false;
++    enqueueNxmDownload(nxm_pending_url_);
++  }
+ }
+ 
+ void MainWindow::onApplicationEdited(EditApplicationInfo info, int app_id)
+@@ -3218,13 +3329,7 @@ void MainWindow::onReceiveIpcMessage(QString message)
+   if(nexus::Api::nxmUrlIsValid(message_str))
+   {
+     Log::debug("Received download request for \"" + message.toStdString() + "\".");
+-    ImportModInfo info;
+-    info.app_id = currentApp();
+-    info.action_type = ImportModInfo::download;
+-    info.remote_request_url = message.toStdString();
+-    mod_import_queue_.push(info);
+-    if(mod_import_queue_.size() == 1)
+-      importMod();
++    enqueueNxmDownload(message_str);
+   }
+   else
+     Log::debug("Unknown IPC message: \"" + message.toStdString() + "\"");
+diff --git a/src/ui/mainwindow.h b/src/ui/mainwindow.h
+index f0a72aa..1d31fa6 100644
+--- a/src/ui/mainwindow.h
++++ b/src/ui/mainwindow.h
+@@ -227,6 +227,12 @@ private:
+   int last_mod_list_index_ = -1;
+   /*! \brief Contains all queued mods to be downloaded or extracted. */
+   std::priority_queue<ImportModInfo> mod_import_queue_;
++  /*! \brief True while an nxm download waits for the app it switched to to finish loading. */
++  bool nxm_pending_ = false;
++  /*! \brief The nxm url waiting for nxm_pending_app_ to finish loading. */
++  std::string nxm_pending_url_;
++  /*! \brief Name of the app the pending nxm download is routed to. */
++  std::string nxm_pending_app_;
+   /*! \brief Last position of the scroll bar for ui->deployer_list */
+   int deployer_list_slider_pos_ = 0;
+   /*! \brief Last position of the scroll bar for ui->mod_list */
+@@ -350,6 +356,19 @@ private:
+    * \return The active ModdedApplication.
+    */
+   int currentApp();
++  /*!
++   * \brief Looks up the app for the game domain of an nxm url in
++   * <config>/limo-sync/nxm-domains.json.
++   * \param url The nxm url.
++   * \return The index of the single matching app, or -1 if there is none.
++   */
++  int appIdForNxmUrl(const std::string& url);
++  /*!
++   * \brief Queues an nxm download for the app matching its game domain, switching
++   * to that app first. Falls back to the current app if there is no match.
++   * \param url The nxm url.
++   */
++  void enqueueNxmDownload(const std::string& url);
+   /*!
+    * \brief Returns the currently active Deployer.
+    * \return The active Deployer.
