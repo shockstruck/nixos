@@ -2,7 +2,7 @@
 # It has no remote list of its own — it shows whatever flatpak remotes the
 # system already has — so Flathub and Flathub Beta are registered here as
 # system remotes for it to see. `services.flatpak.enable` is not set here:
-# it is already on for every host that imports this file (gui/hyprland.nix
+# it is already on for every host that imports this file (gui/niri.nix
 # and console/session.nix each set it), so the grayjay-flatpak and
 # chromium-flatpak oneshots' own `remote-add --if-not-exists flathub` stays
 # idempotent against the flathub remote this oneshot also adds.

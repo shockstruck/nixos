@@ -4,24 +4,23 @@
 # Noctalia is a single Quickshell/QML shell layer that owns the common desktop
 # surfaces (bar, launcher, control center, notifications, OSD, wallpaper). It is
 # started as a systemd user service bound to `config.wayland.systemd.target`
-# (defaults to graphical-session.target). The Hyprland session
-# (`wayland.windowManager.hyprland.systemd.enable`, modules/home/hyprland.nix)
-# satisfies graphical-session.target, so Hyprland launches Noctalia — no
-# compositor exec-once entry is required (this mirrors how DMS was started via
-# systemd, so the shell is not double-launched).
+# (defaults to graphical-session.target). The niri session (niri-session ->
+# niri.service, which binds graphical-session.target) satisfies it, so niri
+# launches Noctalia — no compositor spawn-at-startup entry is required, so the
+# shell is not double-launched.
 #
-# Idle is delegated to hypridle (modules/home/idle.nix), which runs
-# Noctalia's shell-native lock screen via `noctalia msg session lock`; its own
-# idle behaviours default off, so the two idle managers do not fight (the
-# previous DMS module made the same handoff via its zeroed idle timeouts).
+# Idle behaviours are Noctalia's own and are switched on by
+# modules/home/idle.nix, which the console profile does not import; this
+# module leaves them at Noctalia's default (off).
 #
-# Theming consumes the mactahoe-default palette module (SHOA-1102,
-# theme/mactahoe.nix) as the single source of truth: the exact mactahoe default
-# hexes are exported verbatim as a Noctalia custom palette
-# (~/.config/noctalia/palettes/mactahoe.json) and selected as the active theme
-# via `theme.source = "custom"` / `theme.custom_palette = "mactahoe"`. The
-# standard Eldritch palette (SHOA-999, theme/eldritch.nix) remains available as
-# a custom palette but is no longer the default. See
+# Theming is Nullscapes (theme/nullscapes.nix, ported from
+# triplespike/Spike-dotfiles): its palette is exported as a Noctalia custom
+# palette (~/.config/noctalia/palettes/Nullscapes.json) and selected as the
+# active theme via `theme.source = "custom"` / `theme.custom_palette =
+# "Nullscapes"`, and the panel/bar/OSD transparency below follows the same
+# source. The mactahoe-default (theme/mactahoe.nix) and Eldritch
+# (theme/eldritch.nix) palettes remain exported as selectable custom
+# palettes. See
 # https://docs.noctalia.dev/noctalia/theming/palette/ for the
 # palette JSON schema and https://docs.noctalia.dev/noctalia/configuration/ for
 # the config reference.
@@ -32,6 +31,9 @@
 , ...
 }:
 let
+  # Nullscapes palette (theme/nullscapes.nix), the active theme.
+  n = config.theme.nullscapes;
+
   # Single source of truth for the mactahoe-default palette (SHOA-1102
   # theme/mactahoe.nix). `f.dark` / `f.light` carry the exact 16 m* keys +
   # terminal shape Noctalia's palette schema expects (same shape as the working
@@ -39,7 +41,7 @@ let
   f = config.theme.mactahoe;
 
   # Standard Eldritch palette (SHOA-999 theme/eldritch.nix), kept available as a
-  # custom palette — no longer the active default.
+  # custom palette — not the active one.
   p = config.theme.eldritch;
 
   # Wallpaper collection ported from s1devist1/my-linux-hp (SHOA-1058).
@@ -74,11 +76,20 @@ in
     programs.noctalia = {
       enable = true;
 
-      # systemd user service on graphical-session.target (the Hyprland session
-      # satisfies it), so Noctalia autostarts under Hyprland. `package` is
-      # defaulted by the upstream homeModules.default to the flake's noctalia
-      # package.
+      # systemd user service on graphical-session.target (the niri session
+      # satisfies it), so Noctalia autostarts under niri.
       systemd.enable = true;
+
+      # The pinned flake's own build (what homeModules.default defaults
+      # `package` to) plus the Nullscapes bar patch from Spike-dotfiles: the
+      # bar's compositor blur region (ext-background-effect-v1, which niri
+      # implements) covers only the painted capsule backgrounds instead of the
+      # whole bar strip, so the fully transparent bar below shows sharp
+      # wallpaper between blurred glass capsules. Patching means Noctalia is
+      # built from source rather than substituted.
+      package = flake.inputs.noctalia.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ./theme/noctalia-bar-capsule-blur.patch ];
+      });
 
       # Validate config.toml against the shell's schema at build time; a schema
       # error fails the Nix build (the workstation's CI eval/build gate).
@@ -87,21 +98,27 @@ in
       # config.toml (TOML). Only workstation-specific overrides are set; every
       # other key keeps Noctalia's documented default (see example.toml upstream).
       settings = {
+        # Nullscapes: panels and menus draw no dimming backdrop.
+        backdrop.enabled = false;
+
         shell = {
-          font_family = "Google Sans Flex";
+          font_family = "JetBrainsMono Nerd Font"; # Nullscapes
           time_format = "{:%I:%M %p}"; # 12-hour clock (DMS clockFormat = "12h")
           date_format = "%a, %m/%d"; # DMS clockDateFormat = "ddd, MM/dd"
 
           # my-linux-hp port (SHOA-1058) — shell additions; niri_overview_*
-          # and app_icon_color intentionally not ported (Hyprland session,
-          # not niri; source icon color kept default).
-          corner_radius_scale = 1.5;
+          # and app_icon_color are not ported (source icon color kept
+          # default). corner_radius_scale is Nullscapes'.
+          corner_radius_scale = 0.88;
           password_style = "random";
           polkit_agent = true;
           screen_time_enabled = true;
           launcher.app_grid = true;
           panel = {
-            transparency_mode = "glass";
+            # Nullscapes translucency: "soft" panels with outlines and shadow.
+            transparency_mode = "soft";
+            borders = true;
+            shadow = true;
             session_placement = "floating";
             session_position = "center";
             open_near_click_control_center = true;
@@ -135,23 +152,25 @@ in
           greeter_sync.auto_sync = false;
         };
 
-        # Active theme = the mactahoe-default palette (SHOA-1102,
-        # theme/mactahoe.nix), exported below as a custom palette. Dark mode
-        # (the palette provides dark + light variants; `mode = "dark"` selects
-        # the dark one).
+        # Active theme = the Nullscapes palette (theme/nullscapes.nix),
+        # exported below as a custom palette. Dark only.
         theme = {
           mode = "dark";
           source = "custom";
-          custom_palette = "mactahoe";
+          custom_palette = "Nullscapes";
         };
 
-        # Locking is Noctalia-native, driven by hypridle
-        # (modules/home/idle.nix) and the Hyprland SUPER+L bind: `noctalia msg
-        # session lock` authenticates via the always-present `login` PAM service
-        # and is idempotent while a lock is active. Noctalia's own idle
-        # behaviours default to disabled, so hypridle remains the single idle
-        # manager.
-        lockscreen.enabled = true;
+        # Locking is Noctalia-native: its idle behaviours
+        # (modules/home/idle.nix) and the niri SUPER+L bind run the lock
+        # screen, which authenticates via the always-present `login` PAM
+        # service and is idempotent while a lock is active.
+        # lock_before_suspend (Noctalia's default, pinned here) holds a logind
+        # delay inhibitor on every route into sleep until the lock surface is
+        # up.
+        lockscreen = {
+          enabled = true;
+          lock_before_suspend = true;
+        };
 
         # Weather + measurement units (SHOA-1073). Noctalia's ONLY unit key is
         # `weather.unit`; it is compared literally against "imperial"
@@ -213,8 +232,8 @@ in
         # (SHOA-1058). Schema-verified against noctalia-shell v5.0.0-beta.9;
         # keys not valid in beta.9 were dropped (see child spec),
         # machine-specific paths (avatar, launcher image, absolute wallpaper
-        # paths) are not ported, idle.* is intentionally NOT ported (hypridle
-        # owns idle), and the Nord theme/bar layout are NOT
+        # paths) are not ported, idle.* is intentionally NOT ported (idle is
+        # set by modules/home/idle.nix), and the Nord theme/bar layout are NOT
         # ported (Eldritch + DMS-parity bar are the curated SHOA-999/1008
         # baseline).
         accessibility.ui_scale = 1.15;
@@ -230,9 +249,21 @@ in
         # v5.1.0) — this key is their only config surface.
         calendar.event_time_format = "%I:%M %p";
         notification.background_opacity = 0.51;
+        # Nullscapes OSD: horizontal volume/brightness sliders, top center.
         osd = {
-          background_opacity = 0.3;
-          scale = 1.2;
+          position = "top_center";
+          orientation = "horizontal";
+          scale = 1.0;
+          background_opacity = 0.85;
+          offset_y = 14;
+          kinds = {
+            volume = true;
+            volume_output = true;
+            volume_input = true;
+            brightness = true;
+            wifi = true;
+            bluetooth = true;
+          };
         };
         dock = {
           enabled = true;
@@ -477,24 +508,76 @@ in
         # intentionally omitted from the bar — as in DMS they live in the
         # control-center panel, not the bar. The DMS plugin bar widgets
         # (sathiAi/dockerManager/claudeCodeUsage/netbirdStatus) are dropped per
-        # the accepted SHOA-1008 decision, so they are absent from `end`.
+        # the accepted SHOA-1008 decision, so they are absent from the `signal`
+        # capsule group.
         bar.main = {
-          # DMS left: launcherButton, workspaceSwitcher, focusedWindow.
-          start = [ "launcher" "workspaces" "active_window" ];
-          # DMS center: music, clock, weather.
-          center = [ "media" "clock" "weather" ];
-          # DMS right (builtin-covered subset): systemTray, clipboard, cpuUsage,
-          # memUsage, notificationButton, battery, controlCenterButton. The DMS
-          # plugin widgets that sat here (sathiAi, dockerManager, claudeCodeUsage,
-          # netbirdStatus) are dropped — see the parity note above.
-          end = [
-            "tray"
-            "clipboard"
-            "cpu" # sysmon (cpu_usage) — see [widget.cpu] below
-            "mem" # sysmon (ram_pct)  — see [widget.mem] below
-            "notifications"
-            "battery" # builtin; auto-hides on machines without a battery
-            "control-center"
+          # Nullscapes bar styling: the bar strip itself is fully transparent
+          # and each lane is one glass capsule group (translucent
+          # surface_variant fill, outline border), blurred by the compositor
+          # behind the capsules only (the patched package above). Geometry
+          # and opacities are Spike-dotfiles'; the widgets inside the capsules
+          # are this bar's existing set, unchanged.
+          thickness = 40;
+          background_opacity = 0.0;
+          shadow = false;
+          contact_shadow = false;
+          margin_ends = 18;
+          margin_edge = 10;
+          padding = 6;
+          widget_spacing = 8;
+          capsule = false;
+          start = [ "group:lunar" ];
+          center = [ "group:pulse" ];
+          end = [ "group:signal" ];
+          capsule_group = [
+            {
+              id = "lunar";
+              # DMS left: launcherButton, workspaceSwitcher, focusedWindow.
+              members = [ "launcher" "workspaces" "active_window" ];
+              fill = "surface_variant";
+              border = "outline";
+              foreground = "on_surface";
+              padding = 10;
+              radius = 16;
+              opacity = 0.58;
+              widget_spacing = 8;
+            }
+            {
+              id = "pulse";
+              # DMS center: music, clock, weather.
+              members = [ "media" "clock" "weather" ];
+              fill = "surface_variant";
+              border = "outline";
+              foreground = "on_surface";
+              padding = 12;
+              radius = 16;
+              opacity = 0.64;
+              widget_spacing = 8;
+            }
+            {
+              id = "signal";
+              # DMS right (builtin-covered subset): systemTray, clipboard,
+              # cpuUsage, memUsage, notificationButton, battery,
+              # controlCenterButton. The DMS plugin widgets that sat here
+              # (sathiAi, dockerManager, claudeCodeUsage, netbirdStatus) are
+              # dropped — see the parity note above.
+              members = [
+                "tray"
+                "clipboard"
+                "cpu" # sysmon (cpu_usage) — see [widget.cpu] below
+                "mem" # sysmon (ram_pct)  — see [widget.mem] below
+                "notifications"
+                "battery" # builtin; auto-hides on machines without a battery
+                "control-center"
+              ];
+              fill = "surface_variant";
+              border = "outline";
+              foreground = "on_surface";
+              padding = 10;
+              radius = 16;
+              opacity = 0.58;
+              widget_spacing = 8;
+            }
           ];
         };
 
@@ -518,13 +601,17 @@ in
         };
       };
 
+      # Nullscapes palette (theme/nullscapes.nix), already in Noctalia's
+      # palette shape (16 m* roles + terminal section). Written to
+      # ~/.config/noctalia/palettes/Nullscapes.json and selected by
+      # `theme.custom_palette = "Nullscapes"` above. Dark only; Noctalia
+      # reuses it for light mode.
+      customPalettes.Nullscapes.dark = n.dark;
+
       # Mactahoe-default palette (SHOA-1102, theme/mactahoe.nix) mapped verbatim
       # onto Noctalia's 16 color roles + terminal section. Written to
-      # ~/.config/noctalia/palettes/mactahoe.json and selected by
-      # `theme.custom_palette = "mactahoe"` above. `validateConfig = true` is
-      # unchanged: it validates config.toml (`theme.custom_palette` is a plain
-      # string), and the generated palette JSON shape is identical to the
-      # eldritch one already in production.
+      # ~/.config/noctalia/palettes/mactahoe.json and still exported so the
+      # palette remains selectable, but no longer the active one.
       customPalettes.mactahoe = {
         dark = f.dark;
         light = f.light;

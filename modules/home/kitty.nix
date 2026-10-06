@@ -1,13 +1,13 @@
 { pkgs, config, ... }:
 let
-  # Mactahoe-default palette dark terminal colors, source of truth
-  # (modules/home/theme/mactahoe.nix, SHOA-1102).
-  f = config.theme.mactahoe.dark;
+  # Nullscapes palette terminal colors, source of truth
+  # (modules/home/theme/nullscapes.nix).
+  f = config.theme.nullscapes.dark;
 in
 {
   # Ported from mooniri (revaljonathan/mooniri) config/kitty/kitty.conf. The
-  # colors are driven by the mactahoe-default palette (SHOA-1102,
-  # theme/mactahoe.nix) rather than the original static Tokyo Night Moon set.
+  # colors are driven by the Nullscapes palette (theme/nullscapes.nix) rather
+  # than the original static Tokyo Night Moon set.
   # matugen/petalslinger dynamic-theming includes are intentionally not ported.
   home.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 
@@ -26,7 +26,10 @@ in
       wheel_scroll_min_lines = 1;
       enable_audio_bell = "no";
       hide_window_decorations = "yes";
-      background_opacity = "0.95";
+      # Nullscapes terminal translucency (Spike-dotfiles' ghostty
+      # background-opacity); niri blurs what is behind kitty
+      # (modules/home/niri.nix window rule).
+      background_opacity = "0.76";
       dynamic_background_opacity = "no";
       confirm_os_window_close = 0;
       cursor_shape = "underline";
@@ -42,7 +45,7 @@ in
       cursor_trail_decay = "0.1 0.9";
       cursor_trail_start_threshold = 0;
 
-      # Mactahoe-default palette dark terminal colors (modules/home/theme/mactahoe.nix).
+      # Nullscapes terminal colors (modules/home/theme/nullscapes.nix).
       background = f.terminal.background;
       foreground = f.terminal.foreground;
       selection_background = f.terminal.selectionBg;
@@ -58,7 +61,7 @@ in
       active_border_color = f.mPrimary;
       inactive_border_color = f.mOutline;
 
-      # Standard ANSI mapping onto the mactahoe-default terminal palette.
+      # Standard ANSI mapping onto the Nullscapes terminal palette.
       color0 = f.terminal.normal.black;
       color1 = f.terminal.normal.red;
       color2 = f.terminal.normal.green;
@@ -89,7 +92,7 @@ in
       # Font-size zoom + page scroll bindings, ported from
       # s1devist1/my-linux-hp config/kitty/kitty.conf (SHOA-1058). Only the
       # keybindings are ported; the source theme/transparency/font/`shell fish`
-      # are not (the curated mactahoe-default-palette baseline above stays).
+      # are not (the Nullscapes theme above owns those).
       "ctrl+plus" = "change_font_size all +1";
       "ctrl+equal" = "change_font_size all +1";
       "ctrl+kp_add" = "change_font_size all +1";

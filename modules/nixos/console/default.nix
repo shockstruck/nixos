@@ -19,7 +19,7 @@
 
   # Quiet boot / plymouth, copied from modules/nixos/gui/default.nix. No
   # services.xserver.enable here: gamescope does not need the X server stack
-  # gui/default.nix enables for Hyprland.
+  # gui/default.nix enables for desktop/laptop.
   boot = {
     consoleLogLevel = 3;
     initrd.verbose = false;

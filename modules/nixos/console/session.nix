@@ -60,32 +60,24 @@
 #     user opt-ins there (its README); this host opts in unconditionally
 #     because the only display is the HDR/VRR-capable TV described in
 #     ./cec.nix.
-#   nixos/modules/programs/wayland/hyprland.nix:
-#     `security.wrappers.Hyprland.capabilities = "cap_sys_nice+ep"` — `+ep`
-#     (effective+permitted), not `+pie` like gamescope's own wrapper above:
-#     no inheritable bit, so the capability does not propagate into anything
-#     Hyprland execs. Steam's own bwrap sandbox under a Hyprland session is
-#     therefore unaffected, unlike the ambient `+pie` gamescope wrapper this
-#     file deliberately leaves off.
-#     `programs.hyprland.package` (mkPackageOption's `apply` composes in
-#     XWayland support) is the final package the module itself execs via the
-#     `security.wrappers.Hyprland` wrapper above; `lib.getExe' pkg "hyprctl"`
-#     (nixpkgs lib `meta.nix`) resolves the same package's `hyprctl` by store
-#     path, since `steamos-session-select gamescope` is called from a
-#     systemd --user service (Noctalia's "Return to Gaming Mode" launcher)
-#     whose PATH cannot be relied on to contain it.
-#   hyprwm/Hyprland v0.56.2 (the nixpkgs package version at the pinned rev):
-#     `start-hyprland` (start/, installed to bin/ unconditionally by the root
-#     CMakeLists) is the watchdog wrapper the upstream `hyprland.desktop`
-#     session execs. It forks the compositor with `--watchdog-fd` and, when
-#     that fd is absent, `CCompositor` posts the "Hyprland was started
-#     without start-hyprland" overlay notification on every start
-#     (src/Compositor.cpp, TXT_KEY_NOTIF_NO_WATCHDOG, unless
-#     `misc:disable_watchdog_warning`). `--path` (start/src/main.cpp) sets
-#     the binary it `execvp`s (start/src/core/Instance.cpp), so pointing it
-#     at the security wrapper keeps cap_sys_nice. On a clean compositor exit
-#     (`hyprctl dispatch exit`) it returns 0; on a crash it relaunches
-#     Hyprland in safe mode itself instead of returning here.
+#   nixos/modules/programs/wayland/niri.nix: `programs.niri.package`
+#     (mkPackageOption, default pkgs.niri) is what the module installs and
+#     whose user units it registers (systemd.packages); `lib.getExe'` resolves
+#     that same package's `niri-session` and `niri` by store path, since
+#     `steamos-session-select gamescope` is called from a systemd --user
+#     service (Noctalia's "Return to Gaming Mode" launcher) whose PATH cannot
+#     be relied on to contain it.
+#   niri-wm/niri v26.04 (the nixpkgs package version at the pinned rev):
+#     resources/niri-session imports the login environment into the user
+#     manager, runs `systemctl --user --wait start niri.service` (niri.service
+#     binds graphical-session.target, so Noctalia and the steamos-manager
+#     user daemon start with it), and on a clean exit stops the graphical
+#     session through niri-shutdown.target before returning here.
+#     src/main.rs import_environment() exports NIRI_SOCKET into the user
+#     manager and D-Bus activation environment, so it is set for every
+#     systemd user service in the session; `niri msg action quit
+#     --skip-confirmation` (niri-ipc Action::Quit) ends niri without its
+#     confirmation dialog.
 #
 # Session-switch contract: Steam's Big Picture "Switch to Desktop" runs
 # `steamos-session-select plasma|desktop` from inside its own FHS env and
@@ -97,7 +89,7 @@
 # ends the running Steam client; gamescope then exits because Steam is its
 # primary child. `console-session` is the loop greetd execs instead of running
 # `steam-gamescope` once: it reads that file to decide whether to start the
-# Hyprland/Noctalia session or go back to gamescope, and only hands control
+# niri/Noctalia session or go back to gamescope, and only hands control
 # back to greetd when nothing asked for a switch.
 { config, lib, pkgs, ... }:
 
@@ -124,8 +116,8 @@ let
           ;;
         gamescope)
           printf 'gamescope\n' > "$state"
-          if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
-            ${lib.getExe' config.programs.hyprland.package "hyprctl"} dispatch exit
+          if [ -n "''${NIRI_SOCKET:-}" ]; then
+            ${lib.getExe' config.programs.niri.package "niri"} msg action quit --skip-confirmation
           fi
           ;;
         *)
@@ -167,12 +159,10 @@ let
             sleep 1
           done
           echo "console-session: starting desktop session"
-          # Through the watchdog, not the bare wrapper: without it every
-          # desktop session opens on Hyprland's "started without
-          # start-hyprland" warning (header note). --path keeps the
-          # cap_sys_nice wrapper as the binary the watchdog execs.
-          ${lib.getExe' config.programs.hyprland.package "start-hyprland"} \
-            --path ${config.security.wrapperDir}/Hyprland || true
+          # niri-session, the same entry point the `niri` session file
+          # execs: niri runs as niri.service and this returns once it has
+          # quit and the graphical session is torn down (header note).
+          ${lib.getExe' config.programs.niri.package "niri-session"} || true
           echo "console-session: desktop session ended"
           continue
         fi
@@ -292,7 +282,7 @@ in
   };
 
   # steamos-session-select also needs to be reachable outside Steam's FHS
-  # env: the Hyprland session's "Return to Gaming Mode" launcher calls it
+  # env: the niri session's "Return to Gaming Mode" launcher calls it
   # directly, and console-session below execs the desktop session it selects.
   environment.systemPackages = [ sessionSelect returnToGamingMode ];
 
@@ -300,13 +290,13 @@ in
   # requesting a switch, greetd falls to default_session, a text greeter
   # that relaunches Steam on login instead of crash-looping the autologin.
   # console-session is the loop that decides, on every exit, whether to come
-  # back as gamescope, hand off to the Hyprland/Noctalia desktop, or (when
+  # back as gamescope, hand off to the niri/Noctalia desktop, or (when
   # nothing requested a switch) return control to greetd — see the header
   # contract comment.
   #
   # greetd hands the session's stdout/stderr to the VT it owns (greetd
   # session/worker.rs, term_connect_pipes), so nothing gamescope, Steam or
-  # Hyprland prints survives the session ending — the screen is cleared
+  # niri-session prints survives the session ending — the screen is cleared
   # before the greeter redraws. systemd-cat execs the session with both
   # streams on the journal instead (`journalctl -t steam-gamescope`); stdin
   # stays the VT.
@@ -343,9 +333,9 @@ in
   security.polkit.enable = true;
   programs.dconf.enable = true;
 
-  # services.flatpak asserts xdg.portal.enable. The Hyprland session brought
-  # in by ./desktop.nix supplies its own hyprland-specific portal config
-  # (programs.hyprland's configPackages) and xdg-desktop-portal prefers the
+  # services.flatpak asserts xdg.portal.enable. The niri session brought
+  # in by ./desktop.nix supplies its own niri-specific portal config
+  # (programs.niri's xdg.portal.config.niri) and xdg-desktop-portal prefers the
   # XDG_CURRENT_DESKTOP-specific file over the common default, so Big
   # Picture (which sets no XDG_CURRENT_DESKTOP) keeps this generic GTK
   # backend and the desktop session gets its own.

@@ -1,10 +1,10 @@
-# The console's answer to Big Picture's "Switch to Desktop": a Hyprland/
+# The console's answer to Big Picture's "Switch to Desktop": a niri/
 # Noctalia session reachable via console-session (./session.nix), for the
 # couch-side desktop use cases Steam's own client can't cover (OGI's and
 # Heroic's Steam-shortcut writers both need Steam closed while they run).
 #
-# This is a copy of modules/nixos/gui/hyprland.nix's system-layer pieces, not
-# an import of it: gui/hyprland.nix also enables
+# This is a copy of modules/nixos/gui/niri.nix's system-layer pieces, not
+# an import of it: gui/niri.nix also enables
 # services.displayManager.noctalia-greeter, which would define
 # services.greetd.settings.default_session a second time — an eval conflict
 # with ./session.nix, which already owns greetd on this host with its own
@@ -18,19 +18,23 @@
 # `remote-add --if-not-exists flathub` (./launchers.nix) stay idempotent
 # against each other.
 #
-# Deliberately absent, unlike gui/hyprland.nix:
+# Deliberately absent, unlike gui/niri.nix:
 #   - services.displayManager.noctalia-greeter (greetd conflict above; this
 #     host's greeter is console-session/tuigreet)
 #   - programs.steam (already configured by ./session.nix, gamescope-first)
 #   - the grayjay-flatpak install/update service, kdeconnect
-#   - services.gnome.gnome-keyring — no GNOME-keyring-consuming app runs here
-#   - services.xserver.enable — Hyprland is Wayland-native and needs no X
-#     server stack (gui/default.nix only turns this on for its own reasons)
+#   - an explicit services.gnome.gnome-keyring — no GNOME-keyring-consuming
+#     app runs here (programs.niri still defaults it on, for its Secret portal)
+#   - services.xserver.enable — niri is Wayland-native and needs no X server
+#     stack; X11 clients go through xwayland-satellite, which the Home Manager
+#     side (modules/home/niri.nix) installs (gui/default.nix only turns X on
+#     for its own reasons)
 #
 # Verified against nixpkgs source before writing:
-#   nixos/modules/programs/wayland/hyprland.nix: programs.hyprland.enable
-#     (mkEnableOption) and programs.hyprland.xwayland.enable (mkEnableOption,
-#     default true already, kept explicit here for parity with gui/hyprland.nix).
+#   nixos/modules/programs/wayland/niri.nix: programs.niri.enable
+#     (mkEnableOption); it installs niri, its niri.service/niri-shutdown.target
+#     user units (systemd.packages) and the `niri` session, and configures the
+#     gnome/gtk portals.
 #   nixos/modules/config/system-path.nix: environment.pathsToLink
 #     (listOf str).
 #   nixos/modules/services/desktops/gvfs.nix: services.gvfs.enable
@@ -40,20 +44,17 @@
 {
   imports = [ ../gui/brave.nix ../gui/flatpak.nix ];
 
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
+  programs.niri.enable = true;
 
   # nautilus (configurations/home/console/kevin.nix) needs the gvfs daemon
   # for trash, network locations and mounting; udisks2 backs its removable
-  # media. Same pair gui/hyprland.nix enables for desktop/laptop.
+  # media. Same pair gui/niri.nix enables for desktop/laptop.
   services.gvfs.enable = true;
   services.udisks2.enable = true;
 
   environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
 
-  # Noctalia's icon/text fonts, copied verbatim from gui/hyprland.nix so the
+  # Noctalia's icon/text fonts, copied verbatim from gui/niri.nix so the
   # shell renders identically to desktop/laptop.
   fonts.packages = [
     (pkgs.google-fonts.override {

@@ -2,13 +2,15 @@
 {
   # Noctalia greeter (greetd) is the display manager (SHOA-1040, replacing GDM):
   # nixpkgs' `services.displayManager.noctalia-greeter` module enables greetd
-  # and the auto-created `greeter` user, and the greeter selects the `hyprland`
-  # session. Adwaita cursor matches home.pointerCursor (modules/home/hyprland.nix).
+  # and the auto-created `greeter` user, and the greeter selects the `niri`
+  # session, the only session package left once programs.niri below replaces
+  # programs.hyprland. The cursor matches home.pointerCursor
+  # (modules/home/theme/nullscapes.nix).
   services.displayManager.noctalia-greeter = {
     enable = true;
     cursorTheme = {
-      package = pkgs.adwaita-icon-theme;
-      name = "Adwaita";
+      package = pkgs.catppuccin-cursors.mochaDark;
+      name = "catppuccin-mocha-dark-cursors";
     };
     settings.keyboard.layout = "us";
   };
@@ -34,17 +36,16 @@
   programs.kdeconnect.enable = true;
   security.polkit.enable = true;
 
-  # Hyprland compositor (SHOA-1037, reverting the compositor swap SHOA-997). Enabled
-  # via the built-in nixpkgs module, which provides built-in XWayland (no
-  # out-of-process xwayland-satellite is required, unlike the previous compositor). The Home
-  # Manager side is authored in modules/home/hyprland.nix. No per-locker PAM
-  # entry is needed: Noctalia's lock screen authenticates via the standard
-  # `login` PAM service (SHOA-1026/1040), so the removed legacy locker PAM entry has
-  # no replacement.
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
+  # niri compositor, enabled via the built-in nixpkgs module
+  # (nixos/modules/programs/wayland/niri.nix): it installs niri, registers the
+  # `niri` session (niri-session -> niri.service, which binds
+  # graphical-session.target), defaults the display manager session to it,
+  # and sets up the gnome/gtk portals and gnome-keyring niri recommends. niri
+  # has no built-in XWayland; it starts xwayland-satellite on demand when that
+  # is on PATH, which the Home Manager side (modules/home/niri.nix) installs.
+  # No per-locker PAM entry is needed: Noctalia's lock screen authenticates
+  # via the standard `login` PAM service.
+  programs.niri.enable = true;
 
   programs.steam = {
     enable = true;

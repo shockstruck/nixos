@@ -4,5 +4,6 @@
   imports = [
     ./eldritch.nix
     ./mactahoe.nix
+    ./nullscapes.nix
   ];
 }

@@ -7,13 +7,14 @@
 # the console host's home-manager.users import here instead of the shared
 # configurations/home/kevin.nix.
 #
-# theme/hyprland/noctalia/kitty back the Hyprland/Noctalia desktop session
+# theme/niri/noctalia/kitty back the niri/Noctalia desktop session
 # from modules/nixos/console/desktop.nix (console-session's "Switch to
 # Desktop" target). brave carries Kevin's "basic apps" ask for that session —
 # same brave-origin module + Bitwarden extension as desktop/laptop, paired
 # with the managed policy imported by modules/nixos/console/desktop.nix. Not
-# idle: hypridle would lock/suspend the console desktop, and couch use has no
-# keyboard at hand to clear the lock prompt. shell/neovim/direnv/nix-index are
+# idle: Noctalia's idle behaviours (modules/home/idle.nix) would lock/suspend
+# the console desktop, and couch use has no keyboard at hand to clear the
+# lock prompt. shell/neovim/direnv/nix-index are
 # imported so the console's interactive shell (zsh + powerlevel10k) matches
 # desktop/laptop. Still not packages/bitwarden — those are desktop/laptop's
 # day-to-day app set, not needed for the occasional shortcut-adding session
@@ -47,7 +48,7 @@ in
     self.homeModules.git
     self.homeModules.ssh
     self.homeModules.theme
-    self.homeModules.hyprland
+    self.homeModules.niri
     self.homeModules.noctalia
     self.homeModules.kitty
     self.homeModules.brave
@@ -67,17 +68,12 @@ in
   # Console-only: start OGI hidden at login so it's ready with a tray icon in
   # Noctalia's bar instead of showing a window. `extraConfig` is
   # `lib.types.lines` (nix-community/home-manager
-  # modules/services/window-managers/hyprland/default.nix), so this
-  # concatenates with modules/home/hyprland.nix's own `extraConfig` rather
-  # than overriding it; desktop/laptop never import this file. `hl.on`/
-  # `hl.exec_cmd` are the same calls that module's lid-switch/keybind Lua
-  # already uses, wrapped in the "hyprland.start" hook (home-manager's own
-  # generated systemd-activation startup code uses the identical hook) so the
-  # command fires once at session start rather than on every config reload.
-  wayland.windowManager.hyprland.extraConfig = ''
-    hl.on("hyprland.start", function()
-      hl.exec_cmd("opengameinstaller --hidden")
-    end)
+  # modules/services/window-managers/niri.nix), so this concatenates with
+  # modules/home/niri.nix's own `extraConfig` rather than overriding it;
+  # desktop/laptop never import this file. niri runs `spawn-at-startup`
+  # once when the session starts, not on config reload.
+  wayland.windowManager.niri.extraConfig = ''
+    spawn-at-startup "opengameinstaller" "--hidden"
   '';
 
   me = {
