@@ -25,44 +25,51 @@ requires that host's `nixos-unified.sshTarget` option.
 
 Both workstations share one declarative Wayland session:
 
-- **Hyprland** (`modules/nixos/gui/hyprland.nix`) is the compositor, enabled with
-  XWayland. The **Noctalia greeter** (greetd; nixpkgs
+- **niri** (`modules/nixos/gui/niri.nix`) is the compositor, a scrollable-tiling
+  Wayland compositor; X11 clients run through `xwayland-satellite`, which niri
+  starts on demand. The **Noctalia greeter** (greetd; nixpkgs
   `services.displayManager.noctalia-greeter`) is the display manager and selects
-  the `hyprland` session. The previous GNOME desktop and GDM are removed.
+  the `niri` session. The previous GNOME desktop and GDM are removed.
 - **Noctalia** (`modules/home/noctalia.nix`) is the shell: it provides the bar,
   launcher, settings, clipboard, wallpaper, and control center. It starts as a
-  systemd user service bound to `graphical-session.target`, which the Hyprland
-  session satisfies, so no compositor `exec-once` entry is needed. Wallpapers
-  (ported from s1devist1/my-linux-hp via `packages/wallpapers.nix`) are rotated
-  by its wallpaper automation.
+  systemd user service bound to `graphical-session.target`, which the niri
+  session satisfies, so no compositor `spawn-at-startup` entry is needed.
+  Wallpapers (ported from s1devist1/my-linux-hp via `packages/wallpapers.nix`)
+  are rotated by its wallpaper automation.
 - **Fastfetch** (`modules/home/fastfetch.nix`) renders the NGR boxed layout
-  (`ngr1.txt` logo) with the Eldritch palette; the Noctalia "Game Mode" desktop
-  button runs `fastfetch`.
-- **Home Manager** Hyprland config lives in `modules/home/hyprland.nix`, which is
-  auto-imported by `modules/home` and therefore shared by every host. It provides
-  the Lua main config, systemd graphical-session integration, and the shared
-  keybindings below.
-- **Session locking** is **hypridle → Noctalia native lock** (`modules/home/idle.nix`):
-  lock after 300 s idle, blank the display (DPMS) after 330 s, suspend after
-  1800 s — the same timings as before. hypridle is the single idle manager;
-  `loginctl lock-session` now locks, driving Noctalia's shell-native lock
-  screen (`noctalia msg session lock`), which is enabled via
-  `programs.noctalia.settings.lockscreen.enabled`.
+  (`ngr1.txt` logo) with the Nullscapes palette; the Noctalia "Game Mode"
+  desktop button runs `fastfetch`.
+- **Home Manager** niri config lives in `modules/home/niri.nix`, which is
+  auto-imported by `modules/home` and therefore shared by every host. It
+  provides the `config.kdl` (validated with `niri validate` at build time) and
+  the shared keybindings below. Outputs at 3840x2160 or larger (a TV) are set
+  to scale 2; niri's own scale choice applies to every other output.
+- **Session locking and idle** are Noctalia's own (`modules/home/idle.nix`):
+  lock after 300 s idle, turn the outputs off after 330 s, suspend after
+  1800 s. Noctalia also locks before every suspend (holding a logind delay
+  inhibitor until the lock screen is up), and `loginctl lock-session` locks
+  through logind's Lock signal.
 - **Laptop lid** is split across two owners: undocked, closing the lid suspends
   via logind's `HandleLidSwitch` (`configurations/nixos/laptop/power.nix`);
-  docked (a second display connected), logind ignores the lid and Hyprland
-  (`modules/home/hyprland.nix`) disables the internal `eDP-1` panel on close
-  and restores it on open.
+  docked (a second display connected), logind ignores the lid and niri turns
+  the internal `eDP-1` panel off while the lid is closed and back on when it
+  opens.
 - **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
-- **Input defaults** enable Num Lock in the Hyprland session on both hosts. The
-  laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
-  (Greeter-screen Num Lock is not covered — the Noctalia greeter has no numlock
-  toggle.)
-- **Theme**: Noctalia runs the Eldritch palette in dark mode
-  (`~/.config/noctalia/palettes/eldritch.json`), with a 12-hour clock and
-  weather set to Detroit, MI in Fahrenheit. Both hosts use the `America/Detroit`
-  timezone.
+- **Input defaults** enable Num Lock and touchpad tap-to-click and natural
+  scrolling in the niri session on both hosts. The laptop also sets its
+  ThinkPad keyboard backlight to full brightness at boot. (Greeter-screen Num
+  Lock is not covered — the Noctalia greeter has no numlock toggle.)
+- **Theme** is Nullscapes (`modules/home/theme/nullscapes.nix`), ported from
+  [triplespike/Spike-dotfiles](https://github.com/triplespike/Spike-dotfiles):
+  the Nullscapes palette in Noctalia (dark mode), kitty and fastfetch;
+  translucent soft panels, a transparent bar of blurred glass capsules and
+  horizontal top-centre OSD sliders in Noctalia; blur, a blue-to-purple
+  gradient focus ring, shadows and rounded window corners in niri; and the
+  `adw-gtk3-dark` GTK theme, Catppuccin Mocha (lavender) Papirus-Dark icons and
+  the Catppuccin Mocha Dark cursor for applications. Noctalia shows a 12-hour
+  clock and weather set to Detroit, MI in Fahrenheit. Both hosts use the
+  `America/Detroit` timezone.
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
   boot messages while preserving automatic status output for failures.
 
@@ -74,10 +81,17 @@ Both workstations share one declarative Wayland session:
 | --- | --- |
 | `SUPER`+`Return` | Launch `kitty` |
 | `SUPER`+`Q` | Close the focused window |
-| `SUPER`+`L` | Lock the session (hypridle / Noctalia native lock) |
-| `SUPER`+`←` `→` `↑` `↓` | Move focus |
-| `SUPER`+`1`…`5` | Switch to workspace 1-5 |
-| `SUPER`+`SHIFT`+`1`…`5` | Move window to workspace 1-5 |
+| `SUPER`+`L` | Lock the session (Noctalia lock screen) |
+| `SUPER`+`←` `→` `↑` `↓`, `SUPER`+`H` `J` `K` | Move focus between columns and windows |
+| `SUPER`+`SHIFT`+`←` `→` `↑` `↓`, `SUPER`+`SHIFT`+`H` `J` `K` | Move the column or window |
+| `SUPER`+`1`…`9` | Switch to workspace 1-9 |
+| `SUPER`+`SHIFT`+`1`…`9` | Move the column to workspace 1-9 |
+| `SUPER`+`[` `]` `,` `.` | Consume or expel windows into or out of a column |
+| `SUPER`+`R`, `SUPER`+`-`, `SUPER`+`=` | Cycle preset column widths, shrink or grow the column |
+| `SUPER`+`F`, `SUPER`+`SHIFT`+`F` | Maximize the column, fullscreen the window |
+| `SUPER`+`Tab` | Toggle the workspace overview |
+| `SUPER`+`/` | Show the keybinding cheatsheet |
+| `SUPER`+scroll wheel | Focus the next or previous column (`SHIFT` moves it) |
 | `SUPER`+`Space` | Toggle the Noctalia application launcher |
 | `SUPER`+`S` | Toggle Noctalia settings |
 | `SUPER`+`C` | Toggle the clipboard history |
@@ -149,7 +163,7 @@ Bitwarden Desktop is the native nixpkgs `bitwarden-desktop` package
 > Flatpak build and does **not** apply here — we use the native nixpkgs package,
 > which ships the polkit policy. The polkit agent is provided by Noctalia
 > (`modules/home/noctalia.nix`, `polkit_agent = true`) with
-> `security.polkit.enable = true` (`modules/nixos/gui/hyprland.nix`).
+> `security.polkit.enable = true` (`modules/nixos/gui/niri.nix`).
 
 ### Confirm on the host
 
@@ -161,7 +175,7 @@ Bitwarden Desktop is the native nixpkgs `bitwarden-desktop` package
 
 `console` is a third workstation: the same AMD hardware class as `desktop`
 (single NVMe, LUKS2/TPM2 disko layout, reused from `desktop`'s boot, hardware,
-power and storage files), but with no Hyprland/Noctalia desktop session. It
+power and storage files), but with no niri/Noctalia desktop session. It
 boots straight into Steam's gamescope session (SteamOS/Bazzite-style "deck
 mode") via a `greetd` autologin, with Heroic, ProtonUp-Qt, MangoHud,
 OpenGameInstaller, Xbox controller drivers (`hardware.xone`, `hardware.xpadneo`),
@@ -335,7 +349,7 @@ sudo nixos-rebuild switch --flake .#HOST
 
 ### TTY recovery
 
-If the Hyprland session fails to start after a rebuild, switch to a virtual
+If the niri session fails to start after a rebuild, switch to a virtual
 console (`Ctrl`+`Alt`+`F3`), sign in, and roll the host back to its previous
 generation without using the display manager:
 

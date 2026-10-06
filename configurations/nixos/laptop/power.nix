@@ -5,8 +5,8 @@
 
   # logind's compiled defaults, made explicit: undocked lid close suspends,
   # docked (docking station or >1 display connected) lid close is ignored by
-  # logind. Hyprland (modules/home/hyprland.nix) owns the docked half by
-  # disabling the internal panel instead.
+  # logind. niri owns the docked half by turning the internal panel off
+  # while the lid is closed (modules/home/niri.nix).
   services.logind.settings.Login = {
     HandleLidSwitch = "suspend";
     HandleLidSwitchDocked = "ignore";

@@ -10,12 +10,13 @@
 # Replaces the founder palette (SHOA-1094, theme/founder.nix).
 #
 # Consumers:
-#   - modules/home/noctalia.nix   (default custom palette, dark mode)
-#   - modules/home/kitty.nix      (dark terminal palette)
-#   - modules/home/fastfetch.nix  (dark palette for the noctalia theme)
-#   - modules/home/theme/mactahoe.nix (MacTahoe-Dark tint, dark variant)
-#   - modules/home/hyprland.nix   (decoration background/border colors, dark)
-{ lib, pkgs, config, ... }:
+#   - modules/home/noctalia.nix   (exported as the selectable `mactahoe`
+#                                  custom palette; no longer the active one)
+#
+# The active theme is Nullscapes (theme/nullscapes.nix), which also owns the
+# GTK theme, icon theme and cursor this file used to set. The MacTahoe GTK
+# theme derivation (packages/mactahoe-gtk-theme.nix) stays a flake package.
+{ lib, ... }:
 let
   dark = {
     mPrimary = "#0088FF";
@@ -109,22 +110,6 @@ let
       selectionBg = "#0088FF";
     };
   };
-  # MacTahoe-Dark is tinted at build time from the mactahoe-default palette
-  # (SHOA-1102, theme/mactahoe.nix): accent + dark surface colors are single
-  # sass variables in the pinned vinceliuice source, so the compiled theme
-  # carries the mactahoe default dark colors while the theme name stays
-  # `MacTahoe-Dark` (only its compiled colors change).
-  f = config.theme.mactahoe.dark;
-  mactahoe = pkgs.callPackage ../../../packages/mactahoe-gtk-theme.nix {
-    tint = {
-      accent = f.mPrimary;
-      onAccent = f.mOnPrimary;
-      base = f.mSurface;
-      bg = f.mSurfaceVariant;
-      text = f.mOnSurfaceVariant; # vanilla $text_color dark = #dadada
-      fg = f.mOnSurface; # vanilla $fg_color dark = #dedede
-    };
-  };
 in
 {
   options.theme.mactahoe = lib.mkOption {
@@ -145,23 +130,5 @@ in
       `config.theme.mactahoe.dark.<key>` / `config.theme.mactahoe.light.<key>`.
     '';
     default = { inherit dark light; };
-  };
-
-  config.gtk = {
-    enable = true;
-    theme = {
-      name = "MacTahoe-Dark";
-      package = mactahoe;
-    };
-    # macOS-shaped icon set (blue folders) to match the Mac-styled theme above;
-    # kora-icon-theme installs all its variants, so kora-pgrey is a name change.
-    iconTheme = {
-      name = "kora";
-      package = pkgs.kora-icon-theme;
-    };
-    gtk4.theme = config.gtk.theme;
-    # Drives gtk-application-prefer-dark-theme in gtk-3.0/gtk-4.0 settings.ini
-    # and the GSettings/portal color-scheme, via home-manager's gtk3/gtk4 modules.
-    colorScheme = "dark";
   };
 }

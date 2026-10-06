@@ -54,7 +54,7 @@
 #   data/system/steamos-manager.service, data/user/steamos-manager.service:
 #     the `Type`, `BusName`, restart and start-limit values copied below;
 #     upstream binds the user unit to graphical-session.target, which the
-#     Hyprland desktop session (./desktop.nix) reaches and the gamescope
+#     niri desktop session (./desktop.nix) reaches and the gamescope
 #     session does not, so console-session (./session.nix) starts it
 #     explicitly before steam-gamescope. The session bus D-Bus activation
 #     file (SystemdService=steamos-manager.service) is installed too, so a
@@ -129,7 +129,7 @@ in
 
   systemd.user.services.steamos-manager = {
     description = "SteamOS Manager user daemon";
-    # Reached by the Hyprland desktop session; the gamescope session starts
+    # Reached by the niri desktop session; the gamescope session starts
     # this unit from console-session instead (header note).
     wantedBy = [ "graphical-session.target" ];
     startLimitIntervalSec = 120;

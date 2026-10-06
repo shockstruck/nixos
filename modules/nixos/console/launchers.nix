@@ -397,7 +397,7 @@ in
   # `flatpak info --show-location` on this Flathub app id (lib/config.ts); a
   # nixpkgs `chromium` or the console's Brave does not satisfy it, so the
   # addon shows its "install from Flathub" slide without this. Copy of the
-  # grayjay-flatpak service in gui/hyprland.nix, not an import.
+  # grayjay-flatpak service in gui/niri.nix, not an import.
   systemd.services.chromium-flatpak = {
     description = "Install or update Chromium from Flathub";
     after = [ "network-online.target" ];

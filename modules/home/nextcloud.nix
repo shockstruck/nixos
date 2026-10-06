@@ -7,7 +7,7 @@
   # org.freedesktop.CloudProviders D-Bus activation file (Nautilus sidebar)
   # and share/nautilus-python/extensions/syncstate-Nextcloud.py (sync
   # emblems + context menu) in the profile. Nautilus runs that script via
-  # nautilus-python, wired system-side in modules/nixos/gui/hyprland.nix.
+  # nautilus-python, wired system-side in modules/nixos/gui/niri.nix.
   services.nextcloud-client = {
     enable = true;
     startInBackground = true;

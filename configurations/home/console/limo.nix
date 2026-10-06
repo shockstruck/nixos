@@ -15,7 +15,7 @@
 # non-Steam shortcuts alike — pick up deployed mods with no change to
 # `steam-tweaks`' compat-tool mapping or umu. It accepts any directory as a
 # managed game, so OGI installs (not bought through a store) work the same
-# as Steam/Heroic titles. Workflow: switch to this Hyprland/Noctalia desktop
+# as Steam/Heroic titles. Workflow: switch to this niri/Noctalia desktop
 # session, click a "Mod Manager Download" nxm link in Brave, Limo deploys,
 # switch back to the gamescope session.
 #

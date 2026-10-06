@@ -18,7 +18,7 @@
 # → nonesteamgame.ts addNonSteamGame(), which at the pinned Heroic 2.22.1
 # writes userdata/<id>/config/shortcuts.vdf directly with no Steam-running
 # check. Steam rewrites that file on exit, so installs have to happen from the
-# Hyprland/Noctalia desktop session (modules/nixos/console/desktop.nix) with
+# niri/Noctalia desktop session (modules/nixos/console/desktop.nix) with
 # Steam closed for the entry to stick. nixpkgs' fix-non-steam-shortcuts.patch
 # makes the shortcut's Exe the bare `heroic` from PATH rather than a store
 # path, so entries survive rebuilds.

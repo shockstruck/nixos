@@ -2,7 +2,7 @@
   imports = [
     ./brave.nix
     ./flatpak.nix
-    ./hyprland.nix
+    ./niri.nix
   ];
 
   boot = {
