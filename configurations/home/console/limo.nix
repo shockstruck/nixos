@@ -51,8 +51,19 @@
 # Opening Limo through the wrapper first runs `limo-sync`, which registers
 # every installed Steam, OGI and Heroic game Limo does not already manage,
 # seeded the way Limo's own import would seed it. It never touches an existing app's
-# `lmm_mods.json`, and edits only the `[staging_directories]` section of
+# `lmm_mods.json` beyond the browse-tool backfill below, and edits only the `[staging_directories]` section of
 # `~/.config/Limo.conf` (the `[nexus]` section holds the encrypted API key).
+# Limo 1.2.2 has no browse, search or list-by-game Nexus call
+# (src/core/nexus/api.h), so each app whose Nexus domain resolves also gets one
+# Limo tool, "Browse mods on Nexus": `xdg-open https://www.nexusmods.com/<domain>/mods`,
+# the Nexus website being the catalogue and its "Mod Manager Download" button
+# the way back into Limo. A tool is stored as `{name, command}`: an object
+# without `use_flatpak_runtime` is read as the old format and `command` run
+# verbatim (src/core/tool.cpp `Tool(const Json::Value&)`, `getCommand`), and
+# `toJson` writes the same command back. New apps are seeded with it; an
+# existing app under limo-sync's own staging root gets it added to its
+# `lmm_mods.json` (original kept as `lmm_mods.json.limo-sync.bak`) only while
+# it has no mods and no tools and its JSON parses. Anything else is left as is.
 # It also writes `~/.config/limo-sync/nxm-domains.json`, mapping a Nexus
 # `game_domain` to a Limo app name; the patch in
 # `limo-nxm-domain-routing.patch` reads it so an nxm link installs into that
@@ -232,6 +243,8 @@ let
       SIDECAR = os.path.join(CONFIG_HOME, "limo-sync", "nxm-domains.json")
       SECTION = "staging_directories"
       CONFIG_FILE_NAME = "lmm_mods.json"
+      BACKUP_SUFFIX = ".limo-sync.bak"
+      BROWSE_TOOL_NAME = "Browse mods on Nexus"
 
       DEPLOYER_TYPES = CFG["deployerTypes"]
       SKIP_APPIDS = set(CFG["skip"]["appIds"])
@@ -624,7 +637,23 @@ let
                           "Baldurs Gate 3 Deployer"}
 
 
-      def seed_json(game, name, staging, deployers, tags):
+      def nexus_domain(steam_id, store, titles):
+          dom = DOMAINS_STEAM.get(str(steam_id)) if isinstance(steam_id, int) else None
+          if dom is None and store:
+              dom = DOMAINS_STORE.get(store[0], {}).get(store[1])
+          if dom is None:
+              for t in titles:
+                  dom = DOMAINS_TITLE.get(str(t).lower())
+                  if dom:
+                      break
+          return dom
+
+
+      def browse_tool(dom):
+          return {"name": BROWSE_TOOL_NAME, "command": f"xdg-open https://www.nexusmods.com/{dom}/mods"}
+
+
+      def seed_json(game, name, staging, deployers, tags, dom):
           out = []
           for dtype, dname, target, mode, source in deployers:
               autonomous = dtype in AUTONOMOUS_TYPES
@@ -648,7 +677,48 @@ let
                  "deployers": out, "steam_app_id": game["steam_id"]}
           if tags:
               doc["auto_tags"] = tags
+          if dom:
+              doc["tools"] = [browse_tool(dom)]
           return doc
+
+
+      # Adds the browse tool to an app limo-sync created (its staging dir sits
+      # directly under STAGING_ROOT) that has no mods, no tools and a parseable
+      # lmm_mods.json. Every other file is left byte for byte as it is. A domain
+      # shared by two apps is no reason to withhold the button.
+      def backfill_tools(paths, apps):
+          by_key = {a["key"]: a for a in apps}
+          for p in paths:
+              p = norm(p)
+              if os.path.dirname(p) != norm(STAGING_ROOT):
+                  continue
+              conf = os.path.join(p, CONFIG_FILE_NAME)
+              try:
+                  with open(conf, "rb") as f:
+                      raw = f.read()
+              except OSError:
+                  continue
+              try:
+                  doc = json.loads(raw.decode("utf-8"))
+              except ValueError:
+                  log(f"{conf} does not parse; leaving it alone")
+                  continue
+              if not isinstance(doc, dict):
+                  log(f"{conf} is not a JSON object; leaving it alone")
+                  continue
+              if doc.get("installed_mods", []) != [] or doc.get("tools", []) != []:
+                  continue
+              a = by_key.get(os.path.basename(p), {})
+              dom = nexus_domain(a.get("steam_id", doc.get("steam_app_id", -1)), a.get("store"),
+                                 a.get("titles") or [doc.get("name", "")])
+              if not dom:
+                  log(f"no Nexus domain for {doc.get('name', p)}; it gets no browse tool")
+                  continue
+              doc["tools"] = [browse_tool(dom)]
+              atomic_write(conf + BACKUP_SUFFIX, raw, mode_from=conf)
+              atomic_write(conf, (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
+                           mode_from=conf)
+              log(f"added the browse tool to {doc.get('name', p)}")
 
 
       def sync():
@@ -709,7 +779,10 @@ let
                   name = doc["name"]
               else:
                   os.makedirs(staging, exist_ok=True)
-                  doc = seed_json(game, name, staging, deployers, tags)
+                  dom = nexus_domain(game["steam_id"], game.get("store"), [name, game["title"]])
+                  if not dom:
+                      log(f"no Nexus domain for {name}; it gets no browse tool")
+                  doc = seed_json(game, name, staging, deployers, tags, dom)
                   atomic_write(conf, (json.dumps(doc, indent=2, sort_keys=True) + "\n").encode("utf-8"))
               new_paths.append(staging)
               reg_set.add(norm(staging))
@@ -749,16 +822,11 @@ let
                   shutil.copy2(LIMO_CONF, LIMO_CONF + ".limo-sync.bak")
               atomic_write(LIMO_CONF, new_text.encode("latin-1"), mode_from=LIMO_CONF)
 
+          backfill_tools(registered, apps)
+
           claims = {}
           for a in apps:
-              dom = DOMAINS_STEAM.get(str(a["steam_id"])) if isinstance(a["steam_id"], int) else None
-              if dom is None and a.get("store"):
-                  dom = DOMAINS_STORE.get(a["store"][0], {}).get(a["store"][1])
-              if dom is None:
-                  for t in a["titles"]:
-                      dom = DOMAINS_TITLE.get(str(t).lower())
-                      if dom:
-                          break
+              dom = nexus_domain(a["steam_id"], a.get("store"), a["titles"])
               if dom:
                   claims.setdefault(dom, []).append(a["name"])
           sidecar = {}
