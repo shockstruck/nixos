@@ -329,6 +329,25 @@ in
   security.rtkit.enable = true;
 
   hardware.bluetooth.enable = true;
+  # SteamOS's BlueZ main.conf tuning, as carried by Jovian-NixOS
+  # (modules/steamos/bluetooth.nix, from SteamOS's bluez PKGBUILD).
+  # FastConnectable: faster controller reconnect, at the cost of a little radio
+  # power. MultiProfile = "multiple": A2DP + HFP together for headsets.
+  # KernelExperimental: the UUID enables BlueZ's LL-privacy experimental
+  # feature (and experimental offload codecs). LE.Scan*Suspend: the scan duty
+  # cycle while suspended. If pairing or reconnect regresses on the B850M's
+  # adapter, drop KernelExperimental first.
+  hardware.bluetooth.settings = {
+    General = {
+      MultiProfile = "multiple";
+      FastConnectable = true;
+      KernelExperimental = "15c0a148-c273-11ea-b3de-0242ac130004";
+    };
+    LE = {
+      ScanIntervalSuspend = 2240;
+      ScanWindowSuspend = 224;
+    };
+  };
   services.flatpak.enable = true;
   security.polkit.enable = true;
   programs.dconf.enable = true;
