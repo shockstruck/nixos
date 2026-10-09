@@ -47,10 +47,10 @@ jobs:
       # workflow: naming a tool here instead would install it without the
       # version the adopter picked.
       - name: Install validators
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           cache: false
-          version: 2026.9.10
+          version: 2026.10.6
 
       - name: Run actionlint
         run: actionlint
