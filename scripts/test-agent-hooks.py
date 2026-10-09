@@ -1452,6 +1452,105 @@ def test_settings_registers_every_hook() -> None:
 
 
 # --------------------------------------------------------------------------
+# Bridge transcripts — the OpenCode runtime writes Claude-format JSONL too
+# --------------------------------------------------------------------------
+
+# Written by the claude-hook-bridge OpenCode plugin in the multica-agent image,
+# captured from a real run of the plugin (prompt, an edit, a validation run,
+# then the commit the gate is asked about). Only two things were changed after
+# capture: the working directory became @REPO@, and call-2's command is
+# swapped for this repository's own validator at run time. The tool_result
+# content is a plain string here, where Claude Code writes a block list; the
+# readers must accept both.
+BRIDGE_TRANSCRIPT = r'''
+{"type":"user","uuid":"137ffce5-1d51-48d7-b5c7-9df69ebe592c","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.564Z","message":{"role":"user","content":[{"type":"text","text":"Add the greeting helper to hello.py"}]}}
+{"type":"assistant","uuid":"c2e9501f-f596-4db3-96b6-b37fd6918830","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.567Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"call-1","name":"Edit","input":{"file_path":"@REPO@/hello.py","old_string":"","new_string":"def greet():\n    return 'hi'\n"}}]}}
+{"type":"user","uuid":"62acf5b9-e741-43bc-9bf2-064f0d938d93","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.568Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-1","content":"Edit applied successfully."}]}}
+{"type":"assistant","uuid":"7cebda03-6c06-4452-8e6b-f4bea247e4e3","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.568Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"call-2","name":"Bash","input":{"command":"python3 scripts/test-agent-hooks.py"}}]}}
+{"type":"user","uuid":"5c0330a5-6f2d-45a2-98c8-ab464bac0f04","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.568Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-2","content":"ok"}]}}
+{"type":"assistant","uuid":"7f1cba3f-7282-4c9d-a748-9098f505876a","sessionId":"ses_bridge","cwd":"@REPO@","timestamp":"2026-10-09T01:28:41.568Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"call-3","name":"Bash","input":{"command":"git commit -am 'add greeting helper'"}}]}}
+'''
+BRIDGE_VALIDATION_COMMAND = "python3 scripts/test-agent-hooks.py"
+
+
+def _bridge_transcript(directory: Path, repo: Path, *, validation: str | None) -> str:
+    """The captured bridge session, without its validation run when `validation` is None."""
+    entries = []
+    for line in BRIDGE_TRANSCRIPT.strip().replace("@REPO@", str(repo)).splitlines():
+        entry = json.loads(line)
+        content = entry["message"]["content"][0]
+        if content.get("id") == "call-2" or content.get("tool_use_id") == "call-2":
+            if validation is None:
+                continue
+            if content.get("type") == "tool_use":
+                content["input"]["command"] = validation
+        entries.append(entry)
+    return transcript(directory, *entries)
+
+
+def test_bridge_transcript_through_the_commit_gate(policy: Policy) -> None:
+    """require-validation-before-git reads a bridge transcript like a Claude Code one."""
+    if policy.validation_pattern is None:
+        SKIPPED.append("bridge transcript commit gate: policy.json sets no validation.commandPattern")
+        return
+    command = next(
+        (
+            candidate
+            for candidate in _validation_candidates(policy, policy.validation_hint or "")
+            if policy.validation_pattern.search(candidate)
+        ),
+        None,
+    )
+    assert command, "validation.hint names no command that validation.commandPattern matches"
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw)
+        repo = directory / "repo"
+        repo.mkdir()
+        _init_repo(repo)
+        (repo / "hello.py").write_text("def greet():\n    return 'hi'\n", encoding="utf-8")
+        subprocess.run(["git", "add", "hello.py"], cwd=repo, check=True)
+        payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"}, "cwd": str(repo)}
+        run_hook(
+            "require-validation-before-git.sh",
+            {**payload, "transcript_path": _bridge_transcript(directory, repo, validation=None)},
+            2,
+            "`git commit` is gated",
+            project_dir=repo,
+        )
+        run_hook(
+            "require-validation-before-git.sh",
+            {**payload, "transcript_path": _bridge_transcript(directory, repo, validation=command)},
+            0,
+            silent=True,
+            project_dir=repo,
+        )
+
+
+def test_bridge_transcript_through_the_commit_scope_judge() -> None:
+    """Probity hands the commit-scope rule the history a bridge transcript carries."""
+    local = ROOT / "node_modules" / ".bin" / "probity"
+    if not (shutil.which("probity") or os.access(local, os.X_OK)):
+        SKIPPED.append("bridge transcript commit scope: `probity` is not installed on this machine")
+        return
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw) / "repo"
+        scratch = Path(raw) / "scratch"
+        directory.mkdir()
+        scratch.mkdir()
+        _judged_repo(directory)
+        (directory / "hello.py").write_text("def greet():\n    return 'hi'\n", encoding="utf-8")
+        _git(directory, "add", "hello.py")
+        path = _bridge_transcript(scratch, directory, validation=BRIDGE_VALIDATION_COMMAND)
+        stdout, prompt = _judge(directory, "git commit -m 'add greeting helper'", path)
+        assert stdout == "", f"a single-file bridge session was refused:\n{stdout}"
+        assert prompt, "the judge was never consulted"
+        history = prompt.split("## Commit diff")[0]
+        assert "Add the greeting helper to hello.py" in history, history
+        assert "## Writes in this session" in history and "def greet()" in history, history
+        assert _diff_files(prompt) == ["hello.py"], prompt
+
+
+# --------------------------------------------------------------------------
 # Repository-specific cases — add yours below and register them in main()
 # --------------------------------------------------------------------------
 
@@ -1535,6 +1634,8 @@ def main() -> int:
     test_probity_commit_scope_judges_the_commit_diff()
     test_probity_commit_scope_filters_writes_to_files_in_the_commit()
     test_probity_commit_scope_judges_a_merge_by_its_resolution()
+    test_bridge_transcript_through_the_commit_gate(policy)
+    test_bridge_transcript_through_the_commit_scope_judge()
     test_settings_registers_every_hook()
 
     test_block_nix_realise()

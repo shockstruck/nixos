@@ -129,7 +129,6 @@
     ]
   },
   "env": {
-    "CLAUDE_CODE_DISABLE_CRON": "1",
-    "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
+    "CLAUDE_CODE_DISABLE_CRON": "1"
   }
 }
