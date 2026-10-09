@@ -42,7 +42,7 @@ fi
 if [[ -z "${PROBITY}" ]]; then
   echo "[probity] \`probity\` was not found on PATH or in ${PROJECT_DIR}/node_modules/.bin;" \
     "refusing to allow an unchecked action. Install it with" \
-    "\`npm install -g @nizos/probity@1.10.0\` on Node 22." >&2
+    "\`npm install -g @nizos/probity@1.10.1\` on Node 22." >&2
   exit 2
 fi
 
