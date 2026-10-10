@@ -16,9 +16,10 @@
 # opencode loads as config or instructions, so the agent cannot plant one
 # that disables itself. `disable = false` is pinned for the same reason.
 #
-# Everything sits on the named agent `multica-operator`, which Multica selects
-# with `--agent multica-operator`; nothing is top-level, because the managed
-# tier also applies to interactive opencode sessions.
+# Every rule sits on the named agent `multica-operator`, which Multica selects
+# with `--agent multica-operator`; no rule is top-level, because the managed
+# tier also applies to interactive opencode sessions. The guard plugin is
+# top-level and checks the agent itself.
 #
 # Rule order is load-bearing: opencode keeps the file's key order and the last
 # matching rule wins (permission/index.ts:28-37, `findLast`), with `*`
@@ -240,6 +241,11 @@ let
     "$schema" = "https://opencode.ai/config.json";
     share = "disabled";
     autoupdate = false;
+    # The one top-level entry: opencode has no per-agent plugins. The guard
+    # (./opencode-guard/guard.js) checks the operator's whole bash command
+    # string, which the bash patterns below cannot, and is inert for every
+    # other agent. A path plugin loads from the store with no install step.
+    plugin = [ "file://${./opencode-guard/guard.js}" ];
     agent.multica-operator = ordered [
       (lib.nameValuePair "mode" "primary")
       (lib.nameValuePair "disable" false)
