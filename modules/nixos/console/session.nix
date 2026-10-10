@@ -106,7 +106,9 @@
 { config, lib, pkgs, ... }:
 
 let
-  steamNotifDaemon = pkgs.callPackage ../../../packages/steam-notif-daemon.nix { };
+  steamNotifDaemon = pkgs.callPackage ../../../packages/steam-notif-daemon.nix {
+    steamRun = config.programs.steam.package.run;
+  };
 
   sessionSelect = pkgs.writeShellApplication {
     name = "steamos-session-select";

@@ -19,25 +19,34 @@
 # handler. Pin, source hash and `-Dsd-bus-provider=libsystemd` follow that
 # package; `libcurl` is only used for URL escaping.
 #
+# `steamRun`: the console module passes `config.programs.steam.package.run`
+# (the steam-run FHS env of the configured Steam). It defaults to null so the
+# flake's own `packages` output, which is evaluated without allowUnfree, does
+# not pull unfree Steam into evaluation; with it unset (the bare flake output
+# only) the handler resolves `steam-run` from PATH.
+#
 # Update path: bump `version` (the tag is `v${version}`) and re-hash `src`;
 # re-check `handler.patch` still applies against the new `main.c`.
-{
-  lib,
-  stdenv,
-  fetchFromGitHub,
-  replaceVars,
-  writeShellScript,
-  steam-run,
-  meson,
-  ninja,
-  pkg-config,
-  systemd,
-  curl,
+{ lib
+, stdenv
+, fetchFromGitHub
+, replaceVars
+, writeShellScript
+, meson
+, ninja
+, pkg-config
+, systemd
+, curl
+, steamRun ? null
 }:
-
 let
+  steamRunExe =
+    if steamRun == null
+    then "steam-run"
+    else lib.getExe' steamRun "steam-run";
+
   steamHandler = writeShellScript "steam-notif-daemon-handler" ''
-    exec ${steam-run}/bin/steam-run "$HOME/.steam/root/ubuntu12_32/steam" "$@"
+    exec ${steamRunExe} "$HOME/.steam/root/ubuntu12_32/steam" "$@"
   '';
 in
 stdenv.mkDerivation (finalAttrs: {
