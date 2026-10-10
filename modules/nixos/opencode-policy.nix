@@ -241,7 +241,7 @@ let
     "$schema" = "https://opencode.ai/config.json";
     share = "disabled";
     autoupdate = false;
-    # The one top-level entry: opencode has no per-agent plugins. The guard
+    # Top-level because opencode has no per-agent plugins. The guard
     # (./opencode-guard/guard.js) checks the operator's whole bash command
     # string, which the bash patterns below cannot, and is inert for every
     # other agent. A path plugin loads from the store with no install step.
