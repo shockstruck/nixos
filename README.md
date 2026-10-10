@@ -184,7 +184,9 @@ and CachyOS-inspired scheduling (`services.scx` with `scx_lavd`,
 upstream's release tarball and set as the default Proton for umu-launcher
 and OGI-launched games (via `PROTONPATH`), while remaining selectable as a
 Steam Play compatibility tool. It has its own, smaller Home Manager
-profile under `configurations/home/console/`.
+profile under `configurations/home/console/`. While in gaming mode,
+XDG notifications from non-Steam apps are forwarded into Steam's overlay by
+`steam_notif_daemon`.
 
 The physical power button suspends to RAM with the running game still in
 memory (SteamOS-style quick resume), holding it ~5s powers off; the

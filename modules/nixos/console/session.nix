@@ -91,9 +91,23 @@
 # `steam-gamescope` once: it reads that file to decide whether to start the
 # niri/Noctalia session or go back to gamescope, and only hands control
 # back to greetd when nothing asked for a switch.
+#
+# Notifications: steam_notif_daemon (packages/steam-notif-daemon.nix) is a
+# minimal org.freedesktop.Notifications server that forwards other
+# applications' XDG notifications into Steam's overlay via
+# `steam://open_xdg_notification/...` (Jovian-Experiments/steam_notif_daemon
+# v1.0.1 main.c); Steam draws its own toasts itself. SteamOS runs it from
+# steam-notif-daemon.service
+# (Jovian-Experiments/PKGBUILDs-mirror jupiter-main gamescope-3.16.29-1:
+# ExecStart=/usr/bin/steam_notif_daemon, Restart=no, TimeoutStopSec=5, bound
+# to graphical-session.target). That target is never reached in the gamescope
+# session here, so console-session starts and stops the unit around
+# steam-gamescope instead.
 { config, lib, pkgs, ... }:
 
 let
+  steamNotifDaemon = pkgs.callPackage ../../../packages/steam-notif-daemon.nix { };
+
   sessionSelect = pkgs.writeShellApplication {
     name = "steamos-session-select";
     runtimeInputs = [ pkgs.coreutils pkgs.procps ];
@@ -178,7 +192,14 @@ let
         # steam-tweaks model), applied while Steam is not running; defined
         # in ./launchers.nix.
         ${config.system.path}/bin/steam-tweaks || true
+        # steam_notif_daemon owns org.freedesktop.Notifications on the session
+        # bus for the length of the gamescope iteration only: in the desktop
+        # session Noctalia owns that name, so the daemon must not outlive
+        # steam-gamescope into a "Switch to Desktop". The unit has no
+        # wantedBy; a failure only costs forwarded notifications.
+        ${config.systemd.package}/bin/systemctl --user start steam-notif-daemon.service || true
         ${config.system.path}/bin/steam-gamescope || true
+        ${config.systemd.package}/bin/systemctl --user stop steam-notif-daemon.service || true
         echo "console-session: gamescope session ended"
 
         if [ -f "$state" ]; then
@@ -317,6 +338,17 @@ in
         };
       };
     };
+
+  # Started and stopped by console-session around steam-gamescope (see the
+  # loop above); deliberately no wantedBy.
+  systemd.user.services.steam-notif-daemon = {
+    description = "Forward XDG notifications into Steam's overlay";
+    serviceConfig = {
+      ExecStart = lib.getExe steamNotifDaemon;
+      Restart = "on-failure";
+      TimeoutStopSec = 5;
+    };
+  };
 
   # The desktop gets audio through its own gui module; the console has no gui
   # module, so it needs its own pipewire/rtkit stack.
