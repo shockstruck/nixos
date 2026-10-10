@@ -64,7 +64,10 @@ const LOCAL_COMMANDS = new Set([
 ])
 
 // Final labels that mark a file name or a systemd unit rather than a host.
-const LOCAL_SUFFIXES = new Set([
+// None may be a delegated TLD (`.sh`, `.target` and `.network` are), or a
+// host under it would pass: replay.mjs checks this list against the IANA
+// root zone list in ./tlds.txt.
+export const LOCAL_SUFFIXES = new Set([
   "automount",
   "bak",
   "bin",
@@ -85,29 +88,21 @@ const LOCAL_SUFFIXES = new Set([
   "json",
   "jsonc",
   "ko",
-  "link",
   "list",
   "lock",
   "log",
-  "md",
   "mount",
   "netdev",
-  "network",
   "nix",
   "old",
   "path",
-  "pid",
-  "py",
   "rules",
   "scope",
   "service",
-  "sh",
   "slice",
-  "so",
   "sock",
   "socket",
   "swap",
-  "target",
   "timer",
   "toml",
   "ts",
@@ -137,7 +132,11 @@ export function hostnameShaped(word) {
   let value = word
   if (value.startsWith("-")) {
     const eq = value.indexOf("=")
-    if (eq < 0) return false
+    if (eq < 0) {
+      // A bundled flag value: `-i@host`.
+      const at = value.lastIndexOf("@")
+      return at >= 0 && hostLike(value.slice(at + 1))
+    }
     value = value.slice(eq + 1)
   }
   if (hostLike(value)) return true
@@ -169,6 +168,17 @@ export function lex(command) {
   let i = 0
   while (i < s.length) {
     const c = s[i]
+    // An unquoted `#` starting a word begins a comment, inside which bash
+    // treats quotes as text; scanning it as code would let a quote opened in
+    // one comment and closed in another hide the lines in between.
+    if (c === "#" && word === null) {
+      findings.add("comment (#)")
+      const end = s.indexOf("\n", i)
+      if (end < 0) break
+      boundary()
+      i = end + 1
+      continue
+    }
     if (c === "\\") {
       if (i + 1 < s.length && s[i + 1] !== "\n") append(s[i + 1])
       i += 2

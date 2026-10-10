@@ -1,7 +1,8 @@
 // Replays command strings through the guard's own hooks and prints a
 // Markdown table; exits non-zero when any decision differs from the
 // expectation. Run with `node modules/nixos/opencode-guard/replay.mjs`.
-import guard from "./guard.js"
+import { readFileSync } from "node:fs"
+import guard, { LOCAL_SUFFIXES } from "./guard.js"
 
 const OPERATOR = "multica-operator"
 
@@ -34,6 +35,17 @@ const cases = [
   [OPERATOR, "ip route get example.{org,net}", "deny"],
   [OPERATOR, "ip route get ${H:-example.org}", "deny"],
   [OPERATOR, "cat 'unterminated", "deny"],
+  // A quote inside a comment is text to bash; the lines between must still be seen.
+  [OPERATOR, "ls # '\n> target\n#'", "deny"],
+  [OPERATOR, 'ls # "\n> f\n#"', "deny"],
+  [OPERATOR, "ls # '\n{ cat a; } > f\n#'", "deny"],
+  [OPERATOR, "ls # a note", "deny"],
+  // Quote-split flags the patterns cannot see, with hosts under TLDs that look like suffixes.
+  [OPERATOR, "ss 'd'st x.attacker.sh", "deny"],
+  [OPERATOR, "ss 'd'st x.attacker.network", "deny"],
+  [OPERATOR, "ss 'd'st x.attacker.com", "deny"],
+  [OPERATOR, "systemctl -'H' x.attacker.target status", "deny"],
+  [OPERATOR, "lsof -i@x.attacker.org", "deny"],
   // Quoted or escaped metacharacters are literal arguments.
   [OPERATOR, "grep '>' /etc/fstab", "allow"],
   [OPERATOR, "grep '$(x)' /etc/profile", "allow"],
@@ -41,6 +53,7 @@ const cases = [
   [OPERATOR, "grep \\> /etc/fstab", "allow"],
   // Ordinary operator diagnostics.
   [OPERATOR, "systemctl status multica-daemon.service", "allow"],
+  [OPERATOR, "systemctl list-units --type=target", "allow"],
   [OPERATOR, "systemctl status getty@tty1.service user@1000.service", "allow"],
   [OPERATOR, "journalctl -u nix-daemon.service -b -n 200 --no-pager", "allow"],
   [OPERATOR, "journalctl -b | grep -i amdgpu | tail -n 50", "allow"],
@@ -66,7 +79,7 @@ const decide = async (agent, command, session) => {
   }
 }
 
-const cell = (text) => "`" + text.replaceAll("|", "\\|").replaceAll("`", "ˋ") + "`"
+const cell = (text) => "`" + text.replaceAll("\n", "\\n").replaceAll("|", "\\|").replaceAll("`", "ˋ") + "`"
 let failures = 0
 console.log("| # | agent | command | expected | decision | reason |")
 console.log("|---|---|---|---|---|---|")
@@ -97,5 +110,18 @@ try {
 if (other !== "allow") failures++
 console.log(`| ${cases.length + 2} | ${OPERATOR} (read tool) | ${cell("/etc/x > y")} | allow | ${other} | not bash |`)
 
-console.log(`\n${cases.length + 2} cases, ${failures} mismatches`)
+// No local suffix may be a delegated TLD: ./tlds.txt is the IANA root zone
+// list (https://data.iana.org/TLD/tlds-alpha-by-domain.txt), checked in so
+// nothing is fetched here.
+const tlds = new Set(
+  readFileSync(new URL("./tlds.txt", import.meta.url), "utf8")
+    .split("\n")
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.trim().toLowerCase()),
+)
+const delegated = [...LOCAL_SUFFIXES].filter((suffix) => tlds.has(suffix))
+if (delegated.length) failures++
+console.log(`| ${cases.length + 3} | (suffix list) | ${cell(`${LOCAL_SUFFIXES.size} suffixes vs ${tlds.size} TLDs`)} | none delegated | ${delegated.length ? delegated.join(" ") : "none delegated"} | tlds.txt |`)
+
+console.log(`\n${cases.length + 3} cases, ${failures} mismatches`)
 process.exit(failures ? 1 : 0)
