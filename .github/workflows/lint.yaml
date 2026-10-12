@@ -4,10 +4,12 @@ name: Lint
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -15,6 +17,8 @@ permissions:
 jobs:
   agent-policy:
     name: agent-policy
+    # Every step reads the pull request's base and head; a push has neither.
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -65,3 +69,32 @@ jobs:
           else
             echo "no change under .claude/ or scripts/test-agent-hooks.py; skipped"
           fi
+
+  secret-scan-push:
+    name: secret-scan-push
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install validators
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          cache: false
+          version: 2026.10.6
+
+      - name: Scan pushed commits for secrets
+        if: github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: gitleaks git --redact --no-banner --log-opts="-m ${BEFORE_SHA}..${AFTER_SHA}" .
+
+      - name: Scan the current revision for secrets
+        if: github.event.before == '0000000000000000000000000000000000000000'
+        run: gitleaks dir --redact --no-banner .
