@@ -43,6 +43,13 @@
     # binds to graphical-session.target, which the niri session satisfies.
     noctalia.url = "github:noctalia-dev/noctalia-shell/v5.2.1";
     noctalia.inputs.nixpkgs.follows = "nixpkgs";
+
+    # CachyOS kernel for the console (modules/nixos/console/kernel.nix). The
+    # `release` branch only carries kernels its Hydra has already cached. No
+    # `nixpkgs.follows`: upstream forbids it (patches and kernel version can
+    # mismatch) and it would lose the binary cache.
+    nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
+    nix-cachyos-kernel.inputs.flake-parts.follows = "flake-parts";
   };
 
   # Wired using https://nixos-unified.org/guide/autowiring
