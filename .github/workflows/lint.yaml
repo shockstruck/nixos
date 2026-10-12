@@ -1,0 +1,67 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Lint
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  agent-policy:
+    name: agent-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Tool versions come from the repository's own .mise.toml.
+      - name: Install validators
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          cache: false
+          version: 2026.10.6
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Run zizmor
+        run: zizmor --offline .github/workflows/
+
+      - name: Run ShellCheck
+        run: shellcheck .claude/hooks/*.sh
+
+      - name: Scan pull request commits for secrets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gitleaks git --redact --no-banner --log-opts="-m ${BASE_SHA}..${HEAD_SHA}" .
+
+      - name: Scan pull request commit messages for attribution
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/check-agent-policy.py --commits "${BASE_SHA}..${HEAD_SHA}"
+
+      - name: Check agent policy
+        run: python3 scripts/check-agent-policy.py
+
+      - name: Test agent hooks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --name-only "${BASE_SHA}...${HEAD_SHA}" | grep -qE '^(\.claude/|scripts/test-agent-hooks\.py$)'; then
+            python3 scripts/test-agent-hooks.py
+          else
+            echo "no change under .claude/ or scripts/test-agent-hooks.py; skipped"
+          fi
