@@ -23,14 +23,16 @@ line applies), stdlib only:
   committed Multica reference takes, whether typed bare or as an argument to
   `multica issue`/`multica run`.
 - `.claude/settings.json` registers every template hook and carries no
-  `permissions.ask`.
+  `permissions.ask`. Each template hook's PreToolUse entry sets
+  `"onFailure": "block"`, and `probity.sh`'s also sets a positive `timeout`:
+  without them Claude Code lets the tool call through when the hook crashes or
+  times out.
 - `AGENTS.md` exists and still carries every section name
   `AGENTS.md.skeleton`'s first section lists as arriving from
   `agents/shared/conduct.md` in agent-platform.
 
 With `--commits <revision-range>`, also scans the commit messages in that
-`git log` range (`base..head`, the same shape `gitleaks` takes in
-`.github/workflows/agent-policy.yaml`) for the attribution patterns
+`git log` range (`base..head`, the same shape `gitleaks` takes) for the attribution patterns
 `.claude/hooks/lib/attribution.py` defines -- the CI backstop for a commit
 that reached the repository without going through `block-attribution.sh` at
 all, such as a human push or a tool that does not run hooks. The owner domain
@@ -76,6 +78,9 @@ REQUIRED_HOOKS = (
     "require-validation-before-git.sh",
 )
 
+# The one hook that waits on a model, so the one whose latency is sized.
+PROBITY_HOOK = "probity.sh"
+
 # The section names `AGENTS.md.skeleton`'s first section lists as arriving
 # from `agents/shared/conduct.md`. Kept in step with that file by
 # agent-platform's own `scripts/tests/test_repo_policy_template.py`; this
@@ -87,6 +92,7 @@ REQUIRED_CONDUCT_SECTIONS = (
     "When a hook refuses you",
     "Reading a large tool response",
     "Validated work ships without a person",
+    "Use Jev wherever it is good",
 )
 
 # `.claude/` and `AGENTS.md` are what the task names; this script's own
@@ -188,12 +194,37 @@ def check_settings(report: Report) -> None:
     missing = [name for name in REQUIRED_HOOKS if name not in registered]
     if missing:
         report.add(relative, None, f"does not register {', '.join(missing)}")
+    for problem in fail_open_entries(settings):
+        report.add(relative, None, problem)
     if "ask" in (settings.get("permissions") or {}):
         report.add(
             relative,
             None,
             "carries permissions.ask; no gate may wait for a person in an unattended run",
         )
+
+
+def fail_open_entries(settings: dict) -> list[str]:
+    """Template hook entries Claude Code would let through on a crash or timeout."""
+    problems = []
+    pre_tool_use = (settings.get("hooks") or {}).get("PreToolUse")
+    for matcher in pre_tool_use if isinstance(pre_tool_use, list) else []:
+        if not isinstance(matcher, dict):
+            continue
+        for entry in matcher.get("hooks") or []:
+            if not isinstance(entry, dict) or not isinstance(entry.get("command"), str):
+                continue
+            name = Path(entry["command"].strip('"')).name
+            if name not in REQUIRED_HOOKS:
+                continue
+            if entry.get("onFailure") != "block":
+                problems.append(f'registers {name} without "onFailure": "block"')
+            timeout = entry.get("timeout")
+            if name == PROBITY_HOOK and (
+                isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0
+            ):
+                problems.append(f"registers {name} without a positive `timeout`")
+    return problems
 
 
 def check_agents_md(report: Report) -> None:

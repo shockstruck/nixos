@@ -18,6 +18,7 @@ instructions and carries exactly these sections:
 - When a hook refuses you
 - Reading a large tool response
 - Validated work ships without a person
+- Use Jev wherever it is good
 
 The agent's own instructions carry the rest — evidence, secret handling and
 writing style. Those are deliberately worded per domain rather than shared, so

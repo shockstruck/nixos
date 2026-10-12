@@ -269,7 +269,10 @@ if commit_invocations or any(
 ):
     violation = find_violation(cmd, owner_pattern, blocked_pattern)
     if violation:
-        deny(f"attribution line in the command text: `{violation}`")
+        deny(
+            f"attribution line in the command text: `{violation}`. Drop that trailer or line "
+            "from the message and re-run the same command without it."
+        )
 elif gh_invocations or gh_merge_invocations:
     sys.exit(0)
 
@@ -287,11 +290,15 @@ for invocation in commit_invocations:
         if content is None:
             deny(
                 f"`{message_path}` named by `-F`/`--file` could not be read; refusing to skip "
-                "the attribution check"
+                "the attribution check. Write the message file in its own call first, then "
+                "re-run the commit naming it by an absolute path."
             )
         violation = find_violation(content, owner_pattern, blocked_pattern)
         if violation:
-            deny(f"attribution line in `{message_path}`: `{violation}`")
+            deny(
+                f"attribution line in `{message_path}`: `{violation}`. Delete that trailer or "
+                "line from the file, then re-run the same commit."
+            )
 
 directory = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or "."
 for args in (*gh_invocations, *gh_merge_invocations):
@@ -306,11 +313,15 @@ for args in (*gh_invocations, *gh_merge_invocations):
         if content is None:
             deny(
                 f"`{body_path}` named by `--body-file` could not be read; refusing to skip the "
-                "attribution check"
+                "attribution check. Write the body file in its own call first, then re-run the "
+                "command naming it by an absolute path."
             )
         violation = find_violation(content, owner_pattern, blocked_pattern)
         if violation:
-            deny(f"attribution line in `{body_path}`: `{violation}`")
+            deny(
+                f"attribution line in `{body_path}`: `{violation}`. Delete that trailer or line "
+                "from the file, then re-run the same command."
+            )
 
 sys.exit(0)
 PYEOF

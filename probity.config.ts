@@ -129,6 +129,14 @@ Judge only what the inputs show. Do not speculate about files you were not given
 
 type Verdict = { kind: 'pass' | 'violation'; reason: string }
 
+// Every refusal ends on the step that is allowed, so the agent can carry on.
+const SPLIT_COMMIT =
+  'Allowed next step: unstage what does not serve the asked-for outcome ' +
+  '(`git restore --staged <path>`), commit the rest, then commit the remainder separately.'
+const RETRY_OR_REPORT =
+  'Allowed next step: re-run the same commit once; if it is refused again, report this ' +
+  'refusal on the issue as a finding and leave the change uncommitted.'
+
 function truncate(text: string, limit = MAX_CONTENT_CHARS): string {
   if (text.length <= limit) return text
   return `${text.slice(0, limit)}\n… (${text.length - limit} more characters)`
@@ -296,7 +304,7 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
   if (!ctx?.agent) {
     return {
       kind: 'violation',
-      reason: 'commit scope: no AI validator available to judge this commit',
+      reason: `commit scope: no AI validator available to judge this commit. ${RETRY_OR_REPORT}`,
     }
   }
 
@@ -305,7 +313,8 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
     return {
       kind: 'violation',
       reason:
-        'commit scope: the session transcript could not be read, so the commit scope cannot be judged',
+        'commit scope: the session transcript could not be read, so the commit scope cannot be ' +
+        `judged. ${RETRY_OR_REPORT}`,
     }
   }
 
@@ -364,7 +373,7 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
 
   const verdict: Verdict = await ctx.agent.reason(prompt)
   if (verdict.kind === 'violation') {
-    return { kind: 'violation', reason: `commit scope: ${verdict.reason}` }
+    return { kind: 'violation', reason: `commit scope: ${verdict.reason} ${SPLIT_COMMIT}` }
   }
   return { kind: 'pass' }
 }
