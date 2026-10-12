@@ -428,6 +428,7 @@ def test_block_attribution() -> None:
         bash('git commit -m "x" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"'),
         2,
         "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "Drop that trailer or line from the message and re-run the same command without it.",
     )
     run_hook(
         "block-attribution.sh",
@@ -520,6 +521,20 @@ def test_block_attribution() -> None:
             },
             2,
             "Generated",
+            "Delete that trailer or line from the file, then re-run the same commit.",
+        )
+
+        run_hook(
+            "block-attribution.sh",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "git commit -F absent.txt"},
+                "cwd": str(directory),
+            },
+            2,
+            "`absent.txt` named by `-F`/`--file` could not be read",
+            "Write the message file in its own call first, then re-run the commit naming it by "
+            "an absolute path.",
         )
 
         body = directory / "body.txt"
@@ -533,6 +548,20 @@ def test_block_attribution() -> None:
             },
             2,
             "Signed-off-by: Resolver",
+            "Delete that trailer or line from the file, then re-run the same command.",
+        )
+
+        run_hook(
+            "block-attribution.sh",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "gh pr create --title t --body-file absent.md"},
+                "cwd": str(directory),
+            },
+            2,
+            "`absent.md` named by `--body-file` could not be read",
+            "Write the body file in its own call first, then re-run the command naming it by an "
+            "absolute path.",
         )
 
     with tempfile.TemporaryDirectory() as raw:
@@ -1221,7 +1250,17 @@ def test_probity_commit_scope_judges_the_commit_diff() -> None:
         reason = _denial(stdout)
         assert reason.startswith("Probity: commit scope:"), reason
         assert ".trivyignore.yaml" in reason and "apps/fstrim/Dockerfile" in reason, reason
+        assert "Allowed next step: unstage what does not serve the asked-for outcome" in reason, (
+            f"a scope refusal must name the allowed next step:\n{reason}"
+        )
         assert _diff_files(prompt) == [".trivyignore.yaml", "apps/fstrim/Dockerfile"], prompt
+
+        # A transcript that cannot be read is a refusal that still names the
+        # allowed next step.
+        stdout, _ = _judge(directory, commit, str(scratch / "absent.jsonl"))
+        reason = _denial(stdout)
+        assert "the session transcript could not be read" in reason, reason
+        assert "Allowed next step: re-run the same commit once" in reason, reason
 
         # A change left unstaged is not in a plain `git commit`, but `-a`
         # stages every tracked change at commit time, so the diff follows
@@ -1443,6 +1482,21 @@ def test_settings_registers_every_hook() -> None:
     }
     missing = required - registered
     assert not missing, f".claude/settings.json does not register: {sorted(missing)}"
+    # Claude Code lets the tool call through when a hook crashes or times out,
+    # unless the entry says otherwise.
+    for matcher in settings["hooks"]["PreToolUse"]:
+        for entry in matcher["hooks"]:
+            name = Path(entry["command"].strip('"')).name
+            if name not in required:
+                continue
+            assert entry.get("onFailure") == "block", (
+                f'{name} is registered without "onFailure": "block"'
+            )
+            if name == "probity.sh":
+                timeout = entry.get("timeout")
+                assert isinstance(timeout, (int, float)) and timeout > 0, (
+                    "probity.sh waits on a model and needs an explicit `timeout`"
+                )
     # No gate may wait for a person: an `ask` rule stalls an unattended run.
     assert "ask" not in settings.get("permissions", {}), (
         "permissions.ask stalls an unattended agent run; every gate must allow or deny on "
