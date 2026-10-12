@@ -6,6 +6,7 @@
 {
   imports = [
     ./session.nix
+    ./kernel.nix
     ./performance.nix
     ./input.nix
     ./launchers.nix
