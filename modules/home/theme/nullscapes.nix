@@ -13,7 +13,7 @@
 #
 # Consumers:
 #   - modules/home/noctalia.nix   (active custom palette)
-#   - modules/home/niri.nix       (focus ring, tab indicator, shadow, overview)
+#   - modules/home/hyprland.nix   (border and background colors)
 #   - modules/home/kitty.nix      (terminal palette)
 #   - modules/home/fastfetch.nix  (noctalia fastfetch theme colors)
 #

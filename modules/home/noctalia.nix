@@ -4,14 +4,16 @@
 # Noctalia is a single Quickshell/QML shell layer that owns the common desktop
 # surfaces (bar, launcher, control center, notifications, OSD, wallpaper). It is
 # started as a systemd user service bound to `config.wayland.systemd.target`
-# (defaults to graphical-session.target). The niri session (niri-session ->
-# niri.service, which binds graphical-session.target) satisfies it, so niri
-# launches Noctalia — no compositor spawn-at-startup entry is required, so the
-# shell is not double-launched.
+# (defaults to graphical-session.target). The Hyprland session
+# (`wayland.windowManager.hyprland.systemd.enable`, modules/home/hyprland.nix)
+# satisfies graphical-session.target, so Hyprland launches Noctalia — no
+# compositor exec-once entry is required (this mirrors how DMS was started via
+# systemd, so the shell is not double-launched).
 #
-# Idle behaviours are Noctalia's own and are switched on by
-# modules/home/idle.nix, which the console profile does not import; this
-# module leaves them at Noctalia's default (off).
+# Idle is delegated to stasis (modules/home/idle.nix), which runs
+# Noctalia's shell-native lock screen via `noctalia msg session lock`; this
+# module leaves Noctalia's own idle behaviours at their default (off), so the
+# two idle managers do not fight. The console profile does not import it.
 #
 # Theming is Nullscapes (theme/nullscapes.nix, ported from
 # triplespike/Spike-dotfiles): its palette is exported as a Noctalia custom
@@ -76,14 +78,14 @@ in
     programs.noctalia = {
       enable = true;
 
-      # systemd user service on graphical-session.target (the niri session
-      # satisfies it), so Noctalia autostarts under niri.
+      # systemd user service on graphical-session.target (the Hyprland session
+      # satisfies it), so Noctalia autostarts under Hyprland.
       systemd.enable = true;
 
       # The pinned flake's own build (what homeModules.default defaults
       # `package` to) plus the Nullscapes bar patch from Spike-dotfiles: the
-      # bar's compositor blur region (ext-background-effect-v1, which niri
-      # implements) covers only the painted capsule backgrounds instead of the
+      # bar's compositor blur region (ext-background-effect-v1) covers only the
+      # painted capsule backgrounds instead of the
       # whole bar strip, so the fully transparent bar below shows sharp
       # wallpaper between blurred glass capsules. Patching means Noctalia is
       # built from source rather than substituted.
@@ -106,9 +108,9 @@ in
           time_format = "{:%I:%M %p}"; # 12-hour clock (DMS clockFormat = "12h")
           date_format = "%a, %m/%d"; # DMS clockDateFormat = "ddd, MM/dd"
 
-          # my-linux-hp port (SHOA-1058) — shell additions; niri_overview_*
-          # and app_icon_color are not ported (source icon color kept
-          # default). corner_radius_scale is Nullscapes'.
+          # my-linux-hp port (SHOA-1058) — shell additions; the source's
+          # overview-layer keys and app_icon_color are not ported (source icon
+          # color kept default). corner_radius_scale is Nullscapes'.
           corner_radius_scale = 0.88;
           password_style = "random";
           polkit_agent = true;
@@ -160,13 +162,14 @@ in
           custom_palette = "Nullscapes";
         };
 
-        # Locking is Noctalia-native: its idle behaviours
-        # (modules/home/idle.nix) and the niri SUPER+L bind run the lock
-        # screen, which authenticates via the always-present `login` PAM
-        # service and is idempotent while a lock is active.
-        # lock_before_suspend (Noctalia's default, pinned here) holds a logind
-        # delay inhibitor on every route into sleep until the lock surface is
-        # up.
+        # Locking is Noctalia-native, driven by stasis
+        # (modules/home/idle.nix) and the Hyprland SUPER+L bind: `noctalia msg
+        # session lock` authenticates via the always-present `login` PAM service
+        # and is idempotent while a lock is active. Noctalia's own idle
+        # behaviours default to disabled, so stasis remains the single idle
+        # manager. lock_before_suspend (Noctalia's default, pinned here) holds a
+        # logind delay inhibitor on every route into sleep until the lock
+        # surface is up.
         lockscreen = {
           enabled = true;
           lock_before_suspend = true;
