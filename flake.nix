@@ -15,16 +15,14 @@
     nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
     nixos-unified.url = "github:srid/nixos-unified";
 
-    # Compositor: niri is the Wayland compositor. It is enabled at the system
-    # layer via the built-in nixpkgs `programs.niri` module
-    # (modules/nixos/gui/niri.nix) and configured for Home Manager via the
-    # built-in `wayland.windowManager.niri` module (modules/home/niri.nix) —
-    # neither needs a dedicated flake input. Idle is Noctalia's own idle
-    # manager (modules/home/idle.nix); no flake input is needed for it.
+    # Compositor: Hyprland is the Wayland compositor (SHOA-1037, reverting the
+    # compositor swap SHOA-997). It is enabled at the system layer via the built-in
+    # nixpkgs `programs.hyprland` module (modules/nixos/gui/hyprland.nix) and
+    # configured for Home Manager via the built-in `wayland.windowManager.hyprland`
+    # module (modules/home/hyprland.nix) — neither needs a dedicated flake input.
 
-    # stasis: no longer consumed by any module (idle is Noctalia's,
-    # modules/home/idle.nix). The input stays declared until `flake.lock` is
-    # regenerated on a workstation.
+    # stasis: the idle manager, consumed by modules/home/idle.nix via its Home
+    # Manager module (`flake.inputs.stasis.homeModules.default`).
     stasis.url = "github:saltnpepper97/stasis/v1.6.3";
     stasis.inputs.nixpkgs.follows = "nixpkgs";
     stasis.inputs.flake-parts.follows = "flake-parts";
@@ -40,7 +38,7 @@
     # replacing DankMaterialShell (SHOA-1004 / parent SHOA-997 C1). Its
     # `homeModules.default` provides the `programs.noctalia` Home-Manager
     # interface consumed by modules/home/noctalia.nix; the systemd user service
-    # binds to graphical-session.target, which the niri session satisfies.
+    # binds to graphical-session.target, which the Hyprland session satisfies.
     noctalia.url = "github:noctalia-dev/noctalia-shell/v5.2.1";
     noctalia.inputs.nixpkgs.follows = "nixpkgs";
 
