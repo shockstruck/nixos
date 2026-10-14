@@ -188,7 +188,14 @@ let
   # Secret paths also in every other user's home.
   secretPaths = p: homePaths p ++ [ "/home/*/${p}" "home/*/${p}" "/root/${p}" "root/${p}" ];
 
-  workspaceRoots = homePaths "multica_workspaces/**";
+  # The task workspace lives under the running user's home: the `multica`
+  # system user's home above, or, when the daemon runs as an ordinary user
+  # (e.g. `kevin`), `/home/<user>/multica_workspaces`. The latter is matched in
+  # both its absolute and its `/`-relative form, as the secret paths are.
+  workspaceRoots = homePaths "multica_workspaces/**" ++ [
+    "/home/*/multica_workspaces/**"
+    "home/*/multica_workspaces/**"
+  ];
 
   # Kevin's game library, bound read-only into the daemon's view (./multica.nix).
   gamesDir = "${config.users.users.kevin.home}/UGI_Games";
@@ -196,6 +203,7 @@ let
 
   systemPaths = [
     "/etc/**"
+    "/run/booted-system/**"
     "/run/current-system/**"
     "/nix/**"
     "/var/log/**"
