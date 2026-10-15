@@ -176,8 +176,8 @@ jobs:
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_conf: |
-            extra-substituters = https://cache.nixos-cuda.org https://attic.xuyh0120.win/lantian
-            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=
+            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz
+            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=
             sandbox = true
             sandbox-fallback = false
 
@@ -288,8 +288,8 @@ jobs:
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_conf: |
-            extra-substituters = https://cache.nixos-cuda.org https://attic.xuyh0120.win/lantian
-            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=
+            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz
+            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=
 
       - name: Build changed packages
         env:
