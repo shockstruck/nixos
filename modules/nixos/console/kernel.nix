@@ -1,6 +1,7 @@
 # CachyOS kernel for the console. nixpkgs has no CachyOS kernel, so it comes
 # from the nix-cachyos-kernel flake's `release` branch, which only carries
-# kernels its Hydra has already built into the lantian binary cache.
+# kernels its Hydra has already built into the lantian binary cache. Those
+# builds are substituted from the cache.xinux.uz mirror of that cache.
 { flake, ... }:
 
 {
@@ -10,7 +11,7 @@
   # Takes effect only after the first activation that contains it; that first
   # switch passes the same two values with --option.
   nix.settings = {
-    extra-substituters = [ "https://attic.xuyh0120.win/lantian" ];
-    extra-trusted-public-keys = [ "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" ];
+    extra-substituters = [ "https://cache.xinux.uz" ];
+    extra-trusted-public-keys = [ "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=" ];
   };
 }
