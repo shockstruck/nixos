@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `23eb53d` (2026-10-14). This doc is not
+Captured against `origin/main` @ `7c85f63` (2026-10-15). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -54,6 +54,14 @@ files by path, and supplies its own `graphics.nix` (no ROCm OpenCL/Ollama;
 | desktop | `configurations/nixos/desktop/default.nix` | `desktop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
 | laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
 | console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
+
+`configurations/nixos/desktop/hardware.nix` (so desktop and console, not
+laptop) prepends `hardware.firmware` with a local `runCommand` package of the
+five Navi 31 GC 11.0.0 blobs (`amdgpu/gc_11_0_0_{me,mec,mes1,mes_2,pfp}.bin`),
+each a hash-pinned `fetchurl` from linux-firmware commit `9a7c283f` (AMD's
+revert of the 2026-08/09 GC 11.0.0 updates), shadowing nixpkgs'
+linux-firmware 20260916 copies of those files only; to be dropped once
+nixpkgs ships a newer linux-firmware tag.
 
 `configurations/home/kevin.nix` defines the shared home configuration (`me =
 { username = "kevin"; … }`, imports `self.homeModules.default`,
