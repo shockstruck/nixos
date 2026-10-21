@@ -67,6 +67,14 @@ in
     services.stasis = {
       enable = true;
 
+      # The upstream package with one test skipped: it drives a real process and
+      # times out inside the Nix build sandbox; the rest of the suite still runs.
+      package = flake.inputs.stasis.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+        checkFlags = (old.checkFlags or [ ]) ++ [
+          "--skip=services::games::tests::live_extra_game_service_blacklists_removes_and_disables_a_real_process"
+        ];
+      });
+
       # RUNE configuration (written to ~/.config/stasis/stasis.rune). Absolute
       # store paths are used for every command so the service PATH is irrelevant.
       extraConfig = ''
@@ -89,6 +97,11 @@ in
 
           # Keep the absolute timings exact (no per-step debounce offset).
           debounce_seconds 0
+
+          # Keep the idle plan running with the lid closed (laptop docked to an
+          # external display); physical input still resets it. Stasis's default
+          # pauses the plan on lid close. Ignored by stasis before v1.7.0.
+          pause_on_lid_close false
 
           # Lock before sleep (lid close, `systemctl suspend`, or the suspend
           # step below), mirroring hypridle's before-sleep handling.
