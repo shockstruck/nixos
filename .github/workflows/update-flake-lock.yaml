@@ -98,6 +98,18 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
+      # Shows how a branch-tracking github: input resolves on this runner, so a
+      # lock entry that stops advancing tells us whether Nix itself returns the
+      # stale rev or the update step below holds it. Informational only: it
+      # never fails the job, and the grep keeps only resolution and cache lines.
+      - name: Show branch input resolution
+        continue-on-error: true
+        run: |
+          nix --debug flake metadata --json \
+            github:xddxdd/nix-cachyos-kernel/release >meta.json 2>debug.log || true
+          grep -iE 'HEAD revision|cache entry|commits/release|flakehub' debug.log || true
+          jq -r '"resolved rev: \(.locked.rev // "none")"' meta.json || true
+
       - name: Update flake.lock
         id: update
         uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
