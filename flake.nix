@@ -23,7 +23,7 @@
 
     # stasis: the idle manager, consumed by modules/home/idle.nix via its Home
     # Manager module (`flake.inputs.stasis.homeModules.default`).
-    stasis.url = "github:saltnpepper97/stasis/v1.6.3";
+    stasis.url = "github:saltnpepper97/stasis/v1.7.0";
     stasis.inputs.nixpkgs.follows = "nixpkgs";
     stasis.inputs.flake-parts.follows = "flake-parts";
 
