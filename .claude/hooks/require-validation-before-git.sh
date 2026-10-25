@@ -17,7 +17,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[require-validation-before-git] hook library is missing; refusing to allow the command" >&2
+  echo "[require-validation-before-git] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -184,7 +184,7 @@ def path_indexed(directory: str, path: Path) -> bool:
 try:
     policy = load()
 except PolicyError as exc:
-    deny(f"{exc}; refusing to skip the validation gate")
+    deny(f"{exc}; refusing to skip the validation gate. Allowed next step: report the policy load failure for reviewed repair and continue independent work; do not narrow policy slots.")
 
 VALIDATION_COMMAND = policy.validation_pattern
 VALIDATION_HINT = policy.validation_hint.strip() or "this repository's validation commands"
@@ -192,14 +192,14 @@ VALIDATION_HINT = policy.validation_hint.strip() or "this repository's validatio
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the validation gate")
+    deny("hook input was not valid JSON; refusing to skip the validation gate. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the validation gate")
+    deny("hook tool_input was not an object; refusing to skip the validation gate. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -243,8 +243,10 @@ try:
 except TranscriptError as exc:
     deny(
         f"{exc}. Without the session history this hook cannot show that {missing} preceded "
-        f"`git {sorted(gates)[0]}`; run {VALIDATION_HINT} and retry in a session with a readable "
-        "transcript."
+        f"`git {sorted(gates)[0]}`. Allowed next step: restore a readable session transcript, "
+        f"run {VALIDATION_HINT} for a commit and `git fetch origin` before a mainline push, "
+        "then retry only the operation your role permits; report a harness failure and continue "
+        "independent work if the transcript remains unavailable."
     )
 
 # The pending call is already in the transcript. Drop its last occurrence so the
@@ -329,7 +331,8 @@ if "commit" in gates:
         written = uses[write_at].input.get("file_path") or uses[write_at].input.get("notebook_path")
         deny(
             f"`git commit` is gated: `{written}` was written after the last validation run in this "
-            f"session. Run {VALIDATION_HINT} for the changed surface, then commit."
+            f"session. Allowed next step: run {VALIDATION_HINT} for the changed surface, fix any "
+            "failures, then commit."
         )
 
 if "push" in gates:
@@ -337,8 +340,10 @@ if "push" in gates:
     if last_index(uses, lambda use: runs_git(use, "fetch", "pull"), max(push_at, 0)) < 0:
         since = "since the last `git push`" if push_at >= 0 else "in this session"
         deny(
-            f"`git push` is gated: no `git fetch` or `git pull` {since}. Fetch the default branch, "
-            "integrate without force, rerun affected validation if the base moved, then push."
+            f"`git push` is gated: no `git fetch` or `git pull` {since}. Allowed next step: fetch "
+            "the default branch, integrate without force and rerun affected validation if the "
+            "base moved; publish through your permitted pull-request flow, never a prohibited "
+            "direct mainline push."
         )
 
 sys.exit(0)
@@ -346,7 +351,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[require-validation-before-git] internal hook failure; refusing to allow the command" >&2
+  echo "[require-validation-before-git] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

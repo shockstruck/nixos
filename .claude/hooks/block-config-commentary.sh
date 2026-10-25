@@ -15,7 +15,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-config-commentary BLOCK] hook library is missing; refusing to allow the write" >&2
+  echo "[block-config-commentary BLOCK] hook library is missing; refusing to allow the write. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -67,16 +67,16 @@ def deny(message: str) -> None:
 try:
     policy = load()
 except PolicyError as exc:
-    deny(f"{exc}; refusing to skip the commentary check")
+    deny(f"{exc}; refusing to skip the commentary check. Allowed next step: report the policy load failure for reviewed repair and continue independent work; do not narrow policy slots.")
 
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the commentary check")
+    deny("hook input was not valid JSON; refusing to skip the commentary check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the commentary check")
+    deny("hook tool_input was not an object; refusing to skip the commentary check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 
 raw_path = tool_input.get("file_path") or ""
 if not isinstance(raw_path, str) or not raw_path:
@@ -100,7 +100,7 @@ try:
 except FileNotFoundError:
     existing = ""
 except (OSError, UnicodeError) as exc:
-    deny(f"cannot read {relative} to compare the proposed edit: {exc}")
+    deny(f"cannot read {relative} to compare the proposed edit: {exc}. Allowed next step: verify the path and readable UTF-8 source without changing permissions; report an access or encoding gap and continue independent work if it cannot be read.")
 
 tool_name = payload.get("tool_name") or ""
 if tool_name == "Write":
@@ -115,12 +115,12 @@ elif tool_name == "Edit":
             else existing.replace(old, new, 1)
         )
     else:
-        deny(f"cannot reconstruct the proposed edit for {relative}; use a full, reviewable edit")
+        deny(f"cannot reconstruct the proposed edit for {relative}. Allowed next step: read the current file and submit an Edit anchored to its actual text, preserving existing work.")
 else:
-    deny(f"unsupported tool `{tool_name}` for the commentary check")
+    deny(f"unsupported tool `{tool_name}` for the commentary check. Allowed next step: submit a reviewable Write or Edit payload with text content, subject to the same commentary rules.")
 
 if not isinstance(candidate, str):
-    deny("proposed file content was not text")
+    deny("proposed file content was not text. Allowed next step: submit the proposed content as a text string, preserving existing work.")
 
 found = violations(relative, existing, candidate, policy, indexed=indexed)
 if found:
@@ -128,13 +128,13 @@ if found:
         sys.stderr.write(f"[block-config-commentary BLOCK] {relative}: {violation}\n")
     if len(found) > 20:
         sys.stderr.write(
-            f"[block-config-commentary BLOCK] {relative}: and {len(found) - 20} more\n"
+            f"[block-config-commentary BLOCK] {relative}: and {len(found) - 20} more. Allowed next step: remove the added rationale comments and task identifiers throughout the proposed edit.\n"
         )
     guidance = policy.comment_guidance.strip() or DEFAULT_GUIDANCE
     allowed = ", ".join(f"`# {prefix}`" for prefix in policy.comment_directives)
     if allowed:
         guidance = f"{guidance} Only the {allowed} directives may be added here."
-    sys.stderr.write(f"[block-config-commentary BLOCK] {guidance}\n")
+    sys.stderr.write(f"[block-config-commentary BLOCK] {guidance} Allowed next step: remove added rationale comments and task identifiers from the proposed content; put change context in the pull request, without narrowing policy slots.\n")
     sys.exit(2)
 
 sys.exit(0)
@@ -142,7 +142,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-config-commentary BLOCK] internal hook failure; refusing to allow the write" >&2
+  echo "[block-config-commentary BLOCK] internal hook failure; refusing to allow the write. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

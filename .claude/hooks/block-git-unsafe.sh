@@ -12,7 +12,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-git-unsafe] hook library is missing; refusing to allow the command" >&2
+  echo "[block-git-unsafe] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -72,14 +72,14 @@ def worktree_clean(directory: str) -> bool:
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the Git safety check")
+    deny("hook input was not valid JSON; refusing to skip the Git safety check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the Git safety check")
+    deny("hook tool_input was not an object; refusing to skip the Git safety check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -111,7 +111,7 @@ def check(name: str, arguments: list[str]) -> None:
         )
         if "--no-verify" in longs or "n" in flags:
             deny(
-                "`git commit --no-verify` bypasses the pre-commit gate. Fix what the hook "
+                "`git commit --no-verify` bypasses the pre-commit gate. Allowed next step: fix what the hook "
                 "reports instead of skipping it."
             )
         return
@@ -124,24 +124,27 @@ def check(name: str, arguments: list[str]) -> None:
         )
         if "--force" in longs or "--force-with-lease" in longs or "f" in flags:
             deny(
-                "force-pushing rewrites published history. Fetch the default branch, integrate "
+                "force-pushing rewrites published history. Allowed next step: fetch the default branch, integrate "
                 "without force, then push."
             )
         if "--mirror" in longs:
             deny(
                 "`git push --mirror` replaces every ref on the remote with this checkout's set, "
-                "deleting the ones it does not have. Push the branch you mean, by name."
+                "deleting the ones it does not have. Allowed next step: push only your assigned "
+                "topic branch by name through the pull-request flow."
             )
         if "--delete" in longs or "d" in flags:
             deny(
                 "`git push --delete` removes a branch or tag from the remote, and with it the "
-                "review history that points at it. Ask the repository owner before deleting a "
-                "published ref."
+                "review history that points at it. Allowed next step: no agent route exists here "
+                "for deleting a published ref; report the unmet need and continue independent work."
             )
         if any(operand.startswith(":") for operand in operands):
             deny(
-                "an empty-source refspec (`:ref`) deletes that ref on the remote. Name the source "
-                "and destination explicitly, as in `HEAD:main`."
+                "an empty-source refspec (`:ref`) deletes that ref on the remote. Allowed next step: "
+                "publish your assigned topic branch with an explicit nonempty source and destination "
+                "through the pull-request flow; if deletion is the goal, report no agent route "
+                "and continue independent work."
             )
         return
 
@@ -150,7 +153,9 @@ def check(name: str, arguments: list[str]) -> None:
         if "f" in flags or "--force" in longs:
             deny(
                 "`git clean -f` deletes untracked files outright, including work this session has "
-                "not committed. List them with `git clean -n`, then remove the specific paths."
+                "not committed. Allowed next step: inspect with `git clean -n`; remove only "
+                "specific paths you own and are explicitly authorised to remove, otherwise report "
+                "the cleanup need and continue independent work."
             )
         return
 
@@ -160,7 +165,9 @@ def check(name: str, arguments: list[str]) -> None:
         if action == "remove" and ("f" in flags or "--force" in longs):
             deny(
                 "`git worktree remove --force` discards a worktree that still holds uncommitted "
-                "changes, and another session may own it. Commit or move that work first."
+                "changes, and another session may own it. Allowed next step: inspect ownership "
+                "and preserve your work with a commit and push; use non-forced removal only when "
+                "authorised and clean, otherwise report the retained worktree."
             )
         return
 
@@ -169,14 +176,16 @@ def check(name: str, arguments: list[str]) -> None:
         if "d" in flags or "--delete" in longs:
             deny(
                 "`git update-ref -d` deletes a ref with no reflog entry to recover it from. "
-                "Delete a branch with `git branch -d`, which leaves one."
+                "Allowed next step: retain the ref and continue independent work; report a "
+                "required deletion for the repository owner, as no agent route is provided here."
             )
         return
 
     if name in ("filter-branch", "filter-repo"):
         deny(
             f"`git {name}` rewrites every commit in the history and breaks every published ref "
-            "and review link. Never force-push or rewrite published history."
+            "and review link. Allowed next step: make a forward fix in a new commit and reviewed "
+            "pull request; no agent route exists here for rewriting published history."
         )
 
     if name == "reset":
@@ -186,8 +195,9 @@ def check(name: str, arguments: list[str]) -> None:
             directory = resolve_directory(payload.get("cwd"), directory_hint)
             if not worktree_clean(directory):
                 deny(
-                    "`git reset --hard` discards uncommitted work with no recovery path. Restore "
-                    "the specific path, or commit the work first and reset to that commit."
+                    "`git reset --hard` discards uncommitted work with no recovery path. Allowed "
+                    "next step: inspect `git status` and preserve your work in a commit; leave "
+                    "unfamiliar changes intact and continue with a non-destructive forward edit."
                 )
         return
 
@@ -197,12 +207,14 @@ def check(name: str, arguments: list[str]) -> None:
         if not action:
             deny(
                 "bare `git stash` shares one stash stack with every other worktree and session on "
-                "this agent home. Use `git stash push -u -m <unique-tag>`, or a temporary WIP commit."
+                "this agent home. Allowed next step: preserve your work in a temporary WIP commit "
+                "on your assigned branch."
             )
         if action == "pop":
             deny(
                 "`git stash pop` can pop another session's entry from the shared stash stack. "
-                "Find your entry by tag and use `git stash apply <sha>`, then drop it."
+                "Allowed next step: identify your own entry by tag, inspect it, then use "
+                "`git stash apply <sha>` without dropping shared entries."
             )
         return
 
@@ -214,8 +226,9 @@ def check(name: str, arguments: list[str]) -> None:
             directory = resolve_directory(payload.get("cwd"), directory_hint)
             if not worktree_clean(directory):
                 deny(
-                    f"`git {name} .` discards every uncommitted change in the worktree. Restore "
-                    "the specific path you meant instead."
+                    f"`git {name} .` discards every uncommitted change in the worktree. Allowed "
+                    "next step: inspect the diff and make a targeted forward edit within your "
+                    "scope, preserving unfamiliar work."
                 )
         return
 
@@ -227,7 +240,8 @@ def check(name: str, arguments: list[str]) -> None:
         if forced and PROTECTED_BRANCHES.intersection(operands):
             deny(
                 "force-deleting the mainline branch destroys the only local copy of reviewed work. "
-                "Delete the topic branch instead."
+                "Allowed next step: retain the mainline ref and continue on your assigned "
+                "topic branch; report any required ref cleanup without deleting branches."
             )
         return
 
@@ -243,7 +257,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-git-unsafe] internal hook failure; refusing to allow the command" >&2
+  echo "[block-git-unsafe] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

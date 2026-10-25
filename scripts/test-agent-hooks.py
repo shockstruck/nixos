@@ -48,6 +48,63 @@ from repo_policy import Policy, PolicyError, load  # noqa: E402
 # --------------------------------------------------------------------------
 
 
+def assert_refusal_hint(message: str) -> None:
+    """Every exercised denial must carry a concrete, compliant corrective step."""
+    assert "Allowed next step: " in message, f"refusal has no next-step hint:\n{message}"
+    # Check the corrective action, not just a label appended to an old refusal.
+    # Multiple reasons may occur in a commentary refusal; each must carry its hint.
+    routes = {
+        "hook library is missing": "report the broken hook installation for reviewed repair",
+        "internal hook failure": "report the hook failure for reviewed repair",
+        "hook input was not valid JSON": "submit a valid tool payload",
+        "tool_input was not an object": "submit tool_input as an object",
+        "Bash command was not text": "submit the permitted command as a text string",
+        "policy load failure": "do not narrow policy slots",
+        "cannot safely resolve dynamic executable": "name the permitted executable literally",
+        "cannot safely resolve brace-expanded executable": "name one permitted executable literally",
+        "could not parse Bash command safely": "correct the shell syntax of a permitted command",
+        "env --split-string cannot be inspected safely": "write a permitted command with literal arguments",
+        "cannot inspect `": "submit a plainly inspectable permitted command",
+        "blocked cluster CLI": "no agent route exists here to execute the blocked CLI",
+        "no agent route to run this executable here": "report the unmet need",
+        "bypasses the pre-commit gate": "fix what the hook reports instead of skipping it",
+        "force-pushing": "fetch the default branch, integrate without force",
+        "deletes that ref": "explicit nonempty source and destination",
+        "deletes untracked files": "remove only specific paths you own",
+        "discards uncommitted work": "preserve your work in a commit",
+        "discards every uncommitted change": "make a targeted forward edit",
+        "one stash stack": "temporary WIP commit",
+        "another session's entry": "git stash apply <sha>",
+        "rewrites every commit": "make a forward fix in a new commit",
+        "mutates GitHub directly": "reviewed pull request",
+        "destroys the repository": "no agent route exists for repository deletion",
+        "destroys a published artifact": "no agent route exists for release deletion",
+        "Actions secrets outside Git review": "without exposing its value",
+        "mutates CI outside review": "let its configured event trigger CI",
+        "branch protection rules": "never override it",
+        "session's GitHub credentials": "gh auth status",
+        "attribution line in the command text": "Drop that trailer or line",
+        "reads the message from stdin": "write a clean message to a readable file",
+        "reads the body from stdin": "write a clean body to a readable file",
+        "without an explicit body": "otherwise hand the PR to its merging owner",
+        "adds task identifier": "remove the task identifier from the proposed content",
+        "adds a comment": "remove the added rationale comment",
+        "Without the session history": "restore a readable session transcript",
+        "was written after the last validation": "fix any failures, then commit",
+        "no `git fetch`": "never a prohibited direct mainline push",
+        "no probity.config.ts": "report the missing merged policy for reviewed repair",
+        "`probity` was not found": "repository's documented dependency setup",
+        "session transcript could not be read": "retry the commit only after",
+        "no AI validator available": "retry the commit only after",
+        "unrelated hunks": "leave unrelated work intact for its owner",
+    }
+    for reason, route in routes.items():
+        if reason.casefold() in message.casefold():
+            assert route.casefold() in message.casefold(), (
+                f"{reason!r} missing corrective action {route!r}:\n{message}"
+            )
+
+
 def run_hook(
     hook: str,
     payload: dict[str, object] | str,
@@ -79,6 +136,8 @@ def run_hook(
     for message in messages:
         if message not in result.stderr:
             raise AssertionError(f"{hook}: missing {message!r} in stderr:\n{result.stderr}")
+    if expected == 2:
+        assert_refusal_hint(result.stderr)
     if silent and result.stderr.strip():
         raise AssertionError(f"{hook}: expected no advisory, got:\n{result.stderr}")
     TESTS += 1
@@ -156,6 +215,68 @@ def test_policy_fails_closed() -> None:
             "policy.json",
             hooks_dir=broken,
         )
+
+
+def test_refusal_hints_on_failure_paths() -> None:
+    """Exercise infrastructure failures as well as the ordinary policy denials."""
+    bash_hooks = (
+        "block-runtime.sh", "block-git-unsafe.sh", "block-gh-unsafe.sh",
+        "block-attribution.sh", "require-validation-before-git.sh",
+    )
+    for hook in (*bash_hooks, "block-config-commentary.sh"):
+        run_hook(hook, "not json", 2, "submit a valid tool payload")
+        run_hook(hook, {"tool_input": ["invalid"]}, 2, "submit tool_input as an object")
+    for hook in bash_hooks:
+        run_hook(hook, {"tool_input": {"command": ["invalid"]}}, 2, "as a text string")
+
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw)
+        broken = directory / "hooks"
+        shutil.copytree(HOOKS, broken)
+        shutil.rmtree(broken / "lib")
+        for hook in (*bash_hooks, "block-config-commentary.sh"):
+            run_hook(hook, bash("echo hi"), 2, "broken hook installation", hooks_dir=broken)
+        (broken / "lib").mkdir()
+        for hook in (*bash_hooks, "block-config-commentary.sh"):
+            run_hook(hook, bash("echo hi"), 2, "internal hook failure", hooks_dir=broken)
+
+    # A throwaway policy exercises the template's intentionally empty commentary
+    # and validation slots without editing any adopter or weakening its gates.
+    with tempfile.TemporaryDirectory() as raw:
+        repo = Path(raw)
+        _init_repo(repo)
+        hooks = repo / ".claude" / "hooks"
+        shutil.copytree(HOOKS, hooks)
+        policy = json.loads((hooks / "policy.json").read_text(encoding="utf-8"))
+        policy["comments"]["paths"] = ["**"]
+        policy["comments"]["suffixes"] = [".md"]
+        policy["comments"]["guidance"] = "Repository-specific guidance."
+        policy["validation"] = {"commandPattern": "python3 validate.py", "hint": "python3 validate.py"}
+        (hooks / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
+        run_hook(
+            "block-config-commentary.sh", write(repo / "README.md", "# rationale\n" * 25),
+            2, "and 5 more", "put change context in the pull request",
+            hooks_dir=hooks, project_dir=repo,
+        )
+        stale = {"tool_name": "Edit", "tool_input": {
+            "file_path": str(repo / "README.md"), "old_string": "absent", "new_string": "new",
+        }}
+        run_hook("block-config-commentary.sh", stale, 2, "anchored to its actual text",
+                 hooks_dir=hooks, project_dir=repo)
+        run_hook("block-config-commentary.sh", write(repo / "README.md", ["not text"]),
+                 2, "as a text string", hooks_dir=hooks, project_dir=repo)
+        run_hook("block-config-commentary.sh", {
+            "tool_name": "Other", "tool_input": {"file_path": str(repo / "README.md")},
+        }, 2, "reviewable Write or Edit", hooks_dir=hooks, project_dir=repo)
+        run_hook("require-validation-before-git.sh", bash("git commit -m x"),
+                 2, "restore a readable session transcript", hooks_dir=hooks, project_dir=repo)
+        history = transcript(repo, assistant(("Write", {
+            "file_path": str(repo / "README.md"), "content": "changed",
+        })))
+        run_hook("require-validation-before-git.sh", {
+            **bash("git commit -m x"), "transcript_path": history,
+        }, 2, "run python3 validate.py", "fix any failures, then commit",
+                 hooks_dir=hooks, project_dir=repo)
 
 
 def test_shell_grammar_is_not_a_command() -> None:
@@ -562,6 +683,45 @@ def test_block_attribution() -> None:
             "`absent.md` named by `--body-file` could not be read",
             "Write the body file in its own call first, then re-run the command naming it by an "
             "absolute path.",
+        )
+
+    # A relative `--body-file`/`-F` after a `cd` in the same command names a
+    # path under the `cd` target, not under the payload cwd.
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw)
+        (directory / "x").mkdir()
+        (directory / "b.md").write_text("Adds x.\n", encoding="utf-8")
+        for command in (
+            "cd x && gh pr create --title t --body-file ../b.md",
+            "cd x && gh pr edit 1 -F ../b.md",
+            'cd x && gh pr merge 1 --squash --subject "x (#1)" --body-file ../b.md',
+        ):
+            run_hook(
+                "block-attribution.sh",
+                {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(directory)},
+                0,
+                silent=True,
+            )
+        (directory / "b.md").write_text("Signed-off-by: Resolver\n", encoding="utf-8")
+        run_hook(
+            "block-attribution.sh",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "cd x && gh pr create --title t --body-file ../b.md"},
+                "cwd": str(directory),
+            },
+            2,
+            "attribution line in `../b.md`: `Signed-off-by: Resolver`",
+        )
+        run_hook(
+            "block-attribution.sh",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "cd x && gh pr create --title t --body-file b.md"},
+                "cwd": str(directory),
+            },
+            2,
+            "`b.md` named by `--body-file` could not be read",
         )
 
     with tempfile.TemporaryDirectory() as raw:
@@ -1181,7 +1341,9 @@ def _diff_files(prompt: str) -> list[str]:
 def _denial(stdout: str) -> str:
     decision = json.loads(stdout)["hookSpecificOutput"]
     assert decision["permissionDecision"] == "deny", decision
-    return decision["permissionDecisionReason"]
+    reason = decision["permissionDecisionReason"]
+    assert_refusal_hint(reason)
+    return reason
 
 
 def test_probity_commit_scope_judges_the_commit_diff() -> None:
@@ -1260,7 +1422,8 @@ def test_probity_commit_scope_judges_the_commit_diff() -> None:
         stdout, _ = _judge(directory, commit, str(scratch / "absent.jsonl"))
         reason = _denial(stdout)
         assert "the session transcript could not be read" in reason, reason
-        assert "Allowed next step: re-run the same commit once" in reason, reason
+        assert "preserve the change uncommitted and continue independent work" in reason, reason
+        assert "re-run the same commit once" not in reason, reason
 
         # A change left unstaged is not in a plain `git commit`, but `-a`
         # stages every tracked change at commit time, so the diff follows
@@ -1275,11 +1438,31 @@ def test_probity_commit_scope_judges_the_commit_diff() -> None:
         reason = _denial(stdout)
         assert ".trivyignore.yaml" in reason and "apps/fstrim/Dockerfile" in reason, reason
 
-        # Nothing staged is reported as such, so the judge falls back to the
-        # writes rather than reading silence as an empty commit.
+        # Nothing staged is what `git add … && git commit …` looks like before
+        # it runs, so the judge is handed the writes as the commit's content
+        # rather than an empty commit with every write filtered out.
         subprocess.run(["git", "reset", "-q"], cwd=directory, check=True)
-        stdout, prompt = _judge(directory, commit, _session(scratch, ask, insert_before))
-        assert "(empty: nothing is staged for this command)" in prompt, prompt
+        stdout, prompt = _judge(
+            directory,
+            'git add .trivyignore.yaml && git commit -m "add DS-0002"',
+            _session(scratch, ask, insert_before),
+        )
+        assert stdout == "", f"`git add … && git commit …` was refused:\n{stdout}"
+        assert "(empty: nothing is staged yet; the command stages its changes" in prompt, prompt
+        writes = prompt.split("## Commit diff")[0]
+        assert "## Writes in this session\n" in writes and ".trivyignore.yaml" in writes, writes
+        assert "none of this session's writes" not in writes, writes
+
+        # A tool call issued without a path never ran; it must not crash the
+        # rule (`paths[1]` undefined) and must not reach the judge.
+        pathless = ("Edit", {"old_string": "a", "new_string": "b"})
+        stdout, prompt = _judge(
+            directory,
+            'git add .trivyignore.yaml && git commit -m "add DS-0002"',
+            _session(scratch, ask, pathless, insert_before),
+        )
+        assert stdout == "", f"a pathless write was not skipped:\n{stdout}"
+        assert prompt, "the judge was never consulted"
 
         # A command that is not a commit never reaches the judge.
         stdout, prompt = _judge(directory, "git status", _session(scratch, ask, insert_before))

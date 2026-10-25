@@ -11,7 +11,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-gh-unsafe] hook library is missing; refusing to allow the command" >&2
+  echo "[block-gh-unsafe] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -52,14 +52,14 @@ def deny(message: str) -> None:
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the GitHub safety check")
+    deny("hook input was not valid JSON; refusing to skip the GitHub safety check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the GitHub safety check")
+    deny("hook tool_input was not an object; refusing to skip the GitHub safety check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -111,8 +111,9 @@ def check_api(arguments: list[str], words: list[str]) -> None:
         # document, not the verb.
         if MUTATION.search(" ".join(arguments)):
             deny(
-                "`gh api graphql` with a mutation writes to GitHub. Run the change through a "
-                "reviewed pull request, or ask the repository owner to run the mutation."
+                "`gh api graphql` with a mutation writes to GitHub. Allowed next step: land any "
+                "repository change through a reviewed pull request; for an API-only effect, no "
+                "agent route exists here. Report the unmet need and continue independent work."
             )
         return
     if not method and any(
@@ -122,7 +123,9 @@ def check_api(arguments: list[str], words: list[str]) -> None:
     if method and method not in READ_METHODS:
         deny(
             f"`gh api -X {method}` mutates GitHub directly and bypasses review. Only `GET` and "
-            "read-only `graphql` queries are open; land the change through a pull request."
+            "read-only `graphql` queries are open. Allowed next step: land any repository change "
+            "through a reviewed pull request; for an API-only effect, no agent route exists here. "
+            "Report the unmet need and continue independent work."
         )
 
 
@@ -136,26 +139,31 @@ def check(words: list[str], arguments: list[str]) -> None:
     if group == "auth" and action not in ("", "status"):
         deny(
             f"`gh auth {action}` touches the session's GitHub credentials. Never harvest "
-            "credentials. `gh auth status` is the read that stays open."
+            "credentials. Allowed next step: use `gh auth status` to inspect authentication "
+            "without reading credentials; report any access gap and continue independent work."
         )
     if group == "repo" and action == "delete":
-        deny("`gh repo delete` destroys the repository and every review record in it.")
+        deny("`gh repo delete` destroys the repository and every review record in it. Allowed next step: no agent route exists for repository deletion; report the unmet need in your result comment and continue independent work.")
     if group == "secret" and action in ("set", "delete", "remove"):
         deny(
-            f"`gh secret {action}` changes Actions secrets outside Git review. Route a secret "
-            "change through the repository owner."
+            f"`gh secret {action}` changes Actions secrets outside Git review. Allowed next step: "
+            "report the required secret change to the repository owner without exposing its value, "
+            "and continue independent work; no agent route exists here."
         )
     if group == "release" and action.startswith("delete"):
-        deny(f"`gh release {action}` destroys a published artifact with no recovery path.")
+        deny(f"`gh release {action}` destroys a published artifact with no recovery path. Allowed next step: no agent route exists for release deletion; report the unmet need in your result comment and continue independent work.")
     if group == "workflow" and action in ("run", "disable"):
         deny(
             f"`gh workflow {action}` mutates CI outside review. Workflow behaviour is defined in "
-            "`.github/workflows/`; change it there and let the change land on `main`."
+            "`.github/workflows/`. Allowed next step: submit any workflow change through a reviewed "
+            "pull request and let its configured event trigger CI; report an unmet manual-run need "
+            "and continue independent work."
         )
     if group == "pr" and action == "merge" and has_flag(arguments, "--admin"):
         deny(
             "`gh pr merge --admin` merges past the branch protection rules and the required "
-            "checks. Fix what the gate reports, or ask the repository owner to override it."
+            "checks. Allowed next step: fix what the gate reports, rerun the checks, then use the "
+            "ordinary reviewed merge flow only if your role permits merging; never override it."
         )
 
 
@@ -175,7 +183,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-gh-unsafe] internal hook failure; refusing to allow the command" >&2
+  echo "[block-gh-unsafe] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

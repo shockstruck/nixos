@@ -151,7 +151,7 @@ def lex(command: str) -> list[str]:
         lexer.whitespace_split = True
         return list(lexer)
     except ValueError as exc:
-        deny(f"could not parse Bash command safely: {exc}")
+        deny(f"could not parse Bash command safely: {exc}. Allowed next step: correct the shell syntax of a permitted command and submit a plainly inspectable call; do not change interpreters to repeat a blocked effect.")
     return []
 
 
@@ -253,7 +253,7 @@ def command_index(tokens: list[str]) -> int:
                 option in {"-S", "--split-string"} or option.startswith("--split-string=")
                 for option in tokens[i + 1 :]
             ):
-                deny("env --split-string cannot be inspected safely")
+                deny("env --split-string cannot be inspected safely. Allowed next step: write a permitted command with literal arguments rather than a split string; do not use another wrapper to repeat a blocked effect.")
             i = skip_options(tokens, i + 1, {"-C", "--chdir", "-S", "--split-string", "-u", "--unset"})
             while i < len(tokens) and ENV_ASSIGN.match(tokens[i]):
                 i += 1
@@ -305,19 +305,19 @@ def resolve_executable(token: str, variables: dict[str, str], blocked_names: Ite
             break
         name = match.group(1) or match.group(2)
         if name in seen or name not in variables:
-            deny(f"cannot safely resolve dynamic executable `{token}`")
+            deny(f"cannot safely resolve dynamic executable `{token}`. Allowed next step: name the permitted executable literally so it can be checked; no route is granted to run a blocked executable.")
         seen.add(name)
         token = variables[name]
         literal = False
     if "$" in token or not token or any(char.isspace() for char in token):
-        deny(f"cannot safely resolve dynamic executable `{token}`")
+        deny(f"cannot safely resolve dynamic executable `{token}`. Allowed next step: name the permitted executable literally so it can be checked; no route is granted to run a blocked executable.")
     if not literal and ("{" in token or "}" in token):
-        deny(f"cannot safely resolve brace-expanded executable `{token}`")
+        deny(f"cannot safely resolve brace-expanded executable `{token}`. Allowed next step: name one permitted executable literally, without brace expansion, so it can be checked; no route is granted to run a blocked executable.")
     executable = token.rsplit("/", 1)[-1]
     if not literal and any(char in executable for char in "*?[") and any(
         fnmatch.fnmatchcase(name, executable) for name in blocked
     ):
-        deny(f"executable glob `{executable}` can expand to a blocked cluster CLI")
+        deny(f"executable glob `{executable}` can expand to a blocked cluster CLI. Allowed next step: use permitted repository inspection or a reviewed Git change; no agent route exists here to execute the blocked CLI. Report the unmet need and continue independent work.")
     resolved = shutil.which(token) if "/" not in token else token
     if resolved:
         try:
@@ -325,7 +325,7 @@ def resolve_executable(token: str, variables: dict[str, str], blocked_names: Ite
         except OSError:
             target = ""
         if target in blocked:
-            deny(f"executable `{token}` resolves to blocked cluster CLI `{target}`")
+            deny(f"executable `{token}` resolves to blocked cluster CLI `{target}`. Allowed next step: use permitted repository inspection or a reviewed Git change; no agent route exists here to execute the blocked CLI. Report the unmet need and continue independent work.")
     return executable
 
 
@@ -627,7 +627,7 @@ def walk(
                     and "c" in option[1:]
                 ):
                     if option_index + 1 >= len(remaining):
-                        deny(f"cannot inspect `{executable}` command string")
+                        deny(f"cannot inspect `{executable}` command string. Allowed next step: submit a plainly inspectable permitted command with literal arguments; do not use another shell or interpreter to repeat a blocked effect.")
                     walk(remaining[option_index + 1], visit, blocked_names, variables.copy())
                     break
         elif executable == "eval" and remaining:

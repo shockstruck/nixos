@@ -31,7 +31,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-attribution] hook library is missing; refusing to allow the command" >&2
+  echo "[block-attribution] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -139,32 +139,32 @@ def read_file(path_value: str, directory: str) -> str | None:
 try:
     policy = load()
 except PolicyError as exc:
-    deny(f"{exc}; refusing to skip the attribution check")
+    deny(f"{exc}; refusing to skip the attribution check. Allowed next step: report the policy load failure for reviewed repair and continue independent work; do not narrow policy slots.")
 
 policy_data = {}
 try:
     policy_data = json.loads(policy.source.read_text(encoding="utf-8"))
 except (OSError, json.JSONDecodeError):
-    deny(f"{policy.source} could not be re-read; refusing to skip the attribution check")
+    deny(f"{policy.source} could not be re-read; refusing to skip the attribution check. Allowed next step: report the policy read failure for reviewed repair and continue independent work; retry only after repair.")
 
 blocked_emails_raw = ((policy_data.get("attribution") or {}).get("blockedEmails")) or []
 if not isinstance(blocked_emails_raw, list) or any(
     not isinstance(item, str) for item in blocked_emails_raw
 ):
-    deny("policy.json `attribution.blockedEmails` must be a list of strings")
+    deny("policy.json `attribution.blockedEmails` must be a list of strings. Allowed next step: report the policy schema failure for reviewed repair without removing blocked addresses; continue independent work.")
 blocked_pattern = blocked_email_pattern(tuple(blocked_emails_raw))
 
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the attribution check")
+    deny("hook input was not valid JSON; refusing to skip the attribution check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the attribution check")
+    deny("hook tool_input was not an object; refusing to skip the attribution check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -208,9 +208,18 @@ def gh_operands(arguments: list[str]) -> list[str]:
 
 
 gh_merge_invocations: list[list[str]] = []
+# The last literal `cd` before each create/edit/merge, keyed by identity, read
+# the way `directory_before` reads it for a commit.
+gh_cds: dict[int, str | None] = {}
+gh_current_dir: str | None = None
 
 
 def collect_gh(executable: str, arguments: list[str]) -> None:
+    global gh_current_dir
+    if executable == "cd":
+        if len(arguments) == 1 and arguments[0] != "-" and "$" not in arguments[0]:
+            gh_current_dir = arguments[0]
+        return
     if executable != "gh":
         return
     words = gh_operands(arguments)
@@ -218,8 +227,10 @@ def collect_gh(executable: str, arguments: list[str]) -> None:
     action = words[1] if len(words) > 1 else ""
     if group == "pr" and action in ("create", "edit"):
         gh_invocations.append(arguments)
+        gh_cds[id(arguments)] = gh_current_dir
     elif group == "pr" and action == "merge":
         gh_merge_invocations.append(arguments)
+        gh_cds[id(arguments)] = gh_current_dir
 
 
 try:
@@ -235,8 +246,9 @@ for args in gh_merge_invocations:
         deny(
             "`gh pr merge` without an explicit body lets GitHub compose the merge commit message "
             "itself, appending a `Co-authored-by` trailer for every commit author on the branch. "
-            'Supply the message explicitly: `gh pr merge <n> --squash --subject "<title> (#<n>)" '
-            '--body "<body>"`.'
+            'Allowed next step: when your role permits merging and review gates are met, supply '
+            'the message explicitly: `gh pr merge <n> --squash --subject "<title> (#<n>)" '
+            '--body "<body>"`; otherwise hand the PR to its merging owner.'
         )
 
 owner_domain = os.environ.get("GIT_AUTHOR_EMAIL") or os.environ.get("GIT_COMMITTER_EMAIL") or ""
@@ -270,7 +282,7 @@ if commit_invocations or any(
     violation = find_violation(cmd, owner_pattern, blocked_pattern)
     if violation:
         deny(
-            f"attribution line in the command text: `{violation}`. Drop that trailer or line "
+            f"attribution line in the command text: `{violation}`. Allowed next step: Drop that trailer or line "
             "from the message and re-run the same command without it."
         )
 elif gh_invocations or gh_merge_invocations:
@@ -283,43 +295,45 @@ for invocation in commit_invocations:
     if is_stdin:
         deny(
             "`git commit -F -`/`--file=-` reads the message from stdin, which this hook cannot "
-            "inspect. Use `-m` or a readable file instead."
+            "inspect. Allowed next step: write a clean message to a readable file in a separate "
+            "call, then use `-F <absolute-path>`."
         )
     if message_path is not None:
         content = read_file(message_path, directory)
         if content is None:
             deny(
                 f"`{message_path}` named by `-F`/`--file` could not be read; refusing to skip "
-                "the attribution check. Write the message file in its own call first, then "
+                "the attribution check. Allowed next step: Write the message file in its own call first, then "
                 "re-run the commit naming it by an absolute path."
             )
         violation = find_violation(content, owner_pattern, blocked_pattern)
         if violation:
             deny(
-                f"attribution line in `{message_path}`: `{violation}`. Delete that trailer or "
+                f"attribution line in `{message_path}`: `{violation}`. Allowed next step: Delete that trailer or "
                 "line from the file, then re-run the same commit."
             )
 
-directory = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or "."
 for args in (*gh_invocations, *gh_merge_invocations):
+    directory = resolve_directory(payload.get("cwd"), gh_cds.get(id(args)))
     body_path, is_stdin = gh_body_file(args)
     if is_stdin:
         deny(
             "`gh pr create`/`edit`/`merge --body-file -` reads the body from stdin, which this "
-            "hook cannot inspect. Use `--body` or a readable file instead."
+            "hook cannot inspect. Allowed next step: write a clean body to a readable file in a "
+            "separate call, then use `--body-file <absolute-path>`."
         )
     if body_path is not None:
         content = read_file(body_path, directory)
         if content is None:
             deny(
                 f"`{body_path}` named by `--body-file` could not be read; refusing to skip the "
-                "attribution check. Write the body file in its own call first, then re-run the "
+                "attribution check. Allowed next step: Write the body file in its own call first, then re-run the "
                 "command naming it by an absolute path."
             )
         violation = find_violation(content, owner_pattern, blocked_pattern)
         if violation:
             deny(
-                f"attribution line in `{body_path}`: `{violation}`. Delete that trailer or line "
+                f"attribution line in `{body_path}`: `{violation}`. Allowed next step: Delete that trailer or line "
                 "from the file, then re-run the same command."
             )
 
@@ -328,7 +342,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-attribution] internal hook failure; refusing to allow the command" >&2
+  echo "[block-attribution] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

@@ -28,7 +28,7 @@ for candidate in "${MULTICA_POLICY_DIR:-}" "${PROJECT_DIR}"; do
 done
 if [[ -z "${CONFIG}" ]]; then
   echo "[probity] no probity.config.ts in ${MULTICA_POLICY_DIR:-<unset>} or" \
-    "${PROJECT_DIR}; refusing to allow an unchecked action" >&2
+    "${PROJECT_DIR}; refusing to allow an unchecked action. Allowed next step: report the missing merged policy for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 
@@ -41,8 +41,9 @@ if [[ -z "${PROBITY}" && -x "${PROJECT_DIR}/node_modules/.bin/probity" ]]; then
 fi
 if [[ -z "${PROBITY}" ]]; then
   echo "[probity] \`probity\` was not found on PATH or in ${PROJECT_DIR}/node_modules/.bin;" \
-    "refusing to allow an unchecked action. Install it with" \
-    "\`npm install -g @nizos/probity@1.10.1\` on Node 22." >&2
+    "refusing to allow an unchecked action. Allowed next step: use the repository's documented" \
+    "dependency setup to install its pinned Probity on Node 22 if authorised; otherwise report" \
+    "the missing runtime dependency and continue independent work. Retry only once it is available." >&2
   exit 2
 fi
 
