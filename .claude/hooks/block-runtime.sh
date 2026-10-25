@@ -15,7 +15,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-runtime] hook library is missing; refusing to allow the command" >&2
+  echo "[block-runtime] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -42,19 +42,19 @@ def deny(message: str) -> None:
 try:
     policy = load()
 except PolicyError as exc:
-    deny(f"{exc}; refusing to skip the runtime check")
+    deny(f"{exc}; refusing to skip the runtime check. Allowed next step: report the policy load failure for reviewed repair and continue independent work; do not narrow policy slots.")
 
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the runtime check")
+    deny("hook input was not valid JSON; refusing to skip the runtime check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the runtime check")
+    deny("hook tool_input was not an object; refusing to skip the runtime check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -65,7 +65,7 @@ if not blocked:
 
 def visit(executable: str, arguments: list[str]) -> None:
     if executable in blocked:
-        raise Denial(blocked[executable])
+        raise Denial(f"{blocked[executable]} Allowed next step: use the repository's permitted inspection or Git change flow; no agent route to run this executable here. Report the unmet need and continue independent work.")
 
 
 try:
@@ -78,7 +78,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-runtime] internal hook failure; refusing to allow the command" >&2
+  echo "[block-runtime] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"

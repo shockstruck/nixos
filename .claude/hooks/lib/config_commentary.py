@@ -135,12 +135,12 @@ def violations(
         if identifier is not None:
             for match in identifier.findall(line):
                 found.append(
-                    f"line {number} adds task identifier `{match}`: {line.strip()[:120]}"
+                    f"line {number} adds task identifier `{match}`: {line.strip()[:120]}. Allowed next step: remove the task identifier from the proposed content and put task context in the pull request."
                 )
         if not checks_comments or number - 1 in verbatim:
             continue
         comment = comment_text(line)
         if comment is None or is_directive(comment, policy):
             continue
-        found.append(f"line {number} adds a comment: {line.strip()[:120]}")
+        found.append(f"line {number} adds a comment: {line.strip()[:120]}. Allowed next step: remove the added rationale comment and put the explanation in the pull request.")
     return found

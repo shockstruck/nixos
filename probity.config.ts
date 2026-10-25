@@ -132,10 +132,12 @@ type Verdict = { kind: 'pass' | 'violation'; reason: string }
 // Every refusal ends on the step that is allowed, so the agent can carry on.
 const SPLIT_COMMIT =
   'Allowed next step: unstage what does not serve the asked-for outcome ' +
-  '(`git restore --staged <path>`), commit the rest, then commit the remainder separately.'
+  '(`git restore --staged <path>`), commit the rest, then commit any in-scope remainder ' +
+  'separately; leave unrelated work intact for its owner.'
 const RETRY_OR_REPORT =
-  'Allowed next step: re-run the same commit once; if it is refused again, report this ' +
-  'refusal on the issue as a finding and leave the change uncommitted.'
+  'Allowed next step: report the unavailable validator or transcript for runtime repair, ' +
+  'preserve the change uncommitted and continue independent work; retry the commit only ' +
+  'after the validator and readable session history are restored.'
 
 function truncate(text: string, limit = MAX_CONTENT_CHARS): string {
   if (text.length <= limit) return text
@@ -320,9 +322,12 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
 
   // Only a write inside this repository can be part of this commit. A session
   // that also edited another checkout is not bundling scope here, so writes
-  // outside ROOT are dropped before the judge sees them.
+  // outside ROOT are dropped before the judge sees them. A tool call the model
+  // issued without a path was refused before it ran and wrote nothing.
   const writes = history.flatMap((event) =>
-    event.kind === 'write' && insideRepo(event.path) ? [event] : [],
+    event.kind === 'write' && typeof event.path === 'string' && insideRepo(event.path)
+      ? [event]
+      : [],
   )
   if (writes.length === 0) return { kind: 'pass' }
 
@@ -331,11 +336,16 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
     .slice(-MAX_PROMPT_EVENTS)
   const mergeTree = autoMergeTree()
   const diff = commitDiff(mode, mergeTree)
+  // Nothing staged yet is what `git add … && git commit …` looks like before it
+  // runs: the add stages at run time, so the writes are the commit's content.
+  const stagedByCommand = diff === '' && !mergeTree
   // Only a write whose path the commit diff actually carries can be part of
   // this commit; everything else in the session — an earlier landed unit, a
   // scratch file, a re-emitted anchor — is bundled scope only in appearance.
-  // Filtering is skipped, not emptied, when Git could not report the diff.
-  const filesInCommit = diff === undefined ? undefined : commitFiles(mode, mergeTree)
+  // Filtering is skipped, not emptied, when Git could not report the diff or
+  // the command stages its own changes.
+  const filesInCommit =
+    diff === undefined || stagedByCommand ? undefined : commitFiles(mode, mergeTree)
   const scopedWrites =
     filesInCommit === undefined
       ? writes
@@ -365,7 +375,8 @@ async function commitScope(action: Action, ctx?: RuleContext): Promise<RuleResul
         : diff ||
           (mergeTree
             ? '(empty: the merge resolved every change automatically)'
-            : '(empty: nothing is staged for this command)')
+            : '(empty: nothing is staged yet; the command stages its changes when it runs, ' +
+              'so judge the writes as the commit\'s content)')
     }`,
     `## Pending command\n\n${truncate(action.command, 2000)}`,
     RESPONSE_SPEC,
