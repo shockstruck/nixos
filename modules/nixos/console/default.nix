@@ -23,7 +23,6 @@
   # gui/default.nix enables for Hyprland.
   boot = {
     consoleLogLevel = 3;
-    initrd.verbose = false;
     loader.timeout = 0;
     kernelParams = [
       "quiet"
