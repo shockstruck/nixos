@@ -67,11 +67,12 @@ in
     services.stasis = {
       enable = true;
 
-      # The upstream package with one test skipped: it drives a real process and
-      # times out inside the Nix build sandbox; the rest of the suite still runs.
+      # The upstream package with two tests skipped: they drive a real process and
+      # are unreliable inside the Nix build sandbox; the rest of the suite still runs.
       package = flake.inputs.stasis.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
         checkFlags = (old.checkFlags or [ ]) ++ [
           "--skip=services::games::tests::live_extra_game_service_blacklists_removes_and_disables_a_real_process"
+          "--skip=services::games::tests::linux_process_scan_detects_a_real_native_process_and_clears_after_exit"
         ];
       });
 
