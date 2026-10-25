@@ -15,7 +15,7 @@
 set -euo pipefail
 
 if ! HOOK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"; then
-  echo "[block-nix-realise] hook library is missing; refusing to allow the command" >&2
+  echo "[block-nix-realise] hook library is missing; refusing to allow the command. Allowed next step: report the broken hook installation for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 export HOOK_LIB_DIR
@@ -34,8 +34,9 @@ from shell_command import Denial, walk  # noqa: E402
 
 GATE = (
     "AGENTS.md: an evaluation, build or activation here takes an hour or more, and CI plus the "
-    "human own that gate. Change the source, run `nix fmt -- --check <paths>`, and hand off. If a "
-    "change genuinely needs a real build to be safe, say so in the handoff and let CI run it."
+    "human own that gate. If a change genuinely needs a real build to be safe, say so in the "
+    "handoff and let CI run it. Allowed next step: change the source, run "
+    "`nix fmt -- --check <paths>`, and hand off for CI to build."
 )
 
 # `nix <subcommand>` forms that realise a derivation or change the running system.
@@ -71,14 +72,14 @@ def deny(message: str) -> None:
 try:
     payload = json.load(os.fdopen(3))
 except (json.JSONDecodeError, OSError):
-    deny("hook input was not valid JSON; refusing to skip the build check")
+    deny("hook input was not valid JSON; refusing to skip the build check. Allowed next step: submit a valid tool payload; if the harness generated it, report the payload failure and continue independent work.")
 
 tool_input = payload.get("tool_input") or {}
 if not isinstance(tool_input, dict):
-    deny("hook tool_input was not an object; refusing to skip the build check")
+    deny("hook tool_input was not an object; refusing to skip the build check. Allowed next step: submit tool_input as an object; if the harness generated it, report the payload failure and continue independent work.")
 cmd = tool_input.get("command") or ""
 if not isinstance(cmd, str):
-    deny("Bash command was not text")
+    deny("Bash command was not text. Allowed next step: submit the permitted command as a text string in tool_input.command.")
 if not cmd.strip():
     sys.exit(0)
 
@@ -121,7 +122,7 @@ PYEOF
 status=$?
 set -e
 if [[ ${status} -ne 0 && ${status} -ne 2 ]]; then
-  echo "[block-nix-realise] internal hook failure; refusing to allow the command" >&2
+  echo "[block-nix-realise] internal hook failure; refusing to allow the command. Allowed next step: report the hook failure for reviewed repair and continue independent work; retry only after repair." >&2
   exit 2
 fi
 exit "${status}"
