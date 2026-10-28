@@ -16,6 +16,7 @@
     ./rgb.nix
     ./power.nix
     ./steamos-manager.nix
+    ./context-mesh-proxy.nix
   ];
 
   # Quiet boot / plymouth, copied from modules/nixos/gui/default.nix. No
