@@ -250,6 +250,7 @@ def test_refusal_hints_on_failure_paths() -> None:
         policy = json.loads((hooks / "policy.json").read_text(encoding="utf-8"))
         policy["comments"]["paths"] = ["**"]
         policy["comments"]["suffixes"] = [".md"]
+        policy["comments"]["excludedPaths"] = []
         policy["comments"]["guidance"] = "Repository-specific guidance."
         policy["validation"] = {"commandPattern": "python3 validate.py", "hint": "python3 validate.py"}
         (hooks / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
