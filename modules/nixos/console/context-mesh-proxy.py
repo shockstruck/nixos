@@ -29,6 +29,7 @@ TOKEN_TIMEOUT_SECONDS = 15
 UPSTREAM_TIMEOUT_SECONDS = 3600
 ALLOWED_TOOL_NAMES = {"search", "get_schema", "call"}
 ALLOWED_SOURCE_PREFIXES = ("context7.", "deepwiki.", "octocode.")
+ALLOWED_METHODS = {"initialize", "ping", "tools/list", "tools/call"}
 HOP_BY_HOP = {
     "connection",
     "keep-alive",
@@ -131,30 +132,43 @@ class TokenCache:
 
 def allowed_json_rpc(body):
     """Fail closed on malformed JSON-RPC and disallowed tools/call requests."""
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    def reject_constant(_value):
+        raise ValueError("non-standard JSON constant")
+
     try:
-        payload = json.loads(body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return False, None
+        payload = json.loads(body.decode("utf-8"), object_pairs_hook=unique_object, parse_constant=reject_constant)
+    except (UnicodeDecodeError, ValueError):
+        return False, None, None
     items = payload if isinstance(payload, list) else [payload]
     if not items or not all(isinstance(item, dict) for item in items):
-        return False, None
+        return False, None, None
     for item in items:
         request_id = item.get("id")
         if item.get("jsonrpc") != "2.0" or not isinstance(item.get("method"), str):
-            return False, request_id
+            return False, request_id, None
+        if item["method"] not in ALLOWED_METHODS and not item["method"].startswith("notifications/"):
+            return False, request_id, None
         if item["method"] != "tools/call":
             continue
         params = item.get("params")
         if not isinstance(params, dict) or params.get("name") not in ALLOWED_TOOL_NAMES:
-            return False, request_id
+            return False, request_id, None
         arguments = params.get("arguments")
         if not isinstance(arguments, dict):
-            return False, request_id
+            return False, request_id, None
         name = params["name"]
         if name == "call":
             source_id = arguments.get("id")
             if not isinstance(source_id, str) or not source_id.startswith(ALLOWED_SOURCE_PREFIXES):
-                return False, request_id
+                return False, request_id, None
         elif name == "get_schema":
             ids = arguments.get("ids")
             if (
@@ -165,8 +179,8 @@ def allowed_json_rpc(body):
                     for source_id in ids
                 )
             ):
-                return False, request_id
-    return True, None
+                return False, request_id, None
+    return True, None, payload
 
 
 def make_handler(cache, password):
@@ -234,9 +248,20 @@ def make_handler(cache, password):
             if not in_prefix(self.path):
                 self._reply(404, b"")
                 return
+            if self.command in ("GET", "DELETE"):
+                try:
+                    if int(self.headers.get("Content-Length") or 0) > 0 or self.headers.get("Transfer-Encoding"):
+                        self._reply(403, b"")
+                        return
+                except ValueError:
+                    self._reply(403, b"")
+                    return
             body = self._read_body()
+            if self.command in ("GET", "DELETE") and body:
+                self._reply(403, b"")
+                return
             if self.command == "POST":
-                accepted, request_id = allowed_json_rpc(body)
+                accepted, request_id, payload = allowed_json_rpc(body)
                 if not accepted:
                     error = json.dumps(
                         {
@@ -248,6 +273,7 @@ def make_handler(cache, password):
                     ).encode()
                     self._reply(403, error)
                     return
+                body = json.dumps(payload, separators=(",", ":")).encode()
             try:
                 token = cache.get(USERNAME, password)
                 connection, response = self._forward(token, body)
