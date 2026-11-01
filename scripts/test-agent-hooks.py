@@ -210,7 +210,7 @@ def test_policy_fails_closed() -> None:
         run_hook("block-runtime.sh", bash("echo hi"), 2, "policy.json", hooks_dir=broken)
         run_hook(
             "block-config-commentary.sh",
-            write(ROOT / "README.md", "text\n"),
+            write(broken / "policy.json", "text\n"),
             2,
             "policy.json",
             hooks_dir=broken,
@@ -254,25 +254,28 @@ def test_refusal_hints_on_failure_paths() -> None:
         policy["comments"]["guidance"] = "Repository-specific guidance."
         policy["validation"] = {"commandPattern": "python3 validate.py", "hint": "python3 validate.py"}
         (hooks / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
+        fixture = repo / "tracked.md"
+        fixture.write_text("tracked fixture\n", encoding="utf-8")
+        subprocess.run(["git", "add", "tracked.md"], cwd=repo, check=True)
         run_hook(
-            "block-config-commentary.sh", write(repo / "README.md", "# rationale\n" * 25),
+            "block-config-commentary.sh", write(fixture, "# rationale\n" * 25),
             2, "and 5 more", "put change context in the pull request",
             hooks_dir=hooks, project_dir=repo,
         )
         stale = {"tool_name": "Edit", "tool_input": {
-            "file_path": str(repo / "README.md"), "old_string": "absent", "new_string": "new",
+            "file_path": str(fixture), "old_string": "absent", "new_string": "new",
         }}
         run_hook("block-config-commentary.sh", stale, 2, "anchored to its actual text",
                  hooks_dir=hooks, project_dir=repo)
-        run_hook("block-config-commentary.sh", write(repo / "README.md", ["not text"]),
+        run_hook("block-config-commentary.sh", write(fixture, ["not text"]),
                  2, "as a text string", hooks_dir=hooks, project_dir=repo)
         run_hook("block-config-commentary.sh", {
-            "tool_name": "Other", "tool_input": {"file_path": str(repo / "README.md")},
+            "tool_name": "Other", "tool_input": {"file_path": str(fixture)},
         }, 2, "reviewable Write or Edit", hooks_dir=hooks, project_dir=repo)
         run_hook("require-validation-before-git.sh", bash("git commit -m x"),
                  2, "restore a readable session transcript", hooks_dir=hooks, project_dir=repo)
         history = transcript(repo, assistant(("Write", {
-            "file_path": str(repo / "README.md"), "content": "changed",
+            "file_path": str(fixture), "content": "changed",
         })))
         run_hook("require-validation-before-git.sh", {
             **bash("git commit -m x"), "transcript_path": history,
@@ -808,7 +811,7 @@ def test_block_config_commentary(policy: Policy) -> None:
 def test_require_validation_before_git(policy: Policy) -> None:
     with tempfile.TemporaryDirectory() as raw:
         directory = Path(raw)
-        target = str(ROOT / "README.md")
+        target = str(HOOKS / "policy.json")
 
         # Push is gated on a fetch since the last push, in every repository.
         no_fetch = transcript(directory, assistant(("Bash", {"command": "git push HEAD:main"})))
