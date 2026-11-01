@@ -30,9 +30,10 @@ This file is only what is true of **this** repository.
 
 ## Validation policy — cheap validation only
 
-Nix compiles/realises and CI runs each take an hour or more. Agents must not
-burn a run on them. Formatting is the only local validation you run; CI
-and the human are the compile/build/activation gate.
+Nix evaluations, builds, realisations and activations can take an hour or more.
+Agents must not burn a run on them. For hook-suite or policy-tooling changes, the
+narrow, non-realising checks listed below are also permitted; CI and the human
+remain the compile/build/activation gate.
 
 ### Prohibited during iteration
 
@@ -56,14 +57,25 @@ takes 1h+. Push your change and hand off; never block a run on CI.
 - `nix fmt` — the flake's configured formatter (`nixpkgs-fmt`); `just lint` runs
   the same thing. Use `nix fmt -- --check <paths>` to check without writing,
   mirroring the CI formatting step.
+- For hook-suite or policy-tooling changes only, `python3 scripts/test-agent-hooks.py`
+  and `python3 scripts/check-agent-policy.py` are permitted. The hook suite also
+  permits direct calls to `test_policy_fails_closed()`,
+  `test_refusal_hints_on_failure_paths()`, and
+  `test_require_validation_before_git(test_policy_loads())` from
+  `scripts/test-agent-hooks.py`.
+- The hook suite passes command-under-test strings to hook scripts as input for
+  inspection; it does not execute those strings. Its test repositories and
+  modified policies are disposable temporary fixtures. `scripts/check-agent-policy.py`
+  is a read-only scanner of tracked repository files and creates no fixtures.
 - Pure formatting/lint and markdown edits need no build at all.
 
 ### Who owns the build gate
 
 CI (`.github/workflows/ci.yaml`) and the human perform the eval, build, and
-activation. Agents rely on `nix fmt` plus careful review of the diff — never on a
-local build. If you believe a change genuinely needs a real build to be safe, say
-so in your handoff and let CI/the human run it; do not run it yourself.
+activation. Agents may run the applicable cheap checks permitted above and must
+review the diff carefully — never rely on a local build. If you believe a change
+genuinely needs a real build to be safe, say so in your handoff and let CI/the
+human run it; do not run it yourself.
 
 ## Agent policy: what is enforced, and where it comes from
 
