@@ -247,6 +247,7 @@ in
 
   programs.steam = {
     enable = true;
+    remotePlay.openFirewall = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
     protontricks.enable = true;
     # extraCompatPackages makes the steam module rebuild protontricks with a
