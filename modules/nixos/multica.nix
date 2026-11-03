@@ -12,13 +12,13 @@
 #
 # MULTICA_SERVER_URL pins the daemon to the ShockStruck API whatever
 # config.json holds: `daemon start` resolves the server as --server-url, then
-# MULTICA_SERVER_URL, then config.json (multica-ai/multica v0.6.1
+# MULTICA_SERVER_URL, then config.json (multica-ai/multica v0.7.2
 # server/cmd/multica/cmd_daemon.go:720-728). The unit environment does not
 # reach an interactive `sudo -u multica` shell, so the login repeats it as a
 # flag, which `login --token` also writes to config.json as server_url
 # (cmd_auth.go:436-454):
 #
-#   sudo -u multica -H multica --server-url https://multica-api.panic.ac login --token
+#   sudo -u multica -H multica --server-url https://multica.panic.ac login --token
 #
 # The token flow needs no app_url; the CLI reads it only to open the
 # workspace-creation page when the account has no workspace (cmd_login.go:157).
@@ -103,7 +103,7 @@ in
     environment = {
       HOME = home;
       MULTICA_DAEMON_AUTO_UPDATE = "false";
-      MULTICA_SERVER_URL = "https://multica-api.panic.ac";
+      MULTICA_SERVER_URL = "https://multica.panic.ac";
       MULTICA_OPENCODE_PATH = lib.getExe pkgs.opencode;
       MULTICA_CLAUDE_PATH = "/var/empty/multica-disabled/claude";
       MULTICA_CODEX_PATH = "/var/empty/multica-disabled/codex";
