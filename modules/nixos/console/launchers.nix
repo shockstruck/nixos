@@ -24,6 +24,24 @@ let
     userSettings = protonCachyosUserSettings;
   };
 
+  # nixpkgs marks gtk2 `meta.problems.broken` ("gtk2 will be removed … before
+  # NixOS 27.05"), so naming it throws instead of yielding a derivation.
+  # Lutris's FHS env names gtk2 only in its multiPkgs
+  # (pkgs/by-name/lu/lutris/package.nix at the pinned rev); lutris-unwrapped is
+  # a gtk3 application and multiPkgs already carries gtk3. Hand multiPkgs a
+  # package set whose gtk2 is gtk3, so the broken package is never forced.
+  # Revisit when upstream drops the entry.
+  lutris = pkgs.lutris.override {
+    buildFHSEnv =
+      args:
+      pkgs.buildFHSEnv (
+        args
+        // {
+          multiPkgs = p: args.multiPkgs (p // { gtk2 = p.gtk3; });
+        }
+      );
+  };
+
   # Declarative Steam per-title settings, the ChimeraOS `steam-tweaks` model
   # (chimera_app/steam_config.py) rendered from Nix instead of a downloaded
   # YAML database: compat tool per appid in config/config.vdf
@@ -337,7 +355,7 @@ in
     pkgs.heroic
     pkgs.protonup-qt
     pkgs.mangohud
-    pkgs.lutris
+    lutris
     pkgs.umu-launcher
     opengameinstaller
     # OGI's NixOS branch expects Bun on PATH and offers no installer of its own.
