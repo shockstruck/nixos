@@ -137,7 +137,10 @@ jobs:
     needs: [validate, changes]
     if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # A cold CachyOS kernel compile needs about 250 minutes in this job, and
+    # the first compile of a kernel cannot be served by the repo cache. 330
+    # stays under GitHub's 6-hour job limit.
+    timeout-minutes: 330
     permissions:
       contents: read
     strategy:
@@ -199,8 +202,10 @@ jobs:
       # in yet), so this list reflects only what cache.nixos.org and the
       # CUDA cache cannot supply. Of those, only the expensive builds are
       # worth caching (ollama, noctalia, stasis, terraform, the nvidia
-      # driver); units, config files and prebuilt apps rebuild in seconds
-      # and would only drag the whole system closure into the copy below.
+      # driver, and the CachyOS kernel while cache.xinux.uz does not serve
+      # it, so it enters the list only then); units, config files and
+      # prebuilt apps rebuild in seconds and would only drag the whole
+      # system closure into the copy below.
       # The licence exclusion keeps code-cursor, lmstudio, discord,
       # 1password-cli and claude-code out regardless.
       - name: Plan what upstream can't supply
@@ -208,7 +213,7 @@ jobs:
           nix build --dry-run --no-link ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel" 2>&1 | tee "$RUNNER_TEMP/plan.log"
           { grep -oE '/nix/store/[a-z0-9]{32}-[^ ]+\.drv' "$RUNNER_TEMP/plan.log" || true; } | sort -u > "$RUNNER_TEMP/plan.drvs"
           { xargs -r nix-store -q --outputs < "$RUNNER_TEMP/plan.drvs" || true; } \
-            | { grep -E -- '^/nix/store/[a-z0-9]{32}-(ollama|noctalia|stasis|terraform|nvidia)[-.]' || true; } \
+            | { grep -E -- '^/nix/store/[a-z0-9]{32}-(ollama|noctalia|stasis|terraform|nvidia|linux-cachyos)[-.]' || true; } \
             | { grep -vE -- '-(code-cursor|cursor|lmstudio|lm-studio|discord|_1password-cli|1password-cli|claude-code)-' || true; } \
             > "$RUNNER_TEMP/push.list"
           wc -l "$RUNNER_TEMP/plan.drvs" "$RUNNER_TEMP/push.list"
