@@ -4,7 +4,8 @@
 #
 # Not in nixpkgs; the fork ships a prebuilt AppImage (its `Build/release`
 # workflow, same as upstream's). We unpack it with `appimageTools.extract`
-# and run its `resources/app.asar` on nixpkgs' Electron of the same major —
+# and run its `resources/app.asar` on a newer nixpkgs Electron major, a prebuilt
+# binary (see "What the AppImage carries" below) —
 # deliberately NOT `appimageTools.wrapType2`. wrapType2 runs the app inside a
 # bubblewrap FHS sandbox, and that sandbox is fatal for OGI's own Play
 # button, which runs pressure-vessel via umu: from inside the appimage
@@ -33,9 +34,12 @@
 # What the AppImage carries, and why nixpkgs' Electron can run it:
 #   - Electron 40.10.2 (fork's bun.lock at the pinned tag, unchanged from
 #     upstream v4.3.1 for this workspace). nixpkgs marks every Electron
-#     below 42 EOL and refuses to evaluate it
-#     (electron/binary/generic.nix knownVulnerabilities), so electron_42 —
-#     the oldest supported major at the locked nixpkgs — runs it instead.
+#     below 43 EOL in its newer locks and refuses to evaluate it
+#     (electron/binary/generic.nix knownVulnerabilities), so
+#     `electron_43-bin` runs it instead: the oldest major those locks still
+#     support, and a prebuilt binary. `electron_43` (no suffix) selects a
+#     Chromium source build on Linux, which CI would have to compile, so the
+#     `-bin` attribute is the one used here.
 #   - That works because `resources/app.asar` (no `app.asar.unpacked`)
 #     carries only N-API native modules (utp-native, node-datachannel,
 #     bufferutil, utf-8-validate, fs-native-extensions, msgpackr-extract:
@@ -86,15 +90,17 @@
 #      `electron` devDependency at the new tag (`bun.lock` at the repo root
 #      is plain JSON text — grep it for `"electron@` entries, in particular
 #      the `opengameinstaller-gui/electron` workspace entry) and keep the
-#      `electron_<major>` argument below at or above it, within what
-#      nixpkgs still supports (it refuses to evaluate EOL majors). A newer
+#      `electron_<major>-bin` argument below at or above it, within what
+#      nixpkgs still supports (it refuses to evaluate EOL majors). Use the
+#      `-bin` attribute: the unsuffixed `electron_<major>` selects a Chromium
+#      source build on Linux (`getElectronPkg` in all-packages.nix). A newer
 #      Electron than the fork tested is a runtime risk, not a build failure —
 #      check the window comes up.
 #   5. If a release changes the internal `.desktop`/icon filenames or the Exec
 #      line, update `installPhase` (the `--replace-fail` will fail loudly
 #      if the Exec string drifts, which is intentional).
 { appimageTools
-, electron_42
+, electron_43-bin
 , fetchurl
 , lib
 , makeWrapper
@@ -170,7 +176,7 @@ stdenvNoCC.mkDerivation {
     makeWrapper ${systemd}/bin/systemd-cat $out/bin/opengameinstaller \
       --add-flags "-t opengameinstaller" \
       --add-flags "--stderr-priority=warning" \
-      --add-flags "${electron_42}/bin/electron" \
+      --add-flags "${electron_43-bin}/bin/electron" \
       --add-flags "$out/share/opengameinstaller/app.asar" \
       --add-flags "--no-sandbox" \
       --set ELECTRON_FORCE_IS_PACKAGED 1 \
