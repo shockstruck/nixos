@@ -222,10 +222,11 @@ jobs:
       # `require-sigs false` is needed because paths we built ourselves
       # carry no signature and there is no signing secret; it is confined to
       # this one command on an ephemeral runner whose substituters are
-      # cache.nixos.org, cache.nixos-cuda.org and a cache only this repo's
-      # main/own-branch runs can write. nix-quick-install-action installs
-      # Nix single-user (no nix-daemon), so the runner user is trusted and
-      # this command-line --option is honoured.
+      # cache.nixos.org, cache.nixos-cuda.org, the two CachyOS kernel caches
+      # (cache.lantian.pub and cache.xinux.uz) and a cache only this repo's
+      # main/own-branch runs can write. nix-quick-install-action installs Nix
+      # single-user (no nix-daemon), so the runner user is trusted and this
+      # command-line --option is honoured.
       - name: Build ${{ matrix.host }} configuration
         run: nix build --no-link --option extra-substituters "file://$RUNNER_TEMP/nix-cache" --option require-sigs false ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
 
@@ -235,8 +236,9 @@ jobs:
       # valid"), so the closures are copied first and then pruned down to
       # the planned paths: only those keep their narinfo and nar. At
       # restore time Nix resolves the pruned references from
-      # cache.nixos.org and the CUDA cache as it would anyway. zstd keeps
-      # the copy fast; actions/cache compresses the archive again itself.
+      # cache.nixos.org, the CUDA cache and the two CachyOS kernel caches as it
+      # would anyway. zstd keeps the copy fast; actions/cache compresses the
+      # archive again itself.
       # The result is swapped into the restore path at the end: actions/cache
       # derives a cache "version" from the path list, so an entry saved from
       # a different path than the one restored is never found.
