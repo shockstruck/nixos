@@ -179,8 +179,8 @@ jobs:
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_conf: |
-            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz
-            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=
+            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz https://cache.lantian.pub/lantian
+            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0= lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ=
             sandbox = true
             sandbox-fallback = false
 
@@ -199,11 +199,12 @@ jobs:
             nix-cache-${{ matrix.host }}-
 
       # Plan against upstream substituters only (the file cache isn't wired
-      # in yet), so this list reflects only what cache.nixos.org and the
-      # CUDA cache cannot supply. Of those, only the expensive builds are
+      # in yet), so this list reflects only what cache.nixos.org, the CUDA
+      # cache and the two CachyOS kernel caches (cache.lantian.pub and
+      # cache.xinux.uz) cannot supply. Of those, only the expensive builds are
       # worth caching (ollama, noctalia, stasis, terraform, the nvidia
-      # driver, and the CachyOS kernel while cache.xinux.uz does not serve
-      # it, so it enters the list only then); units, config files and
+      # driver, and the CachyOS kernel while neither kernel cache serves it,
+      # so it enters the list only then); units, config files and
       # prebuilt apps rebuild in seconds and would only drag the whole
       # system closure into the copy below.
       # The licence exclusion keeps code-cursor, lmstudio, discord,
@@ -293,8 +294,8 @@ jobs:
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_conf: |
-            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz
-            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=
+            extra-substituters = https://cache.nixos-cuda.org https://cache.xinux.uz https://cache.lantian.pub/lantian
+            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0= lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ=
 
       - name: Build changed packages
         env:

@@ -11,7 +11,13 @@
   # Takes effect only after the first activation that contains it; that first
   # switch passes the same two values with --option.
   nix.settings = {
-    extra-substituters = [ "https://cache.xinux.uz" ];
-    extra-trusted-public-keys = [ "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0=" ];
+    extra-substituters = [
+      "https://cache.lantian.pub/lantian"
+      "https://cache.xinux.uz"
+    ];
+    extra-trusted-public-keys = [
+      "lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ="
+      "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0="
+    ];
   };
 }
