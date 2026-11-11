@@ -10,7 +10,7 @@
 # theme/hyprland/noctalia/kitty back the Hyprland/Noctalia desktop session
 # from modules/nixos/console/desktop.nix (console-session's "Switch to
 # Desktop" target). brave carries Kevin's "basic apps" ask for that session —
-# same brave-origin module + Bitwarden extension as desktop/laptop, paired
+# same module (Chromium + Bitwarden extension) as desktop/laptop, paired
 # with the managed policy imported by modules/nixos/console/desktop.nix. Not
 # idle: stasis (modules/home/idle.nix) would lock/suspend
 # the console desktop, and couch use has no keyboard at hand to clear the
