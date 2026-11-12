@@ -76,11 +76,11 @@ rustPlatform.buildRustPackage rec {
     (replaceVars ./steamos-manager/hardcode-paths.patch {
       inherit coreutils dmidecode iw iwd;
       traceCmd = trace-cmd;
-      # `scx.full` is what services.scx runs on this host by default
-      # (nixos/modules/services/scheduling/scx.nix), so the path
-      # CpuSchedulerManager::is_supported probes is already in the closure;
-      # starting/stopping the scheduler goes through `scx.service`, not this
-      # binary.
+      # The `scx.full` path is what CpuSchedulerManager::is_supported probes,
+      # and substituting it here keeps it in the daemon's closure (services.scx-loader
+      # defaults to scx.rustscheds, nixos/modules/services/scheduling/scx-loader.nix).
+      # Starting/stopping the scheduler goes through `scx.service`, an alias of
+      # `scx_loader`, not this binary.
       scx = scx.full;
       out = null;
     })
