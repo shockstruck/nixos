@@ -171,7 +171,7 @@ power and storage files), but with no Hyprland/Noctalia desktop session. It
 boots straight into Steam's gamescope session (SteamOS/Bazzite-style "deck
 mode") via a `greetd` autologin, with Heroic, ProtonUp-Qt, MangoHud,
 OpenGameInstaller, Xbox controller drivers (`hardware.xone`, `hardware.xpadneo`),
-and CachyOS-inspired scheduling (`services.scx` with `scx_lavd`,
+and CachyOS-inspired scheduling (`services.scx-loader` with `scx_lavd`,
 `services.ananicy`, `programs.gamemode`). Proton-CachyOS is Nix-built from
 upstream's release tarball and set as the default Proton for umu-launcher
 and OGI-launched games (via `PROTONPATH`), while remaining selectable as a

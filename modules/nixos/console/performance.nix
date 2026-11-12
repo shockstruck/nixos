@@ -1,7 +1,8 @@
 # CachyOS-inspired scheduling tweaks. Verified against nixpkgs source before
 # writing:
-#   nixos/modules/services/scheduling/scx.nix: enable, scheduler (an enum of
-#     cfg.package.schedulers, which includes "scx_lavd").
+#   nixos/modules/services/scheduling/scx-loader.nix: enable,
+#     config.default_sched (asserted to be in the package's schedulers list,
+#     which includes "scx_lavd").
 #   nixos/modules/services/misc/ananicy.nix: enable, package, rulesProvider.
 #   The kernel is the CachyOS one from the nix-cachyos-kernel flake
 #     (./kernel.nix), not nixpkgs' default.
@@ -27,10 +28,12 @@
 
   # sched-ext; Valve's LAVD scheduler, tuned for gaming latency. Needs kernel
   # >= 6.12 — the CachyOS kernel (./kernel.nix) satisfies that.
-  services.scx = {
+  services.scx-loader = {
     enable = true;
-    scheduler = "scx_lavd";
+    config.default_sched = "scx_lavd";
   };
+  # steamos-manager's CPU-scheduler toggle starts and stops `scx.service`.
+  systemd.services.scx_loader.aliases = [ "scx.service" ];
 
   # CachyOS's ananicy-cpp + its community ruleset.
   services.ananicy = {

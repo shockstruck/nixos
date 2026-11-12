@@ -38,8 +38,8 @@
 #     `[tdp_limit.range] min/max` and never reads the card's own
 #     power1_cap_min/max, so those two numbers must come from the card
 #     (see the TOML comment below); `CpuSchedulerManager` starts and stops
-#     the systemd unit `scx.service` — the very unit ./performance.nix's
-#     `services.scx` declares — and `CpuScaling1` writes cpufreq
+#     the systemd unit `scx.service` — the alias of `scx_loader` that
+#     ./performance.nix declares — and `CpuScaling1` writes cpufreq
 #     scaling_governor; both need no configuration.
 #   steamos-manager/src/manager/user.rs `create_interfaces`: an interface
 #     is put on the session bus only once its driver instantiates, so a
