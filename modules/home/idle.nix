@@ -70,6 +70,8 @@ in
       # The upstream package with two tests skipped: they drive a real process and
       # are unreliable inside the Nix build sandbox; the rest of the suite still runs.
       package = flake.inputs.stasis.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+        # stasis links the system sqlite through libsqlite3-sys; upstream's package does not list it.
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.sqlite ];
         checkFlags = (old.checkFlags or [ ]) ++ [
           "--skip=services::games::tests::live_extra_game_service_blacklists_removes_and_disables_a_real_process"
           "--skip=services::games::tests::linux_process_scan_detects_a_real_native_process_and_clears_after_exit"
