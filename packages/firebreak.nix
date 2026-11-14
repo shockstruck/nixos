@@ -1,8 +1,7 @@
-{
-  lib,
-  python3Packages,
-  fetchPypi,
-  android-tools,
+{ lib
+, python3Packages
+, fetchPypi
+, android-tools
 }:
 python3Packages.buildPythonApplication rec {
   pname = "firebreak";
