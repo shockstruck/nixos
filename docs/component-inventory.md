@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `ca1d256` (2026-11-14). This doc is not
+Captured against `origin/main` @ `895bc1f` (2026-11-14). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -52,7 +52,7 @@ files by path, and supplies its own `graphics.nix` (no ROCm OpenCL/Ollama;
 | Host | Config | Hostname | Host platform | State version | Local imports |
 | --- | --- | --- | --- | --- | --- |
 | desktop | `configurations/nixos/desktop/default.nix` | `desktop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
-| laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
+| laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix`, `./echo-flashing.nix` |
 | console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
 
 `configurations/nixos/desktop/hardware.nix` (so desktop and console, not
@@ -62,6 +62,15 @@ each a hash-pinned `fetchurl` from linux-firmware commit `9a7c283f` (AMD's
 revert of the 2026-08/09 GC 11.0.0 updates), shadowing nixpkgs'
 linux-firmware 20260916 copies of those files only; to be dropped once
 nixpkgs ships a newer linux-firmware tag.
+
+`configurations/nixos/laptop/echo-flashing.nix` (laptop only): `environment.systemPackages
+= [ firebreak android-tools chromium ]` (firebreak from `packages/firebreak.nix`
+via `callPackage`); `users.groups.plugdev` plus `plugdev` in `extraGroups` for
+each `config.myusers` user; and `services.udev.packages` with one
+`writeTextFile` installing `/lib/udev/rules.d/51-echo-flashing.rules` (firebreak's
+eight README rules, `MODE="0660"`, `GROUP="plugdev"`, `TAG+="uaccess"`, plus
+`ID_MM_DEVICE_IGNORE` for tty `0e8d:0003` and `1949:2007`). Not
+`services.udev.extraRules`, whose `99-local.rules` sorts after the uaccess step.
 
 `configurations/home/kevin.nix` defines the shared home configuration (`me =
 { username = "kevin"; … }`, imports `self.homeModules.default`,
@@ -219,6 +228,7 @@ else is installed per-user via home-manager or by a host profile's own modules.
 | Package | File | Notes |
 | --- | --- | --- |
 | paperweight | `packages/paperweight.nix` | Callpackaged in `modules/home/packages.nix` |
+| firebreak | `packages/firebreak.nix` | firebreak `1.3.0` from PyPI (`fetchPypi`), `buildPythonApplication` with `hatchling`, `pyserial` and `pyusb`; `update-checker` dropped (optional import) and `--no-update-check` wrapped in; `postPatch` makes `child_path()` return `sys.path` for the emOS child; `android-tools` on the wrapper `PATH`. Callpackaged in `configurations/nixos/laptop/echo-flashing.nix`; also a flake output |
 | mactahoe-gtk-theme | `packages/mactahoe-gtk-theme.nix` | MacTahoe-Dark GTK theme, `tint` argument (defaults are the vanilla MacTahoe values); consumed by `modules/home/theme/mactahoe.nix` |
 | wallpapers | `packages/wallpapers.nix` | Wallpaper collection (SHOA-1058, `packages/wallpapers/assets/`); consumed by `modules/home/noctalia.nix` |
 | opengameinstaller | `packages/opengameinstaller.nix` | OpenGameInstaller front-end, built from the `shockstruck/OpenGameInstaller` fork's `v4.3.1-ss.17` release (fork of `Nat3z/OpenGameInstaller`, same `Build/release` AppImage): AppImage unpacked with `appimageTools.extract`, its `resources/app.asar` run on nixpkgs `electron_43-bin` (the bundled 40.10.2 is EOL in nixpkgs, and nixpkgs' newer locks mark every major below 43 EOL; the `-bin` attribute is used because `electron_43` selects a Chromium source build on Linux; the asar's native modules are all N-API, so the major is free) with no bubblewrap sandbox — needed for OGI's own Play button (pressure-vessel via `umu-run`), since Steam-managed shortcuts no longer route through OGI at launch as of ss.1 (OGI writes the launch environment into the shortcut's `LaunchOptions` and Steam starts the game directly); wrapper execs `systemd-cat -t opengameinstaller --stderr-priority=warning` in front of `electron`, so OGI's stdout/stderr (including `[umu]` lines) land in the journal instead of vanishing when the process is launched from a `.desktop` entry or Steam shortcut — read them with `journalctl -t opengameinstaller`, this package's replacement for the `update/latest.log` the upstream `-Setup.AppImage` would have produced and which this package deliberately does not ship; wrapper also sets `ELECTRON_FORCE_IS_PACKAGED=1` (keeps `app.isPackaged` true on a bare `electron` binary), `APPIMAGE=/run/current-system/sw/bin/opengameinstaller` so OGI's per-game `.desktop` entries (`Exec=<launcher> --game-id=N`) and the Steam re-sync's legacy-executable match still resolve the launcher (Steam shortcuts themselves no longer exec it on Linux), and (as of ss.9) `OGI_UMU_RUN` to `lib.getExe umu-launcher` (the nixpkgs package above) so OGI's Play button and redistributable installer resolve `umu-run` through nixpkgs' FHS-wrapped `steam.buildRuntimeEnv` instead of the upstream umu zipapp OGI downloads, whose pressure-vessel is a generic-Linux dynamically linked binary NixOS refuses to exec; as of ss.12, a game's settings also expose a "Redistributables" repair action (recorded redistributables plus an allowlisted set of common winetricks runtimes, reinstalled into the existing prefix without migrating or touching the Steam shortcut) — routed through the same `OGI_UMU_RUN`-resolved `umu-run`, so no change to this package was needed; as of ss.14, OGI's startup migrations rewrite a stored SteamRip or Fatboy unpack addon entry from `gitlab.com/fat-addons/*` to the ShockStruck forks (`github.com/shockstruck/steamrip-addon`, `github.com/shockstruck/fatboy-unpack`) and reinstall them — addons are runtime user config, so this package pins no addon; as of ss.15, OGI's compat-tool listing (its `auto` Steam-shortcut compat tool and the per-game Proton picker) also scans the tool directories named by `PROTONPATH` and `STEAM_EXTRA_COMPAT_TOOLS_PATHS` and follows symlinked tool directories, so that `auto` can resolve to the store Proton-CachyOS from `console/launchers.nix` when OGI's environment carries those variables (FSR 4 does not depend on it: `steam-tweaks` also seeds every ProtonUp-Qt Proton-CachyOS copy); as of ss.16, a WebTorrent download stages in a visible `<Game>/torrent/` (an existing hidden `.torrent` staging directory is still reused) and setup no longer moves it into `old_files`, and a seeding torrent card gets a Stop seeding action; as of ss.17, OGI's startup migrations add the DODI Repacks addon (`github.com/shockstruck/dodi-addon`) to the addons list when no entry already names it and install it, repairing an entry that is configured but was never cloned — still runtime user config, so this package pins no addon; callpackaged in `modules/nixos/console/launchers.nix` |
