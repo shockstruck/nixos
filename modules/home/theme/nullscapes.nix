@@ -1,26 +1,19 @@
 # Single source of truth for the Nullscapes theme, ported from
 # triplespike/Spike-dotfiles (MIT, home.nix at rev 3cf70b7d).
 #
-# Two halves:
-#   - `theme.nullscapes.dark`: the Nullscapes palette, the 16 Noctalia m*
-#     color roles plus a `terminal` section (ANSI 16 + fg/bg/cursor/
-#     selection), transcribed verbatim from the source's
-#     `programs.noctalia.customPalettes.Nullscapes.dark`. Same shape as
-#     theme/mactahoe.nix, so every consumer reads it the same way. Dark only;
-#     Noctalia reuses the dark variant for light mode when `light` is absent.
-#   - the application theme: GTK theme, icon theme, cursor and GTK font, as the
-#     source sets them in `gtk` and `home.pointerCursor`.
+# `theme.nullscapes.dark`: the Nullscapes palette, the 16 Noctalia m*
+# color roles plus a `terminal` section (ANSI 16 + fg/bg/cursor/
+# selection), transcribed verbatim from the source's
+# `programs.noctalia.customPalettes.Nullscapes.dark`. Same shape as
+# theme/mactahoe.nix, so every consumer reads it the same way. Dark only.
+#
+# Nullscapes is terminal-only: the active desktop theme is MacTahoe
+# (theme/mactahoe.nix). This module sets no GTK theme, icon theme or cursor.
 #
 # Consumers:
-#   - modules/home/noctalia.nix   (active custom palette)
-#   - modules/home/hyprland.nix   (border and background colors)
 #   - modules/home/kitty.nix      (terminal palette)
 #   - modules/home/fastfetch.nix  (noctalia fastfetch theme colors)
-#
-# Not ported from the source's GTK block: `gtk-modules =
-# "colorreload-gtk-module"` (the module is not installed here) and the
-# `ocean` sound theme (no sound theme package is installed here either).
-{ lib, pkgs, config, ... }:
+{ lib, ... }:
 let
   dark = {
     mPrimary = "#678FE4";
@@ -85,50 +78,5 @@ in
       + fg/bg/cursor/selection). Read as `config.theme.nullscapes.dark.<key>`.
     '';
     default = { inherit dark; };
-  };
-
-  config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-    home.pointerCursor = {
-      enable = true;
-      gtk.enable = true;
-      x11.enable = true;
-      package = pkgs.catppuccin-cursors.mochaDark;
-      name = "catppuccin-mocha-dark-cursors";
-      size = 20;
-    };
-
-    gtk = {
-      enable = true;
-      font = {
-        name = "Noto Sans";
-        size = 10;
-        package = pkgs.noto-fonts;
-      };
-      theme = {
-        name = "adw-gtk3-dark";
-        package = pkgs.adw-gtk3;
-      };
-      iconTheme = {
-        name = "Papirus-Dark";
-        package = pkgs.catppuccin-papirus-folders.override {
-          flavor = "mocha";
-          accent = "lavender";
-        };
-      };
-      gtk4.theme = config.gtk.theme;
-      # Drives gtk-application-prefer-dark-theme in gtk-3.0/gtk-4.0 settings.ini
-      # and the GSettings/portal color-scheme, via home-manager's gtk3/gtk4 modules.
-      colorScheme = "dark";
-      gtk3.extraConfig = {
-        gtk-decoration-layout = "icon:minimize,maximize,close";
-        gtk-enable-animations = true;
-        gtk-primary-button-warps-slider = true;
-      };
-      gtk4.extraConfig = {
-        gtk-decoration-layout = "icon:minimize,maximize,close";
-        gtk-enable-animations = true;
-        gtk-primary-button-warps-slider = true;
-      };
-    };
   };
 }
