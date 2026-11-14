@@ -60,6 +60,8 @@ Both workstations share one declarative Wayland session:
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
   (Greeter-screen Num Lock is not covered — the Noctalia greeter has no numlock
   toggle.)
+- **Echo flashing** is laptop-only (`configurations/nixos/laptop/echo-flashing.nix`):
+  firebreak, adb and Chromium, the Echo udev rules, and the `plugdev` group.
 - **Theme** is MacTahoe (`modules/home/theme/mactahoe.nix`): the MacTahoe
   palette in Noctalia (dark mode) and for the Hyprland border and background
   colours; the `MacTahoe-Dark` GTK theme with `kora` icons for applications; and
