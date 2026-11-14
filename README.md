@@ -60,13 +60,13 @@ Both workstations share one declarative Wayland session:
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.
   (Greeter-screen Num Lock is not covered — the Noctalia greeter has no numlock
   toggle.)
-- **Theme** is Nullscapes (`modules/home/theme/nullscapes.nix`), ported from
-  [triplespike/Spike-dotfiles](https://github.com/triplespike/Spike-dotfiles):
-  the Nullscapes palette in Noctalia (dark mode), kitty and fastfetch;
-  translucent soft panels, a transparent bar of translucent glass capsules and
-  horizontal top-centre OSD sliders in Noctalia; and the
-  `adw-gtk3-dark` GTK theme, Catppuccin Mocha (lavender) Papirus-Dark icons and
-  the Catppuccin Mocha Dark cursor for applications. Noctalia shows a 12-hour
+- **Theme** is MacTahoe (`modules/home/theme/mactahoe.nix`): the MacTahoe
+  palette in Noctalia (dark mode) and for the Hyprland border and background
+  colours; the `MacTahoe-Dark` GTK theme with `kora` icons for applications; and
+  the Adwaita cursor (also set on the Noctalia greeter). Nullscapes
+  (`modules/home/theme/nullscapes.nix`, ported from
+  [triplespike/Spike-dotfiles](https://github.com/triplespike/Spike-dotfiles))
+  is terminal-only: it themes kitty and fastfetch. Noctalia shows a 12-hour
   clock and weather set to Detroit, MI in Fahrenheit. Both hosts use the
   `America/Detroit` timezone.
 - **Boot splash**: the NixOS-branded Breeze Plymouth animation replaces routine
