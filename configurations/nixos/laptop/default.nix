@@ -13,6 +13,7 @@ in
     ./hardware.nix
     ./graphics.nix
     ./power.nix
+    ./echo-flashing.nix
     ./storage.nix
   ];
 
