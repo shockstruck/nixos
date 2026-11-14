@@ -4,8 +4,8 @@
 , ...
 }:
 let
-  # Nullscapes palette dark decoration colors (theme/nullscapes.nix).
-  f = config.theme.nullscapes.dark;
+  # Mactahoe-default palette dark decoration colors (theme/mactahoe.nix).
+  f = config.theme.mactahoe.dark;
 in
 {
   # Hyprland Home Manager compositor config (SHOA-1037, reverting the compositor swap
@@ -22,8 +22,7 @@ in
   #      windowrules) were injected by DMS's Hyprland home module, which no
   #      longer exists. Noctalia is a Quickshell/QML shell and does not inject
   #      Hyprland lua config; theming is owned by programs.noctalia
-  #      (modules/home/noctalia.nix) and cursor by home.pointerCursor
-  #      (modules/home/theme/nullscapes.nix).
+  #      (modules/home/noctalia.nix) and cursor by home.pointerCursor below.
   #   3. The hypr-autoscroll plugin (and its SUPER+CTRL+A middle-mode toggle)
   #      is NOT restored: the founder explicitly requested dropping it during
   #      the compositor swap (SHOA-997, "drop the hypr-autoscroll Hyprland
@@ -39,9 +38,17 @@ in
   # hard-coded as the laptop's internal panel in the shared modules/home/noctalia.nix.
   #
   # Decoration colors (misc.background_color + general borders) come from the
-  # Nullscapes palette (theme/nullscapes.nix) — the dark surface as the
-  # compositor background and mPrimary/mOutline as the active/inactive borders.
+  # mactahoe-default palette (theme/mactahoe.nix) — the dark surface
+  # as the compositor background and mPrimary/mOutline as the active/inactive
+  # borders.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    home.pointerCursor = {
+      enable = true;
+      package = pkgs.adwaita-icon-theme;
+      name = "Adwaita";
+      size = 24;
+    };
+
     wayland.windowManager.hyprland = {
       enable = true;
       systemd.enable = true;
@@ -53,8 +60,8 @@ in
           numlock_by_default = true;
           touchpad.natural_scroll = true;
         };
-        # Nullscapes decoration colors: rgb hex without the leading #
-        # (Hyprland rgb() format).
+        # Mactahoe-default decoration colors: rgb hex without the
+        # leading # (Hyprland rgb() format).
         general = {
           "col.active_border" = "rgb(${lib.removePrefix "#" f.mPrimary})";
           "col.inactive_border" = "rgb(${lib.removePrefix "#" f.mOutline})";

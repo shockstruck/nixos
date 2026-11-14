@@ -1,15 +1,14 @@
 { pkgs, ... }:
 {
-  # Noctalia greeter (greetd) is the display manager (SHOA-1040, replacing GDM):
+  # Noctalia greeter (greetd) is the display manager (replacing GDM):
   # nixpkgs' `services.displayManager.noctalia-greeter` module enables greetd
   # and the auto-created `greeter` user, and the greeter selects the `hyprland`
-  # session. Catppuccin Mocha Dark cursor matches home.pointerCursor
-  # (modules/home/theme/nullscapes.nix).
+  # session. Adwaita cursor matches home.pointerCursor (modules/home/hyprland.nix).
   services.displayManager.noctalia-greeter = {
     enable = true;
     cursorTheme = {
-      package = pkgs.catppuccin-cursors.mochaDark;
-      name = "catppuccin-mocha-dark-cursors";
+      package = pkgs.adwaita-icon-theme;
+      name = "Adwaita";
     };
     settings.keyboard.layout = "us";
   };
