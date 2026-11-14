@@ -262,22 +262,13 @@ sudo nixos-rebuild switch --flake .#console
 
 ## Local AI
 
-The laptop runs Ollama as a localhost-only NixOS service using the CUDA build.
-It starts at boot after the T500 driver and preloaded NVIDIA UVM module are
-ready, selects its CUDA runner, and enables Flash Attention with a 4-bit KV
-cache. The laptop CLI uses the same CUDA package. Its model loader downloads
-`nemotron-3-nano:4b` after networking becomes available. This is the 2.8 GB
-Q4_K_M release; Ollama uses a 2,048-token context and 4-bit KV cache so its
-weights and runtime cache fit the T500's 4 GB VRAM budget.
+The desktop runs Ollama as a localhost-only NixOS service through the ROCm
+package, which natively supports its Radeon RX 7900 XT, and preloads
+`qwen3.5:9b`. The laptop does not run Ollama.
 
-The desktop runs the same boot-time service through Ollama's ROCm package,
-which natively supports its Radeon RX 7900 XT, and preloads `qwen3.5:9b`.
-Both services remain localhost-only.
-
-Each host's Ollama package is built only for that host's own GPU target and
-CPU feature set (`gfx1100` on the desktop, `sm_75` on the laptop) instead of
-every generation upstream ships, so both compile from source rather than
-hitting the binary cache.
+The desktop's Ollama package is built only for its own GPU target and CPU
+feature set (`gfx1100`) instead of every generation upstream ships, so it
+compiles from source rather than hitting the binary cache.
 
 The first boot can finish before the background model download completes. Check
 its progress or run the model with:
@@ -285,7 +276,6 @@ its progress or run the model with:
 ```sh
 systemctl status ollama-model-loader.service
 journalctl -u ollama-model-loader.service -f
-ollama run nemotron-3-nano:4b
 ollama run qwen3.5:9b
 ollama ps
 ```
