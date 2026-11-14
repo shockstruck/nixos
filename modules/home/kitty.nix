@@ -27,8 +27,7 @@ in
       enable_audio_bell = "no";
       hide_window_decorations = "yes";
       # Nullscapes terminal translucency (Spike-dotfiles' ghostty
-      # background-opacity); niri blurs what is behind kitty
-      # (modules/home/niri.nix window rule).
+      # background-opacity).
       background_opacity = "0.76";
       dynamic_background_opacity = "no";
       confirm_os_window_close = 0;
