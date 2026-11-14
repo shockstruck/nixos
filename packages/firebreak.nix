@@ -34,8 +34,12 @@ python3Packages.buildPythonApplication rec {
   '';
 
   makeWrapperArgs = [
-    "--prefix PATH : ${lib.makeBinPath [ android-tools ]}"
-    "--add-flags --no-update-check"
+    "--prefix"
+    "PATH"
+    ":"
+    (lib.makeBinPath [ android-tools ])
+    "--add-flags"
+    "--no-update-check"
   ];
 
   meta = {
