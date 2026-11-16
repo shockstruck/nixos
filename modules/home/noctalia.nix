@@ -257,9 +257,9 @@ in
           inactive_opacity = 1.0;
           launcher_position = "start";
           # Adapted to this repo's app set (source list was GNOME/Flatpak-specific).
-          # org.gnome.Nautilus: the file manager, installed on desktop/laptop
-          # via packages.nix and on the console via its own home profile.
-          pinned = [ "firefox" "kitty" "org.gnome.Nautilus" "obsidian" "org.telegram.desktop" "discord" "signal" ];
+          # dev.noctalia.luciole: the file manager, installed on desktop/laptop
+          # and console via modules/home/luciole.nix.
+          pinned = [ "firefox" "kitty" "dev.noctalia.luciole" "obsidian" "org.telegram.desktop" "discord" "signal" ];
         };
 
         # Widget settings (all verified against beta.9 widget definitions).

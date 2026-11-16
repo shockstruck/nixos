@@ -54,7 +54,7 @@ Both workstations share one declarative Wayland session:
   docked (a second display connected), logind ignores the lid and Hyprland
   (`modules/home/hyprland.nix`) disables the internal `eDP-1` panel on close
   and restores it on open.
-- **File management** uses Nautilus with GVfs/UDisks integration. KDE Connect is
+- **File management** uses Luciole (Noctalia's file manager) with GVfs/UDisks integration. KDE Connect is
   retained, but Dolphin and KDE System Settings are not installed.
 - **Input defaults** enable Num Lock in the Hyprland session on both hosts. The
   laptop also sets its ThinkPad keyboard backlight to full brightness at boot.

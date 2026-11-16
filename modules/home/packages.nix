@@ -24,7 +24,6 @@ in
     lmstudio
     looking-glass-client
     mission-center
-    nautilus
     obsidian
     netbird-ui
     paperweight

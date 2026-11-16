@@ -18,16 +18,15 @@
 # imported so the console's interactive shell (zsh + powerlevel10k) matches
 # desktop/laptop. Still not packages/bitwarden — those are desktop/laptop's
 # day-to-day app set, not needed for the occasional shortcut-adding session
-# this profile exists for. nautilus is the
-# one item lifted out of packages: the shared Noctalia dock pins
-# org.gnome.Nautilus (modules/home/noctalia.nix) and the shortcut-adding
+# this profile exists for. luciole (modules/home/luciole.nix, imported
+# explicitly) is the one app lifted out of packages: the shared Noctalia dock
+# pins dev.noctalia.luciole (modules/home/noctalia.nix) and the shortcut-adding
 # sessions need a file manager to find the installed game; gvfs/udisks2 for
 # it are enabled in modules/nixos/console/desktop.nix. heroic.nix asserts
 # Heroic's auto-add-to-Steam toggle for the shortcut-adding sessions this
 # profile exists for. archives is imported explicitly (this profile has no
 # default.nix, so it misses modules/home/default.nix's readDir autowiring)
-# so the same Nautilus double-click auto-extract this Nautilus reaches for
-# shortcut-adding also works on this session. limo.nix installs Limo as this
+# so the zip/unzip/p7zip tools are present on this session too. limo.nix installs Limo as this
 # session's Nexus Mods client and makes it the default nxm:// handler, so
 # Nexus's "Mod Manager Download" links deploy mods into the game directory
 # from here for both Steam and OGI/Heroic shortcuts; opening it through its
@@ -57,13 +56,12 @@ in
     self.homeModules.direnv
     self.homeModules.nix-index
     self.homeModules.archives
+    self.homeModules.luciole
 
     ./heroic.nix
     ./limo.nix
     ./qbittorrent.nix
   ];
-
-  home.packages = [ pkgs.nautilus ];
 
   # Console-only: start OGI hidden at login so it's ready with a tray icon in
   # Noctalia's bar instead of showing a window. `extraConfig` is
