@@ -45,7 +45,7 @@
     xwayland.enable = true;
   };
 
-  # nautilus (configurations/home/console/kevin.nix) needs the gvfs daemon
+  # luciole (modules/home/luciole.nix) reaches the gvfs daemon through GIO
   # for trash, network locations and mounting; udisks2 backs its removable
   # media. Same pair gui/hyprland.nix enables for desktop/laptop.
   services.gvfs.enable = true;

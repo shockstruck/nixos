@@ -42,6 +42,13 @@
     noctalia.url = "github:noctalia-dev/noctalia-shell/v5.5.0";
     noctalia.inputs.nixpkgs.follows = "nixpkgs";
 
+    # Luciole — Noctalia's native Wayland file manager, the workstation file
+    # manager. Its `homeModules.default` provides `programs.luciole`, consumed
+    # by modules/home/luciole.nix (and defaults the package to the flake's own
+    # build). It follows nixpkgs so it shares the system package set.
+    luciole.url = "github:noctalia-dev/luciole";
+    luciole.inputs.nixpkgs.follows = "nixpkgs";
+
     # CachyOS kernel for the console (modules/nixos/console/kernel.nix). The
     # `release` branch only carries kernels its Hydra has already cached. No
     # `nixpkgs.follows`: upstream forbids it (patches and kernel version can

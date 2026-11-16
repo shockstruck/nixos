@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `895bc1f` (2026-11-14). This doc is not
+Captured against `origin/main` @ `75916f1` (2026-11-16). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -23,15 +23,16 @@ declared refs from `flake.nix`; they match each lock node's `original.ref`
 | stasis | `github:saltnpepper97/stasis/v1.7.0` | `6bdcd3423ebf` | nixpkgs, flake-parts |
 | nix-index-database | `github:nix-community/nix-index-database` | `e22762b58789` | nixpkgs |
 | nixvim | `github:nix-community/nixvim` | `453dc9c5037e` | nixpkgs, flake-parts |
+| luciole | `github:noctalia-dev/luciole` | not yet locked (added without a lock node; the daily `update-flake-lock` run adds it) | nixpkgs |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.4.1` | `815aebe1cfd7` | nixpkgs |
 | nix-cachyos-kernel | `github:xddxdd/nix-cachyos-kernel/release` | `baa4163a89b8` | flake-parts (not nixpkgs: upstream forbids it) |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
-`nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`.
+`nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`, `luciole`.
 `nix-cachyos-kernel` follows only `flake-parts` and keeps its own `nixpkgs`, so the Hydra-built kernels hit the `lantian` binary cache; the console boots its `linuxPackages-cachyos-latest` (`modules/nixos/console/kernel.nix`). `stasis` and `nixvim` additionally follow `flake-parts`. `flake-parts` pins its
 own `nixpkgs-lib` (`nix-community/nixpkgs.lib`), `nixvim` its own `systems`
 (`nix-systems/default`, `future-26.11`); `nixos-unified` has no inputs.
-`stasis` provides the idle manager consumed by `modules/home/idle.nix`.
+`stasis` provides the idle manager consumed by `modules/home/idle.nix`; `luciole` provides the file manager consumed by `modules/home/luciole.nix`.
 
 The flake is wired via `inputs.nixos-unified.lib.mkFlake` (autowiring), for systems
 `x86_64-linux`, `aarch64-linux`, `aarch64-darwin`.
@@ -77,7 +78,7 @@ eight README rules, `MODE="0660"`, `GROUP="plugdev"`, `TAG+="uaccess"`, plus
 `home.stateVersion = "26.05"`), used by `desktop` and `laptop`.
 `configurations/home/console/kevin.nix` is the console's own, smaller Home
 Manager profile (`me` + `self.homeModules.{me,nix,gc,git,ssh,theme,hyprland,
-noctalia,kitty,brave,shell,neovim,direnv,nix-index,archives}` — the theme/hyprland/
+noctalia,kitty,brave,shell,neovim,direnv,nix-index,archives,luciole}` — the theme/hyprland/
 Noctalia/kitty modules back the desktop session from
 `modules/nixos/console/desktop.nix`, `brave` carries Kevin's "basic apps" ask,
 paired with the managed policy imported by `console/desktop.nix`, and
@@ -85,8 +86,8 @@ paired with the managed policy imported by `console/desktop.nix`, and
 powerlevel10k shell as desktop/laptop; still no `idle` — stasis
 (`modules/home/idle.nix`) would lock/suspend a couch session with no
 keyboard at hand — and no
-`packages`/`bitwarden`; `home.packages = [ nautilus ]` is the one item lifted
-out of `packages`, the file manager the shared Noctalia dock pins;
+`packages`/`bitwarden`; `luciole` (imported explicitly) is the one app lifted
+out of the desktop set, the file manager the shared Noctalia dock pins;
 `wayland.windowManager.hyprland.extraConfig` adds
 `hl.on("hyprland.start", …)` running `hl.exec_cmd("opengameinstaller --hidden")`
 (concatenated with `modules/home/hyprland.nix`'s own `extraConfig`), so OGI
@@ -124,7 +125,7 @@ resolve to their `default.nix`.
 
 | Module | Purpose |
 | --- | --- |
-| `archives.nix` | `home.packages`: `zip`, `unzip`, `p7zip`; `xdg.mimeApps.enable` + `defaultApplications` mapping archive MIME types to `org.gnome.Nautilus.desktop` so Nautilus 50's `get_activation_action()` extracts in place on double-click with no dialog, instead of prompting; imported explicitly by `configurations/home/console/kevin.nix` since that profile has no `default.nix` and misses this directory's `readDir` autowiring |
+| `archives.nix` | `home.packages`: `zip`, `unzip`, `p7zip`; imported explicitly by `configurations/home/console/kevin.nix` since that profile has no `default.nix` and misses this directory's `readDir` autowiring |
 | `bitwarden.nix` | Bitwarden vault config + `bw-ssh-pull` helper script |
 | `brave.nix` | `programs.brave-origin.enable` + Bitwarden extension; activation script merges `brave.location_bar_is_wide=true` into the profile's `Preferences` (no policy exists for this pref) |
 | `direnv.nix` | direnv setup (`programs.direnv` with `nix-direnv`) |
@@ -137,7 +138,8 @@ resolve to their `default.nix`.
 | `neovim/default.nix` | Imports nixvim home module; `programs.nixvim = import ./nixvim.nix` |
 | `neovim/nixvim.nix` | nixvim configuration for neovim |
 | `hyprland.nix` | Hyprland compositor home config; `wayland.windowManager.hyprland` (`configType = "lua"`, `systemd.enable = true`) providing the Lua `settings` (input defaults, MacTahoe border/background colours from `config.theme.mactahoe`) and `extraConfig` (a per-output rule scaling any output whose mode is ≥ 3840×2160 to 2, the Noctalia shell verbs via `noctalia msg`, media/brightness keys, and the shared lid-switch bind); keybinds incl. `noctalia msg session lock`; cursor is `home.pointerCursor` (Adwaita, size 24) |
-| `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its Nautilus/D-Bus integration files |
+| `luciole.nix` | Luciole file manager: imports `flake.inputs.luciole.homeModules.default`, `programs.luciole.enable`, `xdg.mimeApps` default for `inode/directory`, and `xdg.dataFile` installing Luciole's D-Bus service as `org.freedesktop.FileManager1`; autoloaded on desktop/laptop, imported explicitly by `configurations/home/console/kevin.nix` |
+| `nextcloud.nix` | Nextcloud desktop client (`services.nextcloud-client`, autostarted in background) + `home.packages` for its desktop entry and D-Bus integration files |
 | `nix-index.nix` | nix-index database setup |
 | `nix.nix` | Nix client settings |
 | `noctalia.nix` | Noctalia V5 shell (`programs.noctalia`, systemd user service); active palette MacTahoe (`theme.custom_palette = "mactahoe"`), `eldritch` exported as a selectable custom palette; `package` is the pinned flake's default build |
@@ -163,7 +165,7 @@ resolve to their `default.nix`.
 | `gui/default.nix` | Imports `./brave.nix`, `./flatpak.nix`, `./hyprland.nix`; boot console/quiet/plymouth settings, `services.xserver.enable` |
 | `gui/brave.nix` | Managed Brave policy (`environment.etc."brave/policies/managed/policies.json"`), incl. default search provider (Brave Search), force-pinned Bitwarden toolbar entry, and a `3rdparty.extensions` block presetting Bitwarden's managed-storage environment to `vault.panic.ac` (fresh installs only) |
 | `gui/flatpak.nix` | Bazaar (`pkgs.bazaar`) plus a `flatpak-remotes` oneshot registering the `flathub` and `flathub-beta` system remotes it shows |
-| `gui/hyprland.nix` | Noctalia greeter display manager (cursor `Adwaita`), `programs.hyprland.enable` with `xwayland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service, `NAUTILUS_4_EXTENSION_DIR` session variable (nautilus-python, for the Nextcloud client's Nautilus integration) |
+| `gui/hyprland.nix` | Noctalia greeter display manager (cursor `Adwaita`), `programs.hyprland.enable` with `xwayland.enable`, `services.flatpak.enable`, Steam, fonts, Grayjay flatpak service |
 | `console/default.nix` | Imports `./session.nix`, `./kernel.nix`, `./performance.nix`, `./input.nix`, `./launchers.nix`, `./streaming.nix`, `./desktop.nix`, `./cec.nix`, `./rgb.nix`, `./power.nix`, `./steamos-manager.nix`, `./context-mesh-proxy.nix`; boot quiet/plymouth settings (no `services.xserver.enable` — gamescope needs no X server stack). Console-only: reaches neither desktop nor laptop |
 | `console/session.nix` | `programs.gamescope.capSysNice`, `programs.gamescope.enableWsi` (the Gamescope WSI Vulkan layer, the client-side path for HDR swapchains), `programs.steam` (incl. `remotePlay.openFirewall = true`, which opens the firewall for Steam Remote Play, `gamescopeSession.enable`, `gamescopeSession.args = [ "--mangoapp" "--hdr-enabled" "--adaptive-sync" ]` — HDR10 output and VRR requested from gamescope, the ChimeraOS `gamescope-session-plus` opt-ins, since the GPU drives the HDR/VRR-capable TV directly; SDR content shows at gamescope's default 400 nits, inverse tone mapping off — `gamescopeSession.env = { ENABLE_HDR_WSI = "1"; DXVK_HDR = "1"; }` (the client-side pair ChimeraOS exports with `--hdr-enabled`), `gamescopeSession.steamArgs = [ "-gamepadui" "-steamos3" "-steampal" "-steamdeck" "-pipewire-dmabuf" ]` — the full SteamOS gaming-mode flag set Valve/ChimeraOS/Bazzite all use, replacing the nixpkgs default's desktop-Big-Picture `-tenfoot`; `-steamos3` is what makes Steam's "Switch to Desktop" call `steamos-session-select` at all, `protontricks.enable`, `extraPackages = [ steamos-session-select ]`), `services.greetd` autologin into `console-session` (a loop that reads Steam's "Switch to Desktop" request and starts either `steam-gamescope` or the Hyprland/Noctalia session from `./desktop.nix` — launched through `start-hyprland --path ${config.security.wrapperDir}/Hyprland` from `programs.hyprland.package`, which returns on a clean compositor exit; the "Return to Gaming Mode" path ends it with `hyprctl dispatch exit` when `HYPRLAND_INSTANCE_SIGNATURE` is set — falling back to `tuigreet` when neither is requested), `services.pipewire`/`security.rtkit`, bluetooth (with `hardware.bluetooth.settings` carrying SteamOS's BlueZ `main.conf` tuning from Jovian: `General.MultiProfile`/`FastConnectable`/`KernelExperimental`, `LE.ScanIntervalSuspend`/`ScanWindowSuspend`)/flatpak/polkit/dconf. `console-session` runs `systemctl --user start steamos-manager.service` (the user daemon from `./steamos-manager.nix`, whose unit is bound to `graphical-session.target` that the gamescope session never reaches; failure tolerated) and then `steam-tweaks` (`./launchers.nix`) immediately before `steam-gamescope` on every loop iteration, re-asserting Steam's declared compat-tool mappings and launch options while Steam is guaranteed not running; it also starts `steam-notif-daemon.service` (callpackaged `packages/steam-notif-daemon.nix`; `systemd.user.services.steam-notif-daemon`, `Restart=on-failure`, no `wantedBy`) right before `steam-gamescope` and stops it right after, so the daemon owns `org.freedesktop.Notifications` only while gamescope runs (Noctalia owns it in the Hyprland session) |
 | `console/kernel.nix` | `boot.kernelPackages` = `nix-cachyos-kernel`'s `linuxPackages-cachyos-latest` (non-LTO); `nix.settings.extra-substituters`/`extra-trusted-public-keys` for upstream's `cache.lantian.pub` (`https://cache.lantian.pub/lantian`) and the separately built `cache.xinux.uz` (`https://cache.xinux.uz`). Console-only; desktop and laptop keep nixpkgs' default kernel |
@@ -176,7 +178,7 @@ resolve to their `default.nix`.
 | `console/power.nix` | `services.logind.settings.Login = { HandlePowerKey = "suspend"; HandlePowerKeyLongPress = "poweroff"; }` — physical power button suspends to RAM (game stays in memory), ~5s hold powers off; modelled on ChimeraOS's `power_off.conf` (generic, non-Deck hardware). Steam's own SteamOS "Suspend" menu item and CEC/controller-wake are already handled by `./session.nix`'s gamescope args and `./cec.nix`/`./input.nix` respectively; no `powerbuttond` (Deck-only, not in nixpkgs) |
 | `console/steamos-manager.nix` | Valve's `steamos-manager` (callpackaged `packages/steamos-manager.nix`) behind Steam's Quick Access "Performance" tab: `services.dbus.packages` (system-bus policy/activation and session-bus activation files), `environment.systemPackages` (`steamosctl`), `systemd.services.steamos-manager` (root daemon, `steamos-manager -r --device-config <toml>`, `Type=notify-reload`, `BusName=com.steampowered.SteamOSManager1`, upstream's restart/start-limit values, `wantedBy multi-user.target`) and `systemd.user.services.steamos-manager` (user daemon, same flag without `-r`, `wantedBy graphical-session.target`; started by hand from `console-session` for the gamescope session). `--device-config` bypasses upstream's exact-match DMI device lookup (no upstream config matches this board and there is no generic fallback); the forced TOML (`writeText`) carries `[gpu_performance] driver = "amdgpu"` and `[gpu_power_profile] driver = "amdgpu"` only — `GpuPerformanceLevel1`/`GpuPowerProfile1` over `power_dpm_force_performance_level`, `pp_power_profile_mode`, `pp_dpm_sclk`, `pp_od_clk_voltage` (the overdrive mask from `configurations/nixos/desktop/hardware.nix`), plus the unconfigured `CpuScaling1` (cpufreq governor) and `CpuScheduler1` (starts/stops `scx.service`, the alias of `scx_loader` that `./performance.nix` declares). `[tdp_limit]` deliberately absent: `TdpLimit1` needs a `[tdp_limit.range]` the daemon never derives from the card, so it waits for the console's `power1_cap_min/max/default` readings |
 | `console/context-mesh-proxy.nix` | Console-only loopback Context-Mesh token proxy: `systemd.services.context-mesh-proxy` (`wantedBy` `multi-user.target`, after `network-online.target`) runs `context-mesh-proxy.py` (read into the store with `builtins.readFile`) as a `DynamicUser` service listening on `127.0.0.1:8790`. The script allowlists the Context-Mesh `initialize`, `ping`, `tools/list` and `tools/call` methods, the `search`, `get_schema` and `call` tools, and the `context7.`, `deepwiki.` and `octocode.` sources, and forwards them to the Kong gateway, with OAuth tokens from the `auth.panic.ac` token endpoint. The app credential is the encrypted systemd credential `kong-ai-operator-console`, loaded with `LoadCredentialEncrypted` from `/etc/credstore.encrypted/` and gated by `ConditionPathExists`. The unit sets `ProtectHome`, `NoNewPrivileges`, `PrivateTmp`, `RestrictAddressFamilies` to AF_INET and AF_INET6 only, and `Restart = on-failure`. `context-mesh-proxy_test.py` sits beside it and is referenced by neither Nix nor CI |
-| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`) and `../gui/flatpak.nix` (Bazaar + the `flatpak-remotes` oneshot; `services.flatpak.enable` is already on via `./session.nix`); `programs.hyprland.enable` with `xwayland.enable`, `services.gvfs`/`services.udisks2` (for the console profile's nautilus), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, an explicit gnome-keyring and `services.xserver.enable` |
+| `console/desktop.nix` | Imports `../gui/brave.nix` (standalone `environment.etc` entry, carries Brave's managed policy without the rest of `gui/`) and `../gui/flatpak.nix` (Bazaar + the `flatpak-remotes` oneshot; `services.flatpak.enable` is already on via `./session.nix`); `programs.hyprland.enable` with `xwayland.enable`, `services.gvfs`/`services.udisks2` (for the console profile's luciole), `environment.pathsToLink`, `fonts.packages` (Noctalia's icon/text fonts, copied from `gui/hyprland.nix`) — a console-only copy, not an import, of `gui/hyprland.nix`'s system layer; deliberately omits `services.displayManager.noctalia-greeter` (would double-define `services.greetd.settings.default_session` against `./session.nix`), Grayjay, kdeconnect, an explicit gnome-keyring and `services.xserver.enable` |
 
 ### Darwin modules — `modules/darwin/`
 
@@ -202,7 +204,7 @@ resolve to their `default.nix`.
 | Group | Packages |
 | --- | --- |
 | General | `omnix`, `opencode` |
-| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `looking-glass-client`, `mission-center`, `nautilus`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vscodium` |
+| Desktop applications | `bitwarden-desktop`, `bolt-launcher`, `ente-auth`, `firefox`, `github-desktop`, `gnome-calendar`, `gnome-disk-utility`, `lmstudio`, `looking-glass-client`, `mission-center`, `obsidian`, `netbird-ui`, `paperweight`, `papers`, `proton-authenticator`, `proton-pass`, `proton-vpn`, `protonmail-bridge-gui`, `protonmail-desktop`, `runelite`, `signal-desktop`, `telegram-desktop`, `discord.override { withVencord = true; }`, `vscodium` |
 | Unix tools | `age`, `ansible`, `bitwarden-cli`, `cloudflared`, `crane`, `fluxcd`, `gh`, `go-task`, `helmfile`, `kubeconform`, `kubecolor`, `kubectl`, `kubernetes-helm`, `kustomize`, `minijinja`, `mise`, `ranger`, `fd`, `sd`, `sops`, `stern`, `talhelper`, `talosctl`, `terraform`, `tree`, `gnumake`, `yamllint`, `yq-go`, `proton-pass-cli`, `_1password-cli` |
 | Nix dev | `cachix`, `nil`, `nix-info`, `nixpkgs-fmt` |
 | Other | `less` (man pager) |
