@@ -89,12 +89,13 @@ The "cheap validation only" rule above is no longer only prose:
 | Hook | Denies |
 |---|---|
 | `block-nix-realise.sh` | `nix build/run/develop/shell/profile/repl`, `nix flake check/update`, `nix eval` of a `toplevel`/`drvPath`/`outPath`, `nixos-rebuild`, `just run/check/update/dev` |
-| `block-runtime.sh` | `nixos-rebuild`, `nixos-install`, `home-manager`, `disko`, and the cluster CLIs, per `policy.json` |
-| `block-git-unsafe.sh` | force-push, `--no-verify`, `reset --hard`, `clean -f`, ref deletion, history rewrites |
-| `block-gh-unsafe.sh` | `gh api -X <write>`, `gh secret set`, `gh workflow run`, `gh pr merge --admin`, `gh repo delete` |
-| `require-validation-before-git.sh` | `git commit` with no `nix fmt` / `just lint` / `bash -n install.sh` since the last write; `git push` with no `git fetch` since the last push |
-| `block-config-commentary.sh` | a write that adds a Multica task identifier to a committed file |
-| `probity.sh` | a commit whose session writes bundle unrelated work (AI-judged) |
+| `pre-bash.sh` | runs every rule below in one process, via `pre-bash.py` and `lib/*_rule.py`, and reports every reason in one denial |
+| `runtime_rule.py` (`block-runtime`) | the executables `policy.json` lists under `blockedCommands`: `nixos-rebuild`, `nixos-install`, `home-manager`, `disko`, `kubectl`, `flux`, `helm`, `talosctl`, `sops` |
+| `git_unsafe_rule.py` (`block-git-unsafe`) | force-push, `git push --mirror` or `--delete` or an empty-source refspec, `--no-verify`, `git clean -f`, `git worktree remove --force`, `git update-ref -d`, history-rewriting commands, `git reset --hard` / `checkout .` / `restore .` on a dirty worktree, bare `git stash` and `git stash pop`, force-deleting the mainline branch |
+| `gh_unsafe_rule.py` (`block-gh-unsafe`) | `gh api -X <write>` and `gh api graphql` mutations, `gh auth` credential commands, `gh repo delete`, `gh secret set/delete/remove`, `gh release delete`, `gh workflow run/disable`, `gh pr merge --admin` |
+| `attribution_rule.py` (`block-attribution`) | a `git commit`, `gh pr create`/`edit` or push whose message carries a Claude, Anthropic or agent attribution, and a `gh pr merge` with no explicit body |
+| `validation_rule.py` (`require-validation-before-git`) | `git commit` with no `nix fmt` / `just lint` / `bash -n install.sh` / `scripts/test-agent-hooks.py` run since the last write; `git push` to `main` or `master` with no `git fetch` or `git pull` since the last push |
+| `block-config-commentary.sh` | a write that adds a Multica task identifier (`SHOC`, `PRO`, `MUL` prefixes) to a tracked file |
 
 `nix fmt`, `just lint`, `nix flake show`, `nix flake metadata`, `nix-instantiate --parse` and a
 plain `nix eval` of a cheap attribute all stay open. The same commands are also in
