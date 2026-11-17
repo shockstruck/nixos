@@ -86,15 +86,15 @@ template, not the copy.
 
 The "cheap validation only" rule above is no longer only prose:
 
-| Hook | Denies |
+| Hook or `pre-bash.sh` rule | Denies |
 |---|---|
 | `block-nix-realise.sh` | `nix build/run/develop/shell/profile/repl`, `nix flake check/update`, `nix eval` of a `toplevel`/`drvPath`/`outPath`, `nixos-rebuild`, `just run/check/update/dev` |
-| `block-runtime.sh` | `nixos-rebuild`, `nixos-install`, `home-manager`, `disko`, and the cluster CLIs, per `policy.json` |
-| `block-git-unsafe.sh` | force-push, `--no-verify`, `reset --hard`, `clean -f`, ref deletion, history rewrites |
-| `block-gh-unsafe.sh` | `gh api -X <write>`, `gh secret set`, `gh workflow run`, `gh pr merge --admin`, `gh repo delete` |
-| `require-validation-before-git.sh` | `git commit` with no `nix fmt` / `just lint` / `bash -n install.sh` since the last write; `git push` with no `git fetch` since the last push |
+| `pre-bash.sh` rule `block-runtime` | `nixos-rebuild`, `nixos-install`, `home-manager`, `disko`, and the cluster CLIs, per `policy.json` |
+| `pre-bash.sh` rule `block-git-unsafe` | force-push, `--no-verify`, `reset --hard`, `clean -f`, ref deletion, history rewrites |
+| `pre-bash.sh` rule `block-gh-unsafe` | `gh api -X <write>`, `gh secret set`, `gh workflow run`, `gh pr merge --admin`, `gh repo delete` |
+| `pre-bash.sh` rule `block-attribution` | a `git commit` or `gh pr create`/`edit` whose message carries a Claude/Anthropic/agent attribution trailer or "Generated with Claude Code" line; a `gh pr merge` with no explicit body |
+| `pre-bash.sh` rule `require-validation-before-git` | `git commit` with no `nix fmt` / `just lint` / `bash -n install.sh` since the last write; `git push` with no `git fetch` since the last push |
 | `block-config-commentary.sh` | a write that adds a Multica task identifier to a committed file |
-| `probity.sh` | a commit whose session writes bundle unrelated work (AI-judged) |
 
 `nix fmt`, `just lint`, `nix flake show`, `nix flake metadata`, `nix-instantiate --parse` and a
 plain `nix eval` of a cheap attribute all stay open. The same commands are also in
