@@ -13,20 +13,33 @@
 #           that exact same-run artifact, and only then authenticates and
 #           uploads. It never evaluates a repository installable.
 #
-# The smoke run and the full pilot use the same two-job path. `full-pilot`
-# stays on hold until the parent clears the closure for public artifact
-# access and sets the repository variable ATTIC_FULL_PILOT_ENABLED.
+# The smoke run, the console pilot and the two per-host full modes use the
+# same two-job path. `full-pilot` stays on hold until the parent clears the
+# console closure for public artifact access and sets the repository
+# variable ATTIC_FULL_PILOT_ENABLED.
+#
+# `laptop-full` and `desktop-full` are manual-only and have their own hold:
+# each requires ATTIC_LAPTOP_APPROVED_REVISION or
+# ATTIC_DESKTOP_APPROVED_REVISION to name this exact dispatched `main`
+# revision. That variable is maintained independently of the console
+# clearance and of automatic smoke pushes, and may only be set once the
+# parent has cleared that host's entire exported closure - not just the
+# Attic endpoint or the artifact lifetime - for public GitHub Actions
+# artifact access and redistribution. Without that clearance the closure
+# needs a private transfer design instead.
 name: Attic publish
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "smoke is the default preflight round trip. full-pilot also publishes the Lead-cleared pilot closures."
+        description: "smoke is the default preflight round trip. full-pilot and the host *-full modes are manual-only and gated by their approval variables."
         type: choice
         options:
           - smoke
           - full-pilot
+          - laptop-full
+          - desktop-full
         default: smoke
       standalone_target:
         description: "full-pilot only: the Lead-cleared flake attribute path of the standalone target, for example packages.x86_64-linux.wallpapers."
@@ -70,6 +83,8 @@ jobs:
         env:
           STANDALONE_TARGET: ${{ inputs.standalone_target }}
           FULL_PILOT_ENABLED: ${{ vars.ATTIC_FULL_PILOT_ENABLED }}
+          LAPTOP_APPROVED_REVISION: ${{ vars.ATTIC_LAPTOP_APPROVED_REVISION }}
+          DESKTOP_APPROVED_REVISION: ${{ vars.ATTIC_DESKTOP_APPROVED_REVISION }}
         run: |
           set -euo pipefail
 
@@ -82,9 +97,13 @@ jobs:
 
           mode="${MODE:-smoke}"
           case "$mode" in
-            smoke|full-pilot) ;;
+            smoke|full-pilot|laptop-full|desktop-full) ;;
             *) fail "Unknown mode '$mode'." ;;
           esac
+
+          if [ "$mode" != "smoke" ] && [ "${GITHUB_EVENT_NAME:-}" != "workflow_dispatch" ]; then
+            fail "'$mode' is manual-only and cannot run from '${GITHUB_EVENT_NAME:-unknown}'."
+          fi
 
           if [ "$mode" = "full-pilot" ]; then
             # The hold is deliberately outside this file: it may only be
@@ -102,6 +121,37 @@ jobs:
               *[!A-Za-z0-9._-]*|.*|*..*|*.) fail "standalone_target may only contain [A-Za-z0-9._-] and must not start or end with a dot or contain '..'." ;;
             esac
           fi
+
+          case "$mode" in
+            laptop-full|desktop-full)
+              # These modes are independent of the console pilot clearance
+              # and of automatic smoke pushes: only the host-specific
+              # approval variable can authorize the host closure, and it
+              # must name this exact dispatched revision. It stays unset
+              # until the parent clears the host's whole exported closure
+              # for public artifact access and redistribution.
+              [ -z "${STANDALONE_TARGET:-}" ] \
+                || fail "$mode uses a fixed installable allowlist and does not accept standalone_target."
+              if [ "$mode" = "laptop-full" ]; then
+                host=laptop
+                approval_var=ATTIC_LAPTOP_APPROVED_REVISION
+                approved="${LAPTOP_APPROVED_REVISION:-}"
+              else
+                host=desktop
+                approval_var=ATTIC_DESKTOP_APPROVED_REVISION
+                approved="${DESKTOP_APPROVED_REVISION:-}"
+              fi
+              [ -n "$approved" ] \
+                || fail "$approval_var is not set: $mode cannot build $host outputs until the exact cleared main revision is approved there."
+              case "$approved" in
+                *[!0-9a-f]*) fail "$approval_var is not a lowercase 40-character commit SHA." ;;
+              esac
+              [ "${#approved}" -eq 40 ] \
+                || fail "$approval_var is not a lowercase 40-character commit SHA."
+              [ "$approved" = "$GITHUB_SHA" ] \
+                || fail "$approval_var '$approved' is not the dispatched revision '$GITHUB_SHA'; refusing to build $host outputs."
+              ;;
+          esac
 
           echo "mode=$mode revision=$GITHUB_SHA standalone_target=${STANDALONE_TARGET:-none}"
 
@@ -177,6 +227,42 @@ jobs:
           build "console-toplevel" '.#nixosConfigurations.console.config.system.build.toplevel'
           build "activate" '.#packages.x86_64-linux.activate'
           build "standalone" ".#$STANDALONE_TARGET"
+
+      - name: Build the cleared host outputs
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.mode == 'laptop-full' || inputs.mode == 'desktop-full') }}
+        run: |
+          set -euo pipefail
+
+          rows="$RUNNER_TEMP/attic-rows.tsv"
+
+          build() {
+            label="$1"
+            target="$2"
+            path="$(nix build --no-link --print-out-paths --no-write-lock-file "$target")"
+            [ -n "$path" ] && [ -e "$path" ] || {
+              echo "::error::The $label build produced no store path."
+              return 1
+            }
+            printf '%s\t%s\n' "$label" "$path" >> "$rows"
+            echo "Built $label: $path"
+          }
+
+          # A fixed allowlist, not an input: the dispatcher selects a host
+          # mode and this step decides the one installable that may be
+          # built. No arbitrary target is reachable from these modes.
+          case "${MODE:-}" in
+            laptop-full)
+              build "laptop-toplevel" '.#nixosConfigurations.laptop.config.system.build.toplevel'
+              ;;
+            desktop-full)
+              build "desktop-toplevel" '.#nixosConfigurations.desktop.config.system.build.toplevel'
+              ;;
+            *)
+              echo "::error::The host build step ran with mode '${MODE:-}'."
+              exit 1
+              ;;
+          esac
+          build "activate" '.#packages.x86_64-linux.activate'
 
       - name: Build the pinned Attic client
         run: |
@@ -259,6 +345,11 @@ jobs:
             echo "### Attic build (${MODE:-smoke})"
             echo ""
             echo "- revision: $GITHUB_SHA"
+            case "${MODE:-smoke}" in
+              full-pilot) echo "- target: .#nixosConfigurations.console.config.system.build.toplevel" ;;
+              laptop-full) echo "- target: .#nixosConfigurations.laptop.config.system.build.toplevel" ;;
+              desktop-full) echo "- target: .#nixosConfigurations.desktop.config.system.build.toplevel" ;;
+            esac
             echo "- artifact: attic-publish-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT (1 day)"
             echo "- sandbox: on, no deployment environment or Attic credentials"
             echo ""
@@ -297,6 +388,8 @@ jobs:
       - name: Validate the publisher inputs and prerequisites
         env:
           ATTIC_CACHE_PUBLIC_KEY: ${{ vars.ATTIC_CACHE_PUBLIC_KEY }}
+          LAPTOP_APPROVED_REVISION: ${{ vars.ATTIC_LAPTOP_APPROVED_REVISION }}
+          DESKTOP_APPROVED_REVISION: ${{ vars.ATTIC_DESKTOP_APPROVED_REVISION }}
         run: |
           set -euo pipefail
 
@@ -309,8 +402,39 @@ jobs:
 
           mode="${MODE:-smoke}"
           case "$mode" in
-            smoke|full-pilot) ;;
+            smoke|full-pilot|laptop-full|desktop-full) ;;
             *) fail "Unknown mode '$mode'." ;;
+          esac
+
+          if [ "$mode" != "smoke" ] && [ "${GITHUB_EVENT_NAME:-}" != "workflow_dispatch" ]; then
+            fail "'$mode' is manual-only and cannot publish from '${GITHUB_EVENT_NAME:-unknown}'."
+          fi
+
+          case "$mode" in
+            laptop-full|desktop-full)
+              # An independent re-check, on the publisher side and before
+              # any artifact is imported or a credential exists. The build
+              # job's own gate is not trusted here: the selected mode's
+              # host and exact revision must be approved again.
+              if [ "$mode" = "laptop-full" ]; then
+                host=laptop
+                approval_var=ATTIC_LAPTOP_APPROVED_REVISION
+                approved="${LAPTOP_APPROVED_REVISION:-}"
+              else
+                host=desktop
+                approval_var=ATTIC_DESKTOP_APPROVED_REVISION
+                approved="${DESKTOP_APPROVED_REVISION:-}"
+              fi
+              [ -n "$approved" ] \
+                || fail "$approval_var is not set: $mode cannot import or publish $host outputs until the exact cleared main revision is approved there."
+              case "$approved" in
+                *[!0-9a-f]*) fail "$approval_var is not a lowercase 40-character commit SHA." ;;
+              esac
+              [ "${#approved}" -eq 40 ] \
+                || fail "$approval_var is not a lowercase 40-character commit SHA."
+              [ "$approved" = "$GITHUB_SHA" ] \
+                || fail "$approval_var '$approved' is not this revision '$GITHUB_SHA'; refusing to import or publish $host outputs."
+              ;;
           esac
 
           [ -d /nix ] || fail "/nix is not mounted on this runner."
@@ -461,6 +585,8 @@ jobs:
           case "$mode" in
             smoke) expected=("smoke") ;;
             full-pilot) expected=("smoke" "console-toplevel" "activate" "standalone") ;;
+            laptop-full) expected=("smoke" "laptop-toplevel" "activate") ;;
+            desktop-full) expected=("smoke" "desktop-toplevel" "activate") ;;
             *) fail "Unknown manifest mode '$mode'." ;;
           esac
           [ "${#outputs[@]}" -eq "${#expected[@]}" ] \
@@ -662,6 +788,11 @@ jobs:
             echo "### Attic publish (${MODE:-smoke})"
             echo ""
             echo "- revision: $GITHUB_SHA"
+            case "${MODE:-smoke}" in
+              full-pilot) echo "- target: .#nixosConfigurations.console.config.system.build.toplevel" ;;
+              laptop-full) echo "- target: .#nixosConfigurations.laptop.config.system.build.toplevel" ;;
+              desktop-full) echo "- target: .#nixosConfigurations.desktop.config.system.build.toplevel" ;;
+            esac
             echo "- publish job status: $JOB_STATUS"
             echo ""
 
