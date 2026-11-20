@@ -1,4 +1,4 @@
-{ flake, ... }:
+{ flake, pkgs, ... }:
 
 let
   inherit (flake) inputs;
@@ -15,6 +15,11 @@ in
     ./power.nix
     ./echo-flashing.nix
     ./storage.nix
+  ];
+
+  environment.systemPackages = [
+    pkgs.temurin-bin-21
+    pkgs.python3
   ];
 
   nixpkgs.hostPlatform = "x86_64-linux";

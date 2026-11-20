@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `75916f1` (2026-11-16). This doc is not
+Captured against `origin/main` @ `fb88c53` (2026-11-20). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -63,6 +63,11 @@ each a hash-pinned `fetchurl` from linux-firmware commit `9a7c283f` (AMD's
 revert of the 2026-08/09 GC 11.0.0 updates), shadowing nixpkgs'
 linux-firmware 20260916 copies of those files only; to be dropped once
 nixpkgs ships a newer linux-firmware tag.
+
+`configurations/nixos/laptop/default.nix` (laptop only): `environment.systemPackages
+= [ pkgs.temurin-bin-21 pkgs.python3 ]` — Eclipse Temurin JDK 21
+(`temurin-bin-21`, nixpkgs' `javaPackages.compiler.temurin-bin.jdk-21`) and the
+nixpkgs `python3` interpreter, installed system-wide for the laptop.
 
 `configurations/nixos/laptop/echo-flashing.nix` (laptop only): `environment.systemPackages
 = [ firebreak android-tools chromium ]` (firebreak from `packages/firebreak.nix`
