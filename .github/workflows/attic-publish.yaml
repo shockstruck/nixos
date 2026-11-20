@@ -1,16 +1,21 @@
 ---
 # Publishes Nix build outputs from the checked-out `main` revision to the
-# private Attic binary cache. The default manual run is a smoke test: it
-# proves the dedicated runner can resolve and reach Attic's in-cluster
-# Service, that the authenticated `nixos` cache exists and is private, and
-# that a disposable CI-built path can be pushed and fetched back into a
-# fresh store with a valid cache signature. The full pilot additionally
-# builds and publishes the console toplevel, `packages.activate` and one
-# Lead-cleared standalone target, and only runs from an explicit manual
-# dispatch after every smoke step passed.
+# private Attic binary cache.
 #
-# The publisher token lives only in the `attic-publish` environment, which
-# is restricted to `main`. No pull-request path runs this workflow.
+# Two jobs, one trust boundary each:
+#
+#   build   GitHub-hosted, sandboxed, no deployment environment and no
+#           Attic credentials. Builds the disposable smoke path (and the
+#           cleared pilot targets when that hold is lifted), exports just the
+#           manifest paths and their closures to a zstd file:// cache, and
+#           transfers the export plus a run-bound manifest as an artifact.
+#   publish Dedicated runner, no build slots and no remote builders. Imports
+#           that exact same-run artifact, and only then authenticates and
+#           uploads. It never evaluates a repository installable.
+#
+# The smoke run and the full pilot use the same two-job path. `full-pilot`
+# stays on hold until the parent clears the closure for public artifact
+# access and sets the repository variable ATTIC_FULL_PILOT_ENABLED.
 name: Attic publish
 
 on:
@@ -38,28 +43,21 @@ concurrency:
 
 permissions: {}
 
-env:
-  ATTIC_CACHE_NAME: nixos
-  ATTIC_ENDPOINT: http://attic.selfhosted.svc.cluster.local:8080
-  ATTIC_SUBSTITUTER_URL: http://attic.selfhosted.svc.cluster.local:8080/nixos
-
 jobs:
-  publish:
-    name: Publish to Attic
+  build:
+    name: Build (sandboxed, no credentials)
     # Manual runs and the optional push run must both target `main`. A push
     # is a smoke test only, and only when the repository variable opts in;
-    # nothing publishes automatically by default. The `attic-publish`
-    # environment adds its own main-only branch policy on top of this.
+    # nothing publishes automatically by default.
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' || vars.ATTIC_AUTO_PUBLISH == 'true')
-    runs-on: nixos-attic-publisher
-    # A cold console closure can need the same ceiling as the host build
-    # matrix.
+    runs-on: ubuntu-latest
     timeout-minutes: 330
-    environment: attic-publish
     permissions:
       contents: read
+    env:
+      MODE: ${{ inputs.mode || 'smoke' }}
     steps:
       - name: Check out the dispatched main revision
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -68,12 +66,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Validate inputs and the checked-out revision
+      - name: Validate the dispatch before building
         env:
-          ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
-          ATTIC_CACHE_PUBLIC_KEY: ${{ vars.ATTIC_CACHE_PUBLIC_KEY }}
-          MODE: ${{ inputs.mode }}
           STANDALONE_TARGET: ${{ inputs.standalone_target }}
+          FULL_PILOT_ENABLED: ${{ vars.ATTIC_FULL_PILOT_ENABLED }}
         run: |
           set -euo pipefail
 
@@ -83,17 +79,19 @@ jobs:
             || fail "This job must run from refs/heads/main, not '${GITHUB_REF:-unknown}'."
           [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ] \
             || fail "The checkout is not the dispatched revision."
-          [ -n "${ATTIC_PUSH_TOKEN:-}" ] \
-            || fail "ATTIC_PUSH_TOKEN is not set in the attic-publish environment. Mint the scoped nixos cache token first."
-          [ -n "${ATTIC_CACHE_PUBLIC_KEY:-}" ] \
-            || fail "ATTIC_CACHE_PUBLIC_KEY is not set as a repository or environment variable. Copy the cache's public signing key there."
 
           mode="${MODE:-smoke}"
           case "$mode" in
             smoke|full-pilot) ;;
             *) fail "Unknown mode '$mode'." ;;
           esac
+
           if [ "$mode" = "full-pilot" ]; then
+            # The hold is deliberately outside this file: it may only be
+            # lifted once the parent has cleared the closure for public
+            # artifact access and redistribution.
+            [ "${FULL_PILOT_ENABLED:-}" = "true" ] \
+              || fail "full-pilot is on hold: set the repository variable ATTIC_FULL_PILOT_ENABLED=true only after the parent clears the closure for public artifact access. No full closure was built."
             [ -n "${STANDALONE_TARGET:-}" ] \
               || fail "full-pilot requires standalone_target naming the Lead-cleared redistributable target."
             case "$STANDALONE_TARGET" in
@@ -107,33 +105,22 @@ jobs:
 
           echo "mode=$mode revision=$GITHUB_SHA standalone_target=${STANDALONE_TARGET:-none}"
 
-      - name: Check the runner's Nix store and installer prerequisites
+      # The hosted builder is the only place a build may run. Its kernel
+      # supports the user namespaces Nix needs for the sandbox; Ubuntu
+      # 24.04 restricts them through AppArmor, so lift that the same way the
+      # host build matrix does. The publisher never builds, so it has no
+      # equivalent step.
+      - name: Allow unprivileged user namespaces for the Nix sandbox
         run: |
-          set -euo pipefail
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
 
-          [ -d /nix ] || { echo "::error::/nix is not mounted on this runner."; exit 1; }
-          [ -w /nix ] || {
-            echo "::error::/nix is not writable by $(id -un) ($(id -u):$(id -g)); the single-user Nix install cannot proceed."
-            exit 1
-          }
-          for tool in bash curl tar unzstd getent timeout; do
-            command -v "$tool" >/dev/null 2>&1 || {
-              echo "::error::$tool is required by the install and preflight steps but is missing from the runner image."
-              exit 1
-            }
-          done
-          df -h /nix
-
-      # Single-user Nix, installed by a SHA-pinned action whose release pins
-      # the Nix version. The sandbox settings match the existing host build
-      # job: a sandbox that cannot start fails the job instead of silently
-      # degrading to an impure build. Such a failure is a pilot decision for
-      # its owner, not a reason to edit this workflow.
-      - name: Install single-user Nix
+      - name: Install Nix
         uses: nixbuild/nix-quick-install-action@1f095fee853b33114486cfdeae62fa099cda35a9 # v33
         with:
           nix_version: "2.29.1"
-          # No GitHub API token is needed, and none is written to nix.conf.
+          # This job holds no secrets, so no GitHub token is written.
           github_access_token: ""
           enable_kvm: "false"
           nix_conf: |
@@ -142,43 +129,402 @@ jobs:
             sandbox = true
             sandbox-fallback = false
 
-      - name: Resolve Attic through the pod resolver and reach port 8080
+      - name: Build the disposable smoke path
         run: |
           set -euo pipefail
 
-          host=attic.selfhosted.svc.cluster.local
-          if ! addresses="$(getent ahosts "$host" 2>/dev/null)" || [ -z "$addresses" ]; then
-            echo "::error::$host does not resolve through the pod resolver."
+          # A derivation unique to this run: the content embeds the revision
+          # and run id, so the output cannot already exist in any cache and
+          # the upload is a real transfer rather than a no-op. It is plain
+          # text from this repository, cleared for public artifact access.
+          # shellcheck disable=SC2016 # Nix interpolation is literal here.
+          expr='
+            let
+              flake = builtins.getFlake (toString '"$PWD"');
+              pkgs = flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem};
+            in
+            pkgs.writeText "attic-publish-smoke" "attic publish smoke ${builtins.getEnv "GITHUB_SHA"} ${builtins.getEnv "GITHUB_RUN_ID"}"
+          '
+          smoke_path="$(nix build --no-link --print-out-paths --impure --expr "$expr")"
+          [ -n "$smoke_path" ] && [ -e "$smoke_path" ] || {
+            echo "::error::The smoke build produced no store path."
             exit 1
-          fi
-          printf '%s\n' "$addresses" | awk '{print $1}' | sort -u
+          }
+          printf 'smoke\t%s\n' "$smoke_path" > "$RUNNER_TEMP/attic-rows.tsv"
+          echo "Built smoke path: $smoke_path"
 
-          if ! timeout 15 bash -c "exec 3<>/dev/tcp/$host/8080"; then
-            echo "::error::TCP 8080 to $host failed from the runner pod."
-            exit 1
-          fi
-          echo "TCP 8080 to $host is reachable."
-
-      - name: Install the Attic client from the locked nixpkgs
+      - name: Build the cleared full-pilot outputs
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'full-pilot' }}
+        env:
+          STANDALONE_TARGET: ${{ inputs.standalone_target }}
         run: |
           set -euo pipefail
 
-          attic_out="$(nix build --no-link --print-out-paths --no-write-lock-file \
+          rows="$RUNNER_TEMP/attic-rows.tsv"
+
+          build() {
+            label="$1"
+            target="$2"
+            path="$(nix build --no-link --print-out-paths --no-write-lock-file "$target")"
+            [ -n "$path" ] && [ -e "$path" ] || {
+              echo "::error::The $label build produced no store path."
+              return 1
+            }
+            printf '%s\t%s\n' "$label" "$path" >> "$rows"
+            echo "Built $label: $path"
+          }
+
+          build "console-toplevel" '.#nixosConfigurations.console.config.system.build.toplevel'
+          build "activate" '.#packages.x86_64-linux.activate'
+          build "standalone" ".#$STANDALONE_TARGET"
+
+      - name: Build the pinned Attic client
+        run: |
+          set -euo pipefail
+
+          # The client is substituted from the locked nixpkgs (a trusted
+          # upstream) and then exported with the outputs, so the publisher
+          # never evaluates a repository installable.
+          client="$(nix build --no-link --print-out-paths --no-write-lock-file \
             --inputs-from . 'nixpkgs#attic-client')"
-          [ -x "$attic_out/bin/attic" ] || {
+          [ -x "$client/bin/attic" ] || {
             echo "::error::The locked nixpkgs attic-client did not produce bin/attic."
             exit 1
           }
-          printf '%s\n' "$attic_out/bin" >> "$GITHUB_PATH"
-          echo "Installed the Attic client from the repository's locked nixpkgs."
+          printf '%s' "$client" > "$RUNNER_TEMP/attic-client-path"
+          echo "Attic client: $client"
+
+      - name: Export the manifest paths and write the run-bound manifest
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          artifact="$RUNNER_TEMP/attic-artifact"
+          export_dir="$artifact/export"
+          mkdir -p "$artifact"
+          rm -rf "$export_dir"
+
+          client="$(cat "$RUNNER_TEMP/attic-client-path")"
+          [ -d "$client" ] || fail "The Attic client path is missing."
+
+          mapfile -t rows < "$RUNNER_TEMP/attic-rows.tsv"
+          [ "${#rows[@]}" -ge 1 ] || fail "No built output rows were recorded."
+
+          paths=("$client")
+          for row in "${rows[@]}"; do
+            path="${row#*$'\t'}"
+            case "$path" in
+              /nix/store/*) ;;
+              *) fail "Output row '$row' is not a Nix store path." ;;
+            esac
+            [ -e "$path" ] || fail "Built path '$path' is missing."
+            paths+=("$path")
+          done
+
+          nix copy --to "file://$export_dir?compression=zstd" "${paths[@]}"
+
+          {
+            printf 'version\t1\n'
+            printf 'run-id\t%s\n' "$GITHUB_RUN_ID"
+            printf 'run-attempt\t%s\n' "$GITHUB_RUN_ATTEMPT"
+            printf 'revision\t%s\n' "$GITHUB_SHA"
+            printf 'mode\t%s\n' "$MODE"
+            for row in "${rows[@]}"; do
+              printf 'output\t%s\n' "$row"
+            done
+            printf 'tool\tattic-client\t%s\n' "$client"
+          } > "$artifact/manifest.tsv"
+
+          echo "Exported ${#paths[@]} paths to a zstd file:// cache."
+          ls -l "$artifact/manifest.tsv"
+          du -sh "$export_dir"
+
+      - name: Upload the same-run manifest and export
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: attic-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/attic-artifact
+          if-no-files-found: error
+          retention-days: 1
+          # The NARs are already zstd-compressed; zipping them again wastes
+          # time and gains nothing.
+          compression-level: 0
+
+      - name: Report the built paths
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### Attic build (${MODE:-smoke})"
+            echo ""
+            echo "- revision: $GITHUB_SHA"
+            echo "- artifact: attic-publish-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT (1 day)"
+            echo "- sandbox: on, no deployment environment or Attic credentials"
+            echo ""
+            if [ -f "$RUNNER_TEMP/attic-rows.tsv" ]; then
+              echo "| target | built output path |"
+              echo "| --- | --- |"
+              while IFS="$(printf '\t')" read -r label path; do
+                echo "| $label | \`$path\` |"
+              done < "$RUNNER_TEMP/attic-rows.tsv"
+            fi
+            if [ -f "$RUNNER_TEMP/attic-client-path" ]; then
+              echo ""
+              echo "- Attic client export: \`$(cat "$RUNNER_TEMP/attic-client-path")\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish (no builds)
+    needs: build
+    # The build job already enforces main and the automatic opt-in; this is
+    # defence in depth plus the environment's main-only branch policy.
+    if: github.ref == 'refs/heads/main'
+    runs-on: nixos-attic-publisher
+    timeout-minutes: 330
+    environment: attic-publish
+    # Only the same-run artifact is read; no repository content is needed.
+    permissions:
+      actions: read
+    env:
+      MODE: ${{ inputs.mode || 'smoke' }}
+      ATTIC_CACHE_NAME: nixos
+      ATTIC_ENDPOINT: http://attic.selfhosted.svc.cluster.local:8080
+      ATTIC_SUBSTITUTER_URL: http://attic.selfhosted.svc.cluster.local:8080/nixos
+      ARTIFACT_DIR: /nix/attic-publish/artifact
+    steps:
+      - name: Validate the publisher inputs and prerequisites
+        env:
+          ATTIC_CACHE_PUBLIC_KEY: ${{ vars.ATTIC_CACHE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          [ "${GITHUB_REF:-}" = "refs/heads/main" ] \
+            || fail "This job must run from refs/heads/main, not '${GITHUB_REF:-unknown}'."
+          [ -n "${ATTIC_CACHE_PUBLIC_KEY:-}" ] \
+            || fail "ATTIC_CACHE_PUBLIC_KEY is not set as a repository or environment variable. Copy the cache's public signing key there."
+
+          mode="${MODE:-smoke}"
+          case "$mode" in
+            smoke|full-pilot) ;;
+            *) fail "Unknown mode '$mode'." ;;
+          esac
+
+          [ -d /nix ] || fail "/nix is not mounted on this runner."
+          [ -w /nix ] || fail "/nix is not writable by $(id -un) ($(id -u):$(id -g))."
+          for tool in bash curl tar unzstd getent timeout sha256sum install; do
+            command -v "$tool" >/dev/null 2>&1 \
+              || fail "$tool is required by the bootstrap or preflight but is missing from the runner image."
+          done
+          df -h /nix
+
+          echo "mode=$mode revision=$GITHUB_SHA"
+
+      # A prebuilt, hash-pinned single-user Nix. This deliberately does not
+      # use the installer action: its pinned script runs `nix-env -i` to
+      # create a profile, which realises a profile derivation. Under
+      # `max-jobs = 0` that would either fail or need a temporary build slot,
+      # and neither is acceptable here. Extracting the same pinned archive
+      # and loading its registration database creates no profile.
+      - name: Install the pinned prebuilt Nix bootstrap
+        env:
+          NIX_VERSION: "2.29.1"
+          NIX_ARCHIVE_SHA256: "87c337b48e45074850aee431da974a30ae66623dcd74f741b9fd33241fb4e147"
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          archive="$RUNNER_TEMP/nix-$NIX_VERSION-x86_64-linux.tar.zstd"
+          url="https://github.com/nixbuild/nix-quick-install-action/releases/download/v33/nix-$NIX_VERSION-x86_64-linux.tar.zstd"
+          curl -fsSL --retry 3 --retry-connrefused -o "$archive" "$url"
+          printf '%s  %s\n' "$NIX_ARCHIVE_SHA256" "$archive" | sha256sum -c -
+
+          rm -rf /nix/var/nix-quick-install-action
+          tar --skip-old-files --strip-components 1 -x -I unzstd -C /nix -f "$archive"
+
+          nix_prefix="$(readlink /nix/var/nix-quick-install-action/nix)"
+          [ -x "$nix_prefix/bin/nix" ] || fail "The bootstrap archive did not contain a nix binary."
+
+          config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+          install -d "$config_dir/nix"
+          cat > "$config_dir/nix/nix.conf" <<EOF
+          experimental-features = nix-command
+          sandbox = false
+          max-jobs = 0
+          builders =
+          substituters =
+          require-sigs = true
+          EOF
+
+          "$nix_prefix/bin/nix-store" --load-db < /nix/var/nix-quick-install-action/registration
+          printf '%s\n' "$nix_prefix/bin" >> "$GITHUB_PATH"
+
+          echo "Installed the pinned prebuilt Nix $NIX_VERSION bootstrap without creating a profile."
+
+      - name: Verify the no-build settings
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          sandbox="$(nix config show sandbox)"
+          jobs="$(nix config show max-jobs)"
+          builders="$(nix config show builders)"
+
+          [ "$sandbox" = "false" ] || fail "Effective sandbox is '$sandbox', expected false."
+          [ "$jobs" = "0" ] || fail "Effective max-jobs is '$jobs', expected 0."
+          [ -z "$builders" ] || fail "Effective builders is '$builders', expected empty."
+
+          echo "Effective settings: sandbox=$sandbox max-jobs=$jobs builders='${builders}'"
+
+      - name: Download the same-run build artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: attic-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.ARTIFACT_DIR }}
+
+      - name: Validate the run-bound manifest
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          artifact="$ARTIFACT_DIR"
+          manifest="$artifact/manifest.tsv"
+          export_dir="$artifact/export"
+          [ -f "$manifest" ] || fail "The build artifact has no manifest.tsv."
+          [ -d "$export_dir" ] || fail "The build artifact has no export/ file cache."
+
+          # The manifest is data: every value is checked against this run
+          # before any path from it is used.
+          declare -A out_labels=()
+          outputs=()
+          tool=""
+          version=""
+          run_id=""
+          attempt=""
+          revision=""
+          mode=""
+
+          while IFS=$'\t' read -r kind field1 field2 rest; do
+            [ -n "$kind" ] || fail "Blank line in manifest."
+            [ -z "${rest:-}" ] || fail "Unexpected extra fields in manifest row '$kind'."
+            case "$kind" in
+              version)
+                [ -z "$version" ] || fail "Duplicate version row."
+                [ "$field1" = "1" ] || fail "Unsupported manifest version '$field1'."
+                version="$field1"
+                ;;
+              run-id)
+                [ -z "$run_id" ] || fail "Duplicate run-id row."
+                run_id="$field1"
+                ;;
+              run-attempt)
+                [ -z "$attempt" ] || fail "Duplicate run-attempt row."
+                attempt="$field1"
+                ;;
+              revision)
+                [ -z "$revision" ] || fail "Duplicate revision row."
+                revision="$field1"
+                ;;
+              mode)
+                [ -z "$mode" ] || fail "Duplicate mode row."
+                mode="$field1"
+                ;;
+              output)
+                [ -n "$field1" ] && [ -n "$field2" ] || fail "Malformed output row."
+                [ -z "${out_labels[$field1]:-}" ] || fail "Duplicate output label '$field1'."
+                out_labels[$field1]="$field2"
+                outputs+=("$field2")
+                ;;
+              tool)
+                [ "$field1" = "attic-client" ] || fail "Unknown tool '$field1'."
+                [ -z "$tool" ] || fail "Duplicate tool row."
+                [ -n "$field2" ] || fail "Malformed tool row."
+                tool="$field2"
+                ;;
+              *) fail "Unknown manifest row '$kind'." ;;
+            esac
+          done < "$manifest"
+
+          [ -n "$version" ] || fail "The manifest has no version row."
+          [ "$run_id" = "$GITHUB_RUN_ID" ] || fail "Manifest run-id '$run_id' is not this run '$GITHUB_RUN_ID'."
+          [ "$attempt" = "$GITHUB_RUN_ATTEMPT" ] || fail "Manifest run-attempt '$attempt' is not this attempt '$GITHUB_RUN_ATTEMPT'."
+          [ "$revision" = "$GITHUB_SHA" ] || fail "Manifest revision '$revision' is not this revision '$GITHUB_SHA'."
+          [ "$mode" = "${MODE:-smoke}" ] || fail "Manifest mode '$mode' is not this run's mode '${MODE:-smoke}'."
+          [ -n "$tool" ] || fail "The manifest has no attic-client tool row."
+
+          case "$mode" in
+            smoke) expected=("smoke") ;;
+            full-pilot) expected=("smoke" "console-toplevel" "activate" "standalone") ;;
+            *) fail "Unknown manifest mode '$mode'." ;;
+          esac
+          [ "${#outputs[@]}" -eq "${#expected[@]}" ] \
+            || fail "The manifest has ${#outputs[@]} output rows; mode '$mode' requires ${#expected[@]}."
+          for want in "${expected[@]}"; do
+            [ -n "${out_labels[$want]:-}" ] || fail "The manifest is missing output '$want'."
+          done
+
+          # A Nix store path is the only shape a manifest path may have.
+          path_re='^/nix/store/[0-9abcdfghijklmnpqrsvwxyz]{32}-[A-Za-z0-9+._?=-]+$'
+          declare -A seen=()
+          for path in "${outputs[@]}" "$tool"; do
+            [[ "$path" =~ $path_re ]] || fail "Manifest path '$path' is not a valid Nix store path."
+            [ -z "${seen[$path]:-}" ] || fail "Manifest path '$path' appears more than once."
+            seen[$path]=1
+            base="${path#/nix/store/}"
+            hash="${base%%-*}"
+            [ -f "$export_dir/$hash.narinfo" ] \
+              || fail "Manifest path '$path' is missing from the exported file cache."
+          done
+
+          printf '%s\n' "${outputs[@]}" > "$RUNNER_TEMP/attic-output-paths"
+          printf '%s\n' "$tool" > "$RUNNER_TEMP/attic-tool-path"
+          printf '%s\n' "${outputs[@]}" "$tool" > "$RUNNER_TEMP/attic-import-paths"
+          printf '%s\n' "${out_labels[smoke]}" > "$RUNNER_TEMP/attic-smoke-path"
+
+          echo "Manifest validated: run=$run_id attempt=$attempt revision=$revision mode=$mode outputs=${#outputs[@]} tool=attic-client"
+
+      - name: Import the same-run artifact before any credential exists
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          mapfile -t import_paths < "$RUNNER_TEMP/attic-import-paths"
+          [ "${#import_paths[@]}" -ge 2 ] || fail "Nothing to import from the artifact."
+
+          # This is the one and only signature exception: the artifact is
+          # the same run's trusted build output, bound to this run, attempt
+          # and revision above. Every later store operation uses the normal
+          # signature rules.
+          nix copy --from "file://$ARTIFACT_DIR/export" --no-check-sigs "${import_paths[@]}"
+
+          for path in "${import_paths[@]}"; do
+            [ -e "$path" ] || fail "Import did not produce '$path'."
+          done
+          tool="$(cat "$RUNNER_TEMP/attic-tool-path")"
+          [ -x "$tool/bin/attic" ] || fail "The imported Attic client is not executable."
+          printf '%s\n' "$tool/bin" >> "$GITHUB_PATH"
+
+          echo "Imported ${#import_paths[@]} paths from the same-run artifact with the scoped signature exception."
 
       - name: Configure temporary Attic client state
         env:
           ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
         run: |
           set -euo pipefail
-          umask 077
 
+          fail() { echo "::error::$*"; exit 1; }
+
+          [ -n "${ATTIC_PUSH_TOKEN:-}" ] \
+            || fail "ATTIC_PUSH_TOKEN is not set in the attic-publish environment."
+
+          umask 077
           config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/attic"
           install -d -m 0700 "$config_dir"
           printf '%s' "$ATTIC_PUSH_TOKEN" > "$config_dir/token"
@@ -199,6 +545,23 @@ jobs:
           chmod 0600 "$netrc"
 
           echo "Wrote temporary Attic client state (0600) under \$HOME and \$RUNNER_TEMP."
+
+      - name: Resolve Attic through the pod resolver and reach port 8080
+        run: |
+          set -euo pipefail
+
+          host=attic.selfhosted.svc.cluster.local
+          if ! addresses="$(getent ahosts "$host" 2>/dev/null)" || [ -z "$addresses" ]; then
+            echo "::error::$host does not resolve through the pod resolver."
+            exit 1
+          fi
+          printf '%s\n' "$addresses" | awk '{print $1}' | sort -u
+
+          if ! timeout 15 bash -c "exec 3<>/dev/tcp/$host/8080"; then
+            echo "::error::TCP 8080 to $host failed from the runner pod."
+            exit 1
+          fi
+          echo "TCP 8080 to $host is reachable."
 
       - name: Verify the private cache and the approved upload path
         env:
@@ -241,46 +604,31 @@ jobs:
 
           echo "Cache '$ATTIC_CACHE_NAME' exists, is private, and advertises the approved direct API endpoint."
 
-      - name: Build a disposable CI path
+      - name: Upload the built outputs
         run: |
           set -euo pipefail
 
-          # A derivation unique to this run: the content embeds the revision
-          # and run id, so the output cannot already exist in any cache and
-          # the upload below is a real transfer rather than a no-op.
-          # shellcheck disable=SC2016 # Nix interpolation is literal here.
-          expr='
-            let
-              flake = builtins.getFlake (toString '"$PWD"');
-              pkgs = flake.inputs.nixpkgs.legacyPackages.${builtins.currentSystem};
-            in
-            pkgs.writeText "attic-publish-smoke" "attic publish smoke ${builtins.getEnv "GITHUB_SHA"} ${builtins.getEnv "GITHUB_RUN_ID"}"
-          '
-          smoke_path="$(nix build --no-link --print-out-paths --impure --expr "$expr")"
-          [ -n "$smoke_path" ] && [ -e "$smoke_path" ] || {
-            echo "::error::The smoke build produced no store path."
-            exit 1
-          }
-          printf '%s' "$smoke_path" > "$RUNNER_TEMP/attic-smoke-path"
-          echo "Built disposable path: $smoke_path"
+          mapfile -t outputs < "$RUNNER_TEMP/attic-output-paths"
+          pushed="$RUNNER_TEMP/attic-pushed.txt"
+          : > "$pushed"
 
-      - name: Push the disposable path
-        run: |
-          set -euo pipefail
+          for path in "${outputs[@]}"; do
+            attic push "$ATTIC_CACHE_NAME" "$path"
+            nix path-info --store "$ATTIC_SUBSTITUTER_URL" \
+              --option netrc-file "$RUNNER_TEMP/attic-netrc" \
+              "$path" > /dev/null
+            printf '%s\n' "$path" >> "$pushed"
+            echo "Uploaded and confirmed $path"
+          done
 
-          smoke_path="$(cat "$RUNNER_TEMP/attic-smoke-path")"
-          attic push --ignore-upstream-cache-filter "$ATTIC_CACHE_NAME" "$smoke_path"
-          printf '%s' "$smoke_path" > "$RUNNER_TEMP/attic-smoke-uploaded"
-          echo "Uploaded $smoke_path to the '$ATTIC_CACHE_NAME' cache."
-
-      - name: Fetch the pushed path into a fresh store and verify its signature
+      - name: Fetch the smoke path into a fresh store and verify its signature
         env:
           ATTIC_CACHE_PUBLIC_KEY: ${{ vars.ATTIC_CACHE_PUBLIC_KEY }}
         run: |
           set -euo pipefail
 
           smoke_path="$(cat "$RUNNER_TEMP/attic-smoke-path")"
-          fresh_store="$RUNNER_TEMP/attic-verify-store"
+          fresh_store="/nix/attic-publish/verify-store"
           rm -rf "$fresh_store"
 
           nix copy --from "$ATTIC_SUBSTITUTER_URL" --to "$fresh_store" \
@@ -295,57 +643,6 @@ jobs:
           printf '%s' "$smoke_path" > "$RUNNER_TEMP/attic-smoke-verified"
           echo "Fetched and signature-verified $smoke_path from $ATTIC_SUBSTITUTER_URL."
 
-      # The full pilot is only for closure scope the Lead cleared before
-      # dispatch, and only from a manual dispatch: a push can never publish
-      # the host closures automatically.
-      - name: Build the cleared full-pilot outputs
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'full-pilot' }}
-        env:
-          STANDALONE_TARGET: ${{ inputs.standalone_target }}
-        run: |
-          set -euo pipefail
-
-          built="$RUNNER_TEMP/attic-pilot-built.tsv"
-          : > "$built"
-
-          build() {
-            label="$1"
-            target="$2"
-            path="$(nix build --no-link --print-out-paths --no-write-lock-file "$target")"
-            [ -n "$path" ] && [ -e "$path" ] || {
-              echo "::error::The $label build produced no store path."
-              return 1
-            }
-            printf '%s\t%s\n' "$label" "$path" >> "$built"
-            echo "Built $label: $path"
-          }
-
-          build "console-toplevel" '.#nixosConfigurations.console.config.system.build.toplevel'
-          build "activate" '.#packages.x86_64-linux.activate'
-          build "standalone" ".#$STANDALONE_TARGET"
-
-      - name: Publish the cleared full-pilot outputs
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'full-pilot' }}
-        run: |
-          set -euo pipefail
-
-          built="$RUNNER_TEMP/attic-pilot-built.tsv"
-          pushed="$RUNNER_TEMP/attic-pilot-pushed.txt"
-          [ -s "$built" ] || { echo "::error::No built pilot paths to publish."; exit 1; }
-          : > "$pushed"
-
-          mapfile -t paths < <(cut -f2 "$built")
-          for path in "${paths[@]}"; do
-            attic push "$ATTIC_CACHE_NAME" "$path"
-            # Confirm the uploaded path is queryable through the binary cache
-            # endpoint before recording upload success.
-            nix path-info --store "$ATTIC_SUBSTITUTER_URL" \
-              --option netrc-file "$RUNNER_TEMP/attic-netrc" \
-              "$path" > /dev/null
-            printf '%s\n' "$path" >> "$pushed"
-            echo "Uploaded and confirmed $path"
-          done
-
       - name: Remove temporary client authentication state
         if: always()
         run: |
@@ -354,55 +651,39 @@ jobs:
           rm -f "$RUNNER_TEMP/attic-netrc"
           echo "Removed the temporary Attic client configuration, token file and netrc."
 
-      - name: Report the revision, paths and upload result
+      - name: Report the uploaded outputs
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
-          MODE: ${{ inputs.mode }}
-          EVENT_NAME: ${{ github.event_name }}
-          REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
 
-          mode="${MODE:-smoke}"
           {
-            echo "### Attic publish: $mode"
+            echo "### Attic publish (${MODE:-smoke})"
             echo ""
-            echo "- event: $EVENT_NAME"
-            echo "- CI revision: $REVISION"
-            echo "- job status: $JOB_STATUS"
+            echo "- revision: $GITHUB_SHA"
+            echo "- publish job status: $JOB_STATUS"
             echo ""
 
-            if [ -f "$RUNNER_TEMP/attic-smoke-path" ]; then
-              smoke_path="$(cat "$RUNNER_TEMP/attic-smoke-path")"
-              echo "#### Smoke path"
-              echo ""
-              echo "- built: \`$smoke_path\`"
-              if [ -f "$RUNNER_TEMP/attic-smoke-uploaded" ]; then
-                echo "- uploaded: yes"
-              else
-                echo "- uploaded: no"
-              fi
-              if [ -f "$RUNNER_TEMP/attic-smoke-verified" ]; then
-                echo "- fetched into a fresh store and signature-verified: yes"
-              else
-                echo "- fetched into a fresh store and signature-verified: no"
-              fi
+            if [ -f "$RUNNER_TEMP/attic-output-paths" ]; then
+              echo "| target | output path | uploaded |"
+              echo "| --- | --- | --- |"
+              mapfile -t outputs < "$RUNNER_TEMP/attic-output-paths"
+              mapfile -t labels < <(awk -F'\t' '$1 == "output" { print $2 }' "$ARTIFACT_DIR/manifest.tsv" 2>/dev/null || true)
+              for i in "${!outputs[@]}"; do
+                uploaded=no
+                if [ -f "$RUNNER_TEMP/attic-pushed.txt" ] \
+                  && grep -qxF -- "${outputs[$i]}" "$RUNNER_TEMP/attic-pushed.txt"; then
+                  uploaded=yes
+                fi
+                echo "| ${labels[$i]:-output-$i} | \`${outputs[$i]}\` | $uploaded |"
+              done
               echo ""
             fi
 
-            if [ -f "$RUNNER_TEMP/attic-pilot-built.tsv" ]; then
-              echo "#### Full pilot outputs"
-              echo ""
-              echo "| target | built output path | uploaded |"
-              echo "| --- | --- | --- |"
-              while IFS="$(printf '\t')" read -r label path; do
-                uploaded=no
-                if [ -f "$RUNNER_TEMP/attic-pilot-pushed.txt" ] \
-                  && grep -qxF -- "$path" "$RUNNER_TEMP/attic-pilot-pushed.txt"; then
-                  uploaded=yes
-                fi
-                echo "| $label | \`$path\` | $uploaded |"
-              done < "$RUNNER_TEMP/attic-pilot-built.tsv"
+            if [ -f "$RUNNER_TEMP/attic-smoke-verified" ]; then
+              echo "- fetched into a fresh store and signature-verified: yes"
+            else
+              echo "- fetched into a fresh store and signature-verified: no"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
