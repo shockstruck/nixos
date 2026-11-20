@@ -6,27 +6,31 @@
 #
 #   build   GitHub-hosted, sandboxed, no deployment environment and no
 #           Attic credentials. Builds the disposable smoke path (and the
-#           cleared pilot targets when that hold is lifted), exports just the
-#           manifest paths and their closures to a zstd file:// cache, and
-#           transfers the export plus a run-bound manifest as an artifact.
-#   publish Dedicated runner, no build slots and no remote builders. Imports
-#           that exact same-run artifact, and only then authenticates and
-#           uploads. It never evaluates a repository installable.
+#           cleared pilot targets when their holds are lifted), exports just
+#           the manifest paths and their closures to a zstd file:// cache,
+#           packages that cache with the run-bound manifest, encrypts the
+#           package to the public ATTIC_TRANSFER_AGE_RECIPIENT, and uploads
+#           only the ciphertext. No plaintext export, manifest or key leaves
+#           this job.
+#   publish Dedicated runner, no build slots and no remote builders.
+#           Bootstraps its own pinned prebuilt age, downloads only this
+#           run's ciphertext, decrypts it with the attic-publish environment
+#           key, validates the archive layout and manifest, imports, and
+#           only then authenticates and uploads. It never evaluates a
+#           repository installable.
+#
+# Private transfer applies to smoke and every full mode: there is no
+# plaintext artifact fallback.
 #
 # The smoke run, the console pilot and the two per-host full modes use the
 # same two-job path. `full-pilot` stays on hold until the parent clears the
-# console closure for public artifact access and sets the repository
-# variable ATTIC_FULL_PILOT_ENABLED.
-#
-# `laptop-full` and `desktop-full` are manual-only and have their own hold:
-# each requires ATTIC_LAPTOP_APPROVED_REVISION or
-# ATTIC_DESKTOP_APPROVED_REVISION to name this exact dispatched `main`
-# revision. That variable is maintained independently of the console
-# clearance and of automatic smoke pushes, and may only be set once the
-# parent has cleared that host's entire exported closure - not just the
-# Attic endpoint or the artifact lifetime - for public GitHub Actions
-# artifact access and redistribution. Without that clearance the closure
-# needs a private transfer design instead.
+# console closure and sets ATTIC_FULL_PILOT_ENABLED. `laptop-full` and
+# `desktop-full` are manual-only and each stay held until
+# ATTIC_LAPTOP_APPROVED_REVISION or ATTIC_DESKTOP_APPROVED_REVISION names
+# this exact dispatched `main` revision. Those eligibility checks came from
+# the earlier public-artifact design and are retained in this draft pending
+# the owner's gate change; the ciphertext-only transfer above is the
+# boundary this workflow now relies on.
 name: Attic publish
 
 on:
@@ -85,6 +89,7 @@ jobs:
           FULL_PILOT_ENABLED: ${{ vars.ATTIC_FULL_PILOT_ENABLED }}
           LAPTOP_APPROVED_REVISION: ${{ vars.ATTIC_LAPTOP_APPROVED_REVISION }}
           DESKTOP_APPROVED_REVISION: ${{ vars.ATTIC_DESKTOP_APPROVED_REVISION }}
+          ATTIC_TRANSFER_AGE_RECIPIENT: ${{ vars.ATTIC_TRANSFER_AGE_RECIPIENT }}
         run: |
           set -euo pipefail
 
@@ -127,9 +132,9 @@ jobs:
               # These modes are independent of the console pilot clearance
               # and of automatic smoke pushes: only the host-specific
               # approval variable can authorize the host closure, and it
-              # must name this exact dispatched revision. It stays unset
-              # until the parent clears the host's whole exported closure
-              # for public artifact access and redistribution.
+              # must name this exact dispatched revision. Kept from the
+              # earlier public-artifact design pending the owner's gate
+              # change; the encrypted transfer is the active boundary.
               [ -z "${STANDALONE_TARGET:-}" ] \
                 || fail "$mode uses a fixed installable allowlist and does not accept standalone_target."
               if [ "$mode" = "laptop-full" ]; then
@@ -152,6 +157,15 @@ jobs:
                 || fail "$approval_var '$approved' is not the dispatched revision '$GITHUB_SHA'; refusing to build $host outputs."
               ;;
           esac
+
+          # Private transfer is mandatory for every mode, smoke included:
+          # refuse to build without a valid native age recipient, because
+          # there is no plaintext artifact fallback.
+          recipient="${ATTIC_TRANSFER_AGE_RECIPIENT:-}"
+          [ -n "$recipient" ] \
+            || fail "ATTIC_TRANSFER_AGE_RECIPIENT is not set: private transfer is mandatory and no plaintext artifact fallback exists."
+          [[ "$recipient" =~ ^age1[023456789acdefghjklmnpqrstuvwxyz]{58}$ ]] \
+            || fail "ATTIC_TRANSFER_AGE_RECIPIENT is not a valid native age recipient (age1...), so no output was exported."
 
           echo "mode=$mode revision=$GITHUB_SHA standalone_target=${STANDALONE_TARGET:-none}"
 
@@ -179,6 +193,22 @@ jobs:
             sandbox = true
             sandbox-fallback = false
 
+      - name: Resolve the pinned age client from the locked nixpkgs
+        run: |
+          set -euo pipefail
+
+          # age is substituted from the locked nixpkgs (a trusted upstream)
+          # and is used only to encrypt. It is never exported or uploaded.
+          age_bin="$(nix build --no-link --print-out-paths --no-write-lock-file \
+            --inputs-from . 'nixpkgs#age')"
+          [ -x "$age_bin/bin/age" ] || {
+            echo "::error::The locked nixpkgs age did not produce bin/age."
+            exit 1
+          }
+          printf '%s' "$age_bin" > "$RUNNER_TEMP/attic-age-path"
+          echo "age client: $age_bin"
+          "$age_bin/bin/age" --version
+
       - name: Build the disposable smoke path
         run: |
           set -euo pipefail
@@ -186,7 +216,8 @@ jobs:
           # A derivation unique to this run: the content embeds the revision
           # and run id, so the output cannot already exist in any cache and
           # the upload is a real transfer rather than a no-op. It is plain
-          # text from this repository, cleared for public artifact access.
+          # text from this repository and only leaves the job inside the
+          # encrypted transfer.
           # shellcheck disable=SC2016 # Nix interpolation is literal here.
           expr='
             let
@@ -326,15 +357,62 @@ jobs:
           ls -l "$artifact/manifest.tsv"
           du -sh "$export_dir"
 
-      - name: Upload the same-run manifest and export
+      - name: Package and encrypt the same-run transfer
+        env:
+          ATTIC_TRANSFER_AGE_RECIPIENT: ${{ vars.ATTIC_TRANSFER_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          artifact="$RUNNER_TEMP/attic-artifact"
+          export_dir="$artifact/export"
+          manifest="$artifact/manifest.tsv"
+          age_bin="$(cat "$RUNNER_TEMP/attic-age-path")"
+          recipient="${ATTIC_TRANSFER_AGE_RECIPIENT:-}"
+
+          [ -x "$age_bin/bin/age" ] || fail "The age client is missing."
+          [ -d "$export_dir" ] || fail "The plaintext export directory is missing."
+          [ -f "$manifest" ] || fail "The run-bound manifest is missing."
+          [[ "$recipient" =~ ^age1[023456789acdefghjklmnpqrstuvwxyz]{58}$ ]] \
+            || fail "ATTIC_TRANSFER_AGE_RECIPIENT is not a valid native age recipient."
+
+          encrypted="$artifact/attic-transfer.tar.age"
+          partial="$artifact/attic-transfer.tar.age.partial"
+          rm -f "$encrypted" "$partial"
+
+          # Stream the tar into age so no plaintext tarball is ever written.
+          # A packing or encryption failure leaves no uploadable artifact,
+          # and the upload step is skipped because this step failed.
+          if ! tar -C "$artifact" -cf - export manifest.tsv \
+            | "$age_bin/bin/age" --recipient "$recipient" --output "$partial"; then
+            rm -f "$partial"
+            fail "Packing or encryption failed; no transfer artifact was produced."
+          fi
+          [ -s "$partial" ] || {
+            rm -f "$partial"
+            fail "Encryption produced an empty transfer artifact."
+          }
+          mv "$partial" "$encrypted"
+
+          # Only ciphertext may leave this job: remove the plaintext export
+          # and manifest before the upload step can run.
+          rm -rf "$export_dir"
+          rm -f "$manifest"
+
+          [ "$(find "$artifact" -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 ] \
+            || fail "The upload directory does not contain exactly the encrypted artifact."
+          ls -l "$encrypted"
+          echo "Encrypted transfer artifact ready; plaintext export removed before upload."
+
+      - name: Upload the encrypted same-run transfer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: attic-publish-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/attic-artifact
+          path: ${{ runner.temp }}/attic-artifact/attic-transfer.tar.age
           if-no-files-found: error
           retention-days: 1
-          # The NARs are already zstd-compressed; zipping them again wastes
-          # time and gains nothing.
+          # Ciphertext does not compress; zipping it again wastes time.
           compression-level: 0
 
       - name: Report the built paths
@@ -350,8 +428,8 @@ jobs:
               laptop-full) echo "- target: .#nixosConfigurations.laptop.config.system.build.toplevel" ;;
               desktop-full) echo "- target: .#nixosConfigurations.desktop.config.system.build.toplevel" ;;
             esac
-            echo "- artifact: attic-publish-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT (1 day)"
-            echo "- sandbox: on, no deployment environment or Attic credentials"
+            echo "- artifact: attic-publish-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT (1 day, age ciphertext only)"
+            echo "- sandbox: on, no deployment environment, Attic credentials or transfer key"
             echo ""
             if [ -f "$RUNNER_TEMP/attic-rows.tsv" ]; then
               echo "| target | built output path |"
@@ -383,7 +461,8 @@ jobs:
       ATTIC_CACHE_NAME: nixos
       ATTIC_ENDPOINT: http://attic.selfhosted.svc.cluster.local:8080
       ATTIC_SUBSTITUTER_URL: http://attic.selfhosted.svc.cluster.local:8080/nixos
-      ARTIFACT_DIR: /nix/attic-publish/artifact
+      TRANSFER_DIR: /nix/attic-publish/transfer
+      ARTIFACT_DIR: /nix/attic-publish/transfer/artifact
     steps:
       - name: Validate the publisher inputs and prerequisites
         env:
@@ -439,7 +518,7 @@ jobs:
 
           [ -d /nix ] || fail "/nix is not mounted on this runner."
           [ -w /nix ] || fail "/nix is not writable by $(id -un) ($(id -u):$(id -g))."
-          for tool in bash curl tar unzstd getent timeout sha256sum install; do
+          for tool in bash curl tar gzip unzstd getent timeout sha256sum install; do
             command -v "$tool" >/dev/null 2>&1 \
               || fail "$tool is required by the bootstrap or preflight but is missing from the runner image."
           done
@@ -505,11 +584,154 @@ jobs:
 
           echo "Effective settings: sandbox=$sandbox max-jobs=$jobs builders='${builders}'"
 
+      - name: Install the pinned prebuilt age bootstrap
+        env:
+          AGE_VERSION: "1.3.2"
+          AGE_ARCHIVE_SHA256: "cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10"
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          # The publisher decrypts but never builds, so age comes from the
+          # upstream prebuilt release rather than from Nix. The version and
+          # digest are pinned and verified before use. This step is
+          # independent of the encrypted artifact and needs no checkout.
+          work="$RUNNER_TEMP/attic-age-bootstrap"
+          rm -rf "$work"
+          install -d -m 0700 "$work/bin"
+          archive="$work/age-v$AGE_VERSION-linux-amd64.tar.gz"
+          url="https://github.com/FiloSottile/age/releases/download/v$AGE_VERSION/age-v$AGE_VERSION-linux-amd64.tar.gz"
+
+          curl -fsSL --retry 3 --retry-connrefused -o "$archive" "$url"
+          printf '%s  %s\n' "$AGE_ARCHIVE_SHA256" "$archive" | sha256sum -c -
+
+          tar -xzf "$archive" --strip-components 1 -C "$work/bin"
+          [ -x "$work/bin/age" ] || fail "The pinned age archive did not contain an age binary."
+
+          age_version="$("$work/bin/age" --version 2>&1)"
+          echo "age bootstrap: $url (sha256 $AGE_ARCHIVE_SHA256) reported '$age_version'"
+          printf '%s\n' "$work/bin" >> "$GITHUB_PATH"
+          printf '%s' "$work/bin" > "$RUNNER_TEMP/attic-age-bootstrap-path"
+
+      - name: Prepare a clean transfer directory
+        run: |
+          set -euo pipefail
+          rm -rf "$TRANSFER_DIR"
+          install -d -m 0700 "$TRANSFER_DIR" "$ARTIFACT_DIR"
+          echo "Prepared a clean transfer directory."
+
       - name: Download the same-run build artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: attic-publish-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.ARTIFACT_DIR }}
+
+      - name: Decrypt the same-run transfer artifact
+        env:
+          ATTIC_TRANSFER_AGE_KEY: ${{ secrets.ATTIC_TRANSFER_AGE_KEY }}
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          archive="$ARTIFACT_DIR/attic-transfer.tar.age"
+          decrypted="$TRANSFER_DIR/attic-transfer.tar"
+          identity="$RUNNER_TEMP/attic-transfer-identity"
+          age_bin="$(cat "$RUNNER_TEMP/attic-age-bootstrap-path")"
+
+          [ -f "$archive" ] || fail "The download did not produce attic-transfer.tar.age."
+          [ -x "$age_bin/age" ] || fail "The age bootstrap is missing."
+          [ -n "${ATTIC_TRANSFER_AGE_KEY:-}" ] \
+            || fail "ATTIC_TRANSFER_AGE_KEY is not set in the attic-publish environment."
+
+          umask 077
+          rm -f "$identity" "$decrypted"
+          printf '%s\n' "$ATTIC_TRANSFER_AGE_KEY" > "$identity"
+          chmod 0600 "$identity"
+
+          # Decryption must complete successfully before the tar data is used
+          # or unpacked. The key file is removed immediately after the attempt.
+          if ! "$age_bin/age" --decrypt --identity "$identity" --output "$decrypted" "$archive"; then
+            rm -f "$identity"
+            fail "Authenticated decryption failed; nothing was imported."
+          fi
+          rm -f "$identity"
+
+          [ -s "$decrypted" ] || fail "Decryption produced an empty archive."
+          echo "Decrypted the same-run transfer artifact; removed the temporary key file."
+
+      - name: Unpack and validate the transfer layout
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          decrypted="$TRANSFER_DIR/attic-transfer.tar"
+          extract="$TRANSFER_DIR/extracted"
+          [ -f "$decrypted" ] || fail "The decrypted archive is missing."
+          rm -rf "$extract"
+          umask 077
+          install -d -m 0700 "$extract"
+
+          # List before extracting. The archive may only contain the export
+          # file cache and the run-bound manifest, as regular files and
+          # directories, with relative paths and no traversal.
+          tar -tf "$decrypted" > "$TRANSFER_DIR/archive.names"
+          mapfile -t names < "$TRANSFER_DIR/archive.names"
+          [ "${#names[@]}" -ge 2 ] || fail "The transfer archive does not contain both expected entries."
+          mapfile -t types < <(tar -tvf "$decrypted" | cut -c1)
+          [ "${#names[@]}" -eq "${#types[@]}" ] || fail "Could not parse the transfer archive listing."
+
+          for i in "${!names[@]}"; do
+            name="${names[$i]}"
+            type="${types[$i]}"
+
+            case "$type" in
+              -|d) ;;
+              *) fail "Archive member '$name' is not a regular file or directory." ;;
+            esac
+
+            # Directory members carry a trailing slash in the listing.
+            path="$name"
+            if [ "$type" = "d" ]; then
+              path="${path%/}"
+            fi
+            [ -n "$path" ] || fail "The archive has an empty member name."
+            case "$path" in
+              /*|*\\*) fail "Unsafe archive member path '$name'." ;;
+            esac
+            IFS='/' read -r -a parts <<< "$path"
+            for part in "${parts[@]}"; do
+              case "$part" in
+                ''|.|..) fail "Unsafe archive member path '$name'." ;;
+              esac
+            done
+
+            case "$path" in
+              export) [ "$type" = "d" ] || fail "Archive member '$name' must be a directory." ;;
+              manifest.tsv) [ "$type" = "-" ] || fail "Archive member '$name' must be a regular file." ;;
+              export/*) ;;
+              *) fail "Unexpected archive member '$name'." ;;
+            esac
+          done
+
+          tar --extract --file "$decrypted" --directory "$extract" \
+            --no-same-owner --no-same-permissions
+
+          [ -f "$extract/manifest.tsv" ] || fail "The archive has no regular manifest.tsv."
+          [ -d "$extract/export" ] || fail "The archive has no export/ directory."
+          [ -z "$(find "$extract" -mindepth 1 ! -type f ! -type d -print -quit)" ] \
+            || fail "The extracted transfer contains a non-regular file."
+          for top in "$extract"/*; do
+            case "${top##*/}" in
+              export|manifest.tsv) ;;
+              *) fail "Unexpected extracted top-level entry '${top##*/}'." ;;
+            esac
+          done
+          rm -f "$decrypted"
+
+          echo "Unpacked and validated the transfer archive layout."
 
       - name: Validate the run-bound manifest
         run: |
@@ -517,16 +739,16 @@ jobs:
 
           fail() { echo "::error::$*"; exit 1; }
 
-          artifact="$ARTIFACT_DIR"
-          manifest="$artifact/manifest.tsv"
-          export_dir="$artifact/export"
-          [ -f "$manifest" ] || fail "The build artifact has no manifest.tsv."
-          [ -d "$export_dir" ] || fail "The build artifact has no export/ file cache."
+          manifest="$TRANSFER_DIR/extracted/manifest.tsv"
+          export_dir="$TRANSFER_DIR/extracted/export"
+          [ -f "$manifest" ] || fail "The decrypted transfer has no manifest.tsv."
+          [ -d "$export_dir" ] || fail "The decrypted transfer has no export/ file cache."
 
           # The manifest is data: every value is checked against this run
           # before any path from it is used.
           declare -A out_labels=()
           outputs=()
+          labels=()
           tool=""
           version=""
           run_id=""
@@ -564,6 +786,7 @@ jobs:
                 [ -z "${out_labels[$field1]:-}" ] || fail "Duplicate output label '$field1'."
                 out_labels[$field1]="$field2"
                 outputs+=("$field2")
+                labels+=("$field1")
                 ;;
               tool)
                 [ "$field1" = "attic-client" ] || fail "Unknown tool '$field1'."
@@ -609,6 +832,7 @@ jobs:
           done
 
           printf '%s\n' "${outputs[@]}" > "$RUNNER_TEMP/attic-output-paths"
+          printf '%s\n' "${labels[@]}" > "$RUNNER_TEMP/attic-output-labels"
           printf '%s\n' "$tool" > "$RUNNER_TEMP/attic-tool-path"
           printf '%s\n' "${outputs[@]}" "$tool" > "$RUNNER_TEMP/attic-import-paths"
           printf '%s\n' "${out_labels[smoke]}" > "$RUNNER_TEMP/attic-smoke-path"
@@ -624,11 +848,11 @@ jobs:
           mapfile -t import_paths < "$RUNNER_TEMP/attic-import-paths"
           [ "${#import_paths[@]}" -ge 2 ] || fail "Nothing to import from the artifact."
 
-          # This is the one and only signature exception: the artifact is
-          # the same run's trusted build output, bound to this run, attempt
-          # and revision above. Every later store operation uses the normal
-          # signature rules.
-          nix copy --from "file://$ARTIFACT_DIR/export" --no-check-sigs "${import_paths[@]}"
+          # This is the one and only signature exception: the transfer is
+          # the same run's trusted build output, decrypted and bound to this
+          # run, attempt and revision above. Every later store operation uses
+          # the normal signature rules.
+          nix copy --from "file://$TRANSFER_DIR/extracted/export" --no-check-sigs "${import_paths[@]}"
 
           for path in "${import_paths[@]}"; do
             [ -e "$path" ] || fail "Import did not produce '$path'."
@@ -769,13 +993,14 @@ jobs:
           printf '%s' "$smoke_path" > "$RUNNER_TEMP/attic-smoke-verified"
           echo "Fetched and signature-verified $smoke_path from $ATTIC_SUBSTITUTER_URL."
 
-      - name: Remove temporary client authentication state
+      - name: Remove temporary client state and plaintext transfer data
         if: always()
         run: |
           set -euo pipefail
           rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/attic"
-          rm -f "$RUNNER_TEMP/attic-netrc"
-          echo "Removed the temporary Attic client configuration, token file and netrc."
+          rm -f "$RUNNER_TEMP/attic-netrc" "$RUNNER_TEMP/attic-transfer-identity"
+          rm -rf "$TRANSFER_DIR"
+          echo "Removed the temporary Attic client state, decryption key file, ciphertext and decrypted transfer data."
 
       - name: Report the uploaded outputs
         if: always()
@@ -800,7 +1025,10 @@ jobs:
               echo "| target | output path | uploaded |"
               echo "| --- | --- | --- |"
               mapfile -t outputs < "$RUNNER_TEMP/attic-output-paths"
-              mapfile -t labels < <(awk -F'\t' '$1 == "output" { print $2 }' "$ARTIFACT_DIR/manifest.tsv" 2>/dev/null || true)
+              labels=()
+              if [ -f "$RUNNER_TEMP/attic-output-labels" ]; then
+                mapfile -t labels < "$RUNNER_TEMP/attic-output-labels"
+              fi
               for i in "${!outputs[@]}"; do
                 uploaded=no
                 if [ -f "$RUNNER_TEMP/attic-pushed.txt" ] \
