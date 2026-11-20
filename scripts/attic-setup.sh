@@ -10,16 +10,16 @@
 # self-hosted vault. setup verifies that server before it reads the note, so a
 # cloud or other-server session can never supply the credential.
 #
-# ATTIC_SETUP_ETC_DIR moves the install destination so the privileged stage can
-# be exercised against a disposable fixture. A real `sudo` invocation drops it
-# under the default environment reset; the default is /etc/nix.
+# The privileged install is a fixed inline script with the fixed destination
+# /etc/nix/attic.netrc. It receives only the validated netrc entry on stdin;
+# the checkout script path is not executed as root and production code has no
+# caller-controlled destination or test override.
 set -eu
 
 NOTE_NAME='NixOS Attic Pull Token'
 NETRC_MACHINE='attic.panic.ac'
+NETRC_PATH='/etc/nix/attic.netrc'
 BW_SERVER='https://vault.panic.ac'
-etc_dir=${ATTIC_SETUP_ETC_DIR:-/etc/nix}
-netrc_path="$etc_dir/attic.netrc"
 
 die() {
   printf 'attic-setup: %s\n' "$*" >&2
@@ -45,39 +45,46 @@ require_bw_server() {
 }
 
 install_netrc() {
-  [ -d "$etc_dir" ] || die "destination directory $etc_dir does not exist"
-  [ ! -L "$netrc_path" ] || die "refusing to replace the symlink at $netrc_path"
-  if [ -e "$netrc_path" ]; then
-    [ -f "$netrc_path" ] || die "refusing to replace the non-regular file $netrc_path"
-    [ -r "$netrc_path" ] || die "cannot read the existing file at $netrc_path"
-    entries=$(awk '
-      /^[[:space:]]*#/ { next }
-      /^[[:space:]]*$/ { next }
-      {
-        for (i = 1; i <= NF; i++) {
-          if ($i == "machine") ours = ($(i + 1) == "attic.panic.ac")
-          else if ($i == "default") print "default"
-          else if (!ours) print "stray"
-        }
-      }
-    ' "$netrc_path") || die "cannot read the existing file at $netrc_path"
-    [ -z "$entries" ] || die "refusing to overwrite $netrc_path: it names another netrc entry"
-  fi
-
-  umask 077
-  tmp=$(mktemp "$etc_dir/.attic.netrc.XXXXXX") || die "cannot create a temporary file in $etc_dir"
-  trap 'rm -f -- "$tmp"' EXIT
-  cat > "$tmp"
-  [ -s "$tmp" ] || die 'no credential was provided on stdin'
-  [ "$(grep -c '' "$tmp")" -eq 1 ] || die 'the credential is not a single netrc entry'
-  grep -Eq '^machine attic\.panic\.ac password [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$' "$tmp" \
-    || die 'the credential is not the expected Attic netrc entry'
-  chmod 0600 "$tmp" || die "cannot set the mode of the temporary file in $etc_dir"
-  if [ "$(id -u)" -eq 0 ]; then
-    chown root:root "$tmp" || die "cannot set the owner of the temporary file in $etc_dir"
-  fi
-  mv -f -- "$tmp" "$netrc_path" || die "cannot replace $netrc_path"
-  tmp=''
+  local netrc_line=$1 root_script
+  root_script=$(cat <<'ROOT_SCRIPT'
+set -eu
+dest=/etc/nix/attic.netrc
+[ -d /etc/nix ] || { echo 'attic-setup: /etc/nix does not exist' >&2; exit 1; }
+[ ! -L "$dest" ] || { echo 'attic-setup: refusing to replace the symlink at /etc/nix/attic.netrc' >&2; exit 1; }
+if [ -e "$dest" ]; then
+  [ -f "$dest" ] || { echo 'attic-setup: refusing to replace the non-regular file /etc/nix/attic.netrc' >&2; exit 1; }
+  awk '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    { for (i = 1; i <= NF; i++) tok[++n] = $i }
+    END {
+      if (n == 0) exit 0
+      if (n == 4 && tok[1] == "machine" && tok[2] == "attic.panic.ac" && tok[3] == "password") exit 0
+      if (n == 6 && tok[1] == "machine" && tok[2] == "attic.panic.ac" && tok[3] == "login" && tok[4] == "attic" && tok[5] == "password") exit 0
+      exit 1
+    }
+  ' "$dest" \
+    || { echo 'attic-setup: refusing to overwrite /etc/nix/attic.netrc: it is not one supported Attic entry' >&2; exit 1; }
+fi
+umask 077
+tmp=$(mktemp /etc/nix/.attic.netrc.XXXXXX) || { echo 'attic-setup: cannot create a temporary file in /etc/nix' >&2; exit 1; }
+trap 'rm -f -- "$tmp"' EXIT
+cat > "$tmp"
+[ -s "$tmp" ] || { echo 'attic-setup: no credential was provided on stdin' >&2; exit 1; }
+[ "$(grep -c '' "$tmp")" -eq 1 ] || { echo 'attic-setup: the credential is not a single netrc entry' >&2; exit 1; }
+grep -Eq '^machine attic\.panic\.ac login attic password [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$' "$tmp" \
+  || { echo 'attic-setup: the credential is not the expected Attic netrc entry' >&2; exit 1; }
+chmod 0600 "$tmp"
+chown root:root "$tmp"
+mv -f -- "$tmp" "$dest"
+tmp=''
+ROOT_SCRIPT
+)
+  local sudo_flags=()
+  [ -t 0 ] || sudo_flags=(-n)
+  printf '%s\n' "$netrc_line" \
+    | env -u BW_SESSION sudo "${sudo_flags[@]}" -- sh -c "$root_script" \
+    || die 'installing the credential failed; the previous file was left unchanged (run from an interactive terminal if sudo needs a password)'
 }
 
 bw_config() {
@@ -156,17 +163,12 @@ attic_setup() {
     @base64d | fromjson | type == "object"
   ' >/dev/null 2>&1 || die "the \"$NOTE_NAME\" Notes body is not a well-formed JWT"
 
-  netrc_line=$(printf 'machine %s password %s' "$NETRC_MACHINE" "$token") \
+  netrc_line=$(printf 'machine %s login attic password %s' "$NETRC_MACHINE" "$token") \
     || die 'could not prepare the netrc entry'
-  script_path=$(readlink -f -- "$0") || die 'could not resolve this script path'
-  sudo_flags=()
-  [ -t 0 ] || sudo_flags=(-n)
-  printf '%s\n' "$netrc_line" \
-    | sudo "${sudo_flags[@]}" env -u BW_SESSION -- "$script_path" --install-netrc \
-    || die 'installing the credential failed; the previous file was left unchanged (run from an interactive terminal if sudo needs a password)'
+  install_netrc "$netrc_line"
 
   printf 'Installed the Attic reader credential for %s at %s (root:root, mode 0600).\n' \
-    "$NETRC_MACHINE" "$netrc_path"
+    "$NETRC_MACHINE" "$NETRC_PATH"
 }
 
 case "${1:-setup}" in
@@ -182,11 +184,7 @@ case "${1:-setup}" in
     [ "$#" -eq 1 ] || die 'bw-login takes no arguments'
     bw_login
     ;;
-  --install-netrc)
-    [ "$#" -eq 1 ] || die 'the install stage takes no arguments'
-    install_netrc
-    ;;
   *)
-    die 'unknown command (expected setup, bw-config, bw-login, or --install-netrc)'
+    die 'unknown command (expected setup, bw-config, or bw-login)'
     ;;
 esac
