@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `fb88c53` (2026-11-20). This doc is not
+Captured against `origin/main` @ `839566a` (2026-11-20). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,7 +13,7 @@ declared refs from `flake.nix`; they match each lock node's `original.ref`
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `1c89083e451e` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `04906337b6d5` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `ff0e21a414d4` | nixpkgs |
 | home-manager | `github:nix-community/home-manager` | `095fef2f265c` | nixpkgs |
 | disko | `github:nix-community/disko` | `cedd626e11b6` | nixpkgs |
@@ -23,7 +23,7 @@ declared refs from `flake.nix`; they match each lock node's `original.ref`
 | stasis | `github:saltnpepper97/stasis/v1.7.0` | `6bdcd3423ebf` | nixpkgs, flake-parts |
 | nix-index-database | `github:nix-community/nix-index-database` | `e22762b58789` | nixpkgs |
 | nixvim | `github:nix-community/nixvim` | `453dc9c5037e` | nixpkgs, flake-parts |
-| luciole | `github:noctalia-dev/luciole` | not yet locked (added without a lock node; the daily `update-flake-lock` run adds it) | nixpkgs |
+| luciole | `github:noctalia-dev/luciole` | `0b37f2cc760c` | nixpkgs |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.4.1` | `815aebe1cfd7` | nixpkgs |
 | nix-cachyos-kernel | `github:xddxdd/nix-cachyos-kernel/release` | `baa4163a89b8` | flake-parts (not nixpkgs: upstream forbids it) |
 
