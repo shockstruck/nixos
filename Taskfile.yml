@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  attic:setup:
+    desc: Install the Attic reader credential from Bitwarden
+    cmds:
+      - ./scripts/attic-setup.sh

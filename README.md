@@ -21,6 +21,55 @@ Run `nix run` from the repository root on either workstation. The default
 `nix run .#activate -- <host>` targeting is reserved for remote activation and
 requires that host's `nixos-unified.sshTarget` option.
 
+## Attic binary cache credential
+
+A host configured for the private Attic cache uses a pull-only Attic token in
+the root-only netrc file its Nix daemon reads. The token is stored in a
+Bitwarden secure note named `NixOS Attic Pull Token`; its Notes body must hold
+the token itself as one raw JWT (three dot-separated base64url parts, with no
+`machine` line or other text). The setup task builds the netrc entry.
+
+The shared desktop and laptop home configuration installs Go Task (`task`), the
+Bitwarden CLI (`bw`), and `jq`; `sudo` is part of every NixOS host. Where those
+tools are on PATH, install or refresh the credential once per machine:
+
+```sh
+bw login                    # only if this machine is not logged in yet
+export BW_SESSION="$(bw unlock --raw)"
+task attic:setup
+```
+
+A host whose profile does not install those tools, such as the console's
+smaller home profile, runs the same task through a one-shot tool shell instead:
+
+```sh
+nix shell nixpkgs#go-task nixpkgs#bitwarden-cli nixpkgs#jq -c task attic:setup
+```
+
+That shell resolves its tools from the normal Nixpkgs substitute cache, so it
+works before the Attic credential exists. Run it, and the plain `task
+attic:setup` form, from the repository root.
+
+The task runs `bw` as you and uses `sudo` only for the final install. It
+selects exactly one secure note with that exact name and rejects a missing,
+duplicate, wrong-type, empty, or malformed entry without changing the existing
+file. It writes only the `attic.panic.ac` entry to `/etc/nix/attic.netrc`,
+atomically, with owner `root:root` and mode `0600`. Rerun it after rotating the
+token.
+
+Entering the checkout through direnv loads the repository shell and never reads
+Bitwarden or prompts for a token. With direnv, run the task from the checkout,
+using the one-shot tool shell above when the loaded shell does not expose the
+tools. Without direnv, run the same commands from a normal shell in the
+checkout.
+
+After the host's Attic daemon settings are active and CI has published the
+outputs for the revision you build, ordinary `nix run` uses the cache without
+per-command flags. Installing the credential alone does not configure a host or
+publish its system closure: the daemon settings are a separate change, and the
+laptop's Attic configuration and system publication remain a separate
+follow-up.
+
 ## Desktop session
 
 Both workstations share one declarative Wayland session:
