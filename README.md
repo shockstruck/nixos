@@ -21,6 +21,73 @@ Run `nix run` from the repository root on either workstation. The default
 `nix run .#activate -- <host>` targeting is reserved for remote activation and
 requires that host's `nixos-unified.sshTarget` option.
 
+## Attic binary cache credential
+
+A host configured for the private Attic cache uses a pull-only Attic token in
+the root-only netrc file its Nix daemon reads. The token is stored in a
+Bitwarden secure note named `NixOS Attic Pull Token`; its Notes body must hold
+the token itself as one raw JWT (three dot-separated base64url parts, with no
+`machine` line or other text). The setup task builds the netrc entry.
+
+The shared desktop and laptop home configuration installs Go Task (`task`), the
+Bitwarden CLI (`bw`), and `jq`; `sudo` is part of every NixOS host. Where those
+tools are on PATH, prepare the CLI and install or refresh the credential once
+per machine:
+
+```sh
+# Only when the CLI is not already pointed at the vault server.
+task attic:bw-config
+
+# Only when you are not already signed in to the intended vault.
+task attic:bw-login
+
+# Unlock in this shell; the task receives the session through the environment.
+export BW_SESSION="$(bw unlock --raw)"
+task attic:setup
+```
+
+`attic:bw-config` sets `bw` to `https://vault.panic.ac` before login. It does
+nothing when the CLI already points there, and it refuses to switch a signed-in
+session on another server. `attic:bw-login` verifies that server before it runs
+`bw login --sso` interactively; it does not log out, switch servers, unlock the
+vault, use sudo, or install the credential. `attic:setup` verifies the same
+server before it reads the note, so it never falls back to Bitwarden Cloud or
+changes the CLI configuration. `BW_SESSION` stays in the environment; it is
+never a command argument or a task template.
+
+A host whose profile does not install those tools, such as the console's
+smaller home profile, uses a one-shot tool shell. Run the same commands from the
+repository root, substituting the one-shot form where the tools are missing:
+
+```sh
+nix shell nixpkgs#go-task nixpkgs#bitwarden-cli nixpkgs#jq -c task attic:setup
+```
+
+The one-shot shell resolves its tools from the normal Nixpkgs substitute cache,
+not the private Attic cache, so it works before the credential exists. Replace
+`attic:setup` with `attic:bw-config` or `attic:bw-login` in that command when
+needed. On a host without `bw`, capture the unlock session the same way, for
+example `export BW_SESSION="$(nix shell nixpkgs#bitwarden-cli -c bw unlock --raw)"`.
+
+The task runs `bw` as you and uses `sudo` only for the final install. It
+selects exactly one secure note with that exact name and rejects a missing,
+duplicate, wrong-type, empty, or malformed entry without changing the existing
+file. It writes only the `attic.panic.ac` entry to `/etc/nix/attic.netrc`,
+atomically, with owner `root:root` and mode `0600`. Rerun it after rotating the
+token.
+
+Entering the checkout through direnv loads the repository shell and never reads
+Bitwarden or prompts for a token. With direnv, run the commands from the
+checkout, using the one-shot tool shell when the loaded shell does not expose
+the tools. Without direnv, run them from a normal shell in the checkout.
+
+After the host's Attic daemon settings are active and CI has published the
+outputs for the revision you build, ordinary `nix run` uses the cache without
+per-command flags. Installing the credential alone does not configure a host or
+publish its system closure: the daemon settings are a separate change, and the
+laptop's Attic configuration and system publication remain a separate
+follow-up.
+
 ## Desktop session
 
 Both workstations share one declarative Wayland session:
