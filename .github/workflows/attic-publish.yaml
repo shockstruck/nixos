@@ -209,6 +209,33 @@ jobs:
           echo "age client: $age_bin"
           "$age_bin/bin/age" --version
 
+      - name: Validate the transfer recipient with age
+        env:
+          ATTIC_TRANSFER_AGE_RECIPIENT: ${{ vars.ATTIC_TRANSFER_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*"; exit 1; }
+
+          age_bin="$(cat "$RUNNER_TEMP/attic-age-path")"
+          recipient="${ATTIC_TRANSFER_AGE_RECIPIENT:-}"
+          probe="$RUNNER_TEMP/attic-age-recipient-probe"
+
+          [ -x "$age_bin/bin/age" ] || fail "The age client is missing."
+          [ -n "$recipient" ] || fail "ATTIC_TRANSFER_AGE_RECIPIENT is not set."
+          rm -f "$probe"
+
+          # The shape check cannot see the age checksum. Encrypting one empty
+          # stream makes age validate the recipient before any build starts;
+          # the error stays generic so no recipient value is echoed.
+          if ! printf '' | "$age_bin/bin/age" --recipient "$recipient" --output "$probe" 2>/dev/null; then
+            rm -f "$probe"
+            fail "ATTIC_TRANSFER_AGE_RECIPIENT is not a usable age recipient."
+          fi
+          rm -f "$probe"
+
+          echo "The transfer recipient is a valid age recipient."
+
       - name: Build the disposable smoke path
         run: |
           set -euo pipefail
@@ -677,10 +704,22 @@ jobs:
           # List before extracting. The archive may only contain the export
           # file cache and the run-bound manifest, as regular files and
           # directories, with relative paths and no traversal.
-          tar -tf "$decrypted" > "$TRANSFER_DIR/archive.names"
+          #
+          # Both listings are captured explicitly: a process substitution
+          # would hide a failed producer behind mapfile's own success. A
+          # listing that emits rows and then fails must stop here, before
+          # any extraction.
+          if ! tar -tf "$decrypted" > "$TRANSFER_DIR/archive.names"; then
+            fail "Could not read the transfer archive names."
+          fi
           mapfile -t names < "$TRANSFER_DIR/archive.names"
           [ "${#names[@]}" -ge 2 ] || fail "The transfer archive does not contain both expected entries."
-          mapfile -t types < <(tar -tvf "$decrypted" | cut -c1)
+
+          if ! tar -tvf "$decrypted" > "$TRANSFER_DIR/archive.listing"; then
+            fail "Could not read the transfer archive listing."
+          fi
+          cut -c1 "$TRANSFER_DIR/archive.listing" > "$TRANSFER_DIR/archive.types"
+          mapfile -t types < "$TRANSFER_DIR/archive.types"
           [ "${#names[@]}" -eq "${#types[@]}" ] || fail "Could not parse the transfer archive listing."
 
           for i in "${!names[@]}"; do
