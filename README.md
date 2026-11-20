@@ -72,9 +72,11 @@ example `export BW_SESSION="$(nix shell nixpkgs#bitwarden-cli -c bw unlock --raw
 The task runs `bw` as you and uses `sudo` only for the final install. It
 selects exactly one secure note with that exact name and rejects a missing,
 duplicate, wrong-type, empty, or malformed entry without changing the existing
-file. It writes only the `attic.panic.ac` entry to `/etc/nix/attic.netrc`,
-atomically, with owner `root:root` and mode `0600`. Rerun it after rotating the
-token.
+file. It writes only the `attic.panic.ac` entry to `/etc/nix/attic.netrc` as
+`machine attic.panic.ac login attic password <token>`, atomically, with owner
+`root:root` and mode `0600`. The privileged install is a fixed operation with
+that fixed destination and receives only the validated entry on stdin. Rerun it
+after rotating the token.
 
 Entering the checkout through direnv loads the repository shell and never reads
 Bitwarden or prompts for a token. With direnv, run the commands from the

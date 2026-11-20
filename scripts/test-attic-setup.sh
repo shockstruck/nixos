@@ -16,6 +16,8 @@ fakebin="$tmp/bin"
 etc="$tmp/etc/nix"
 mkdir -p "$fakebin" "$etc"
 : > "$tmp/sudo.log"
+: > "$tmp/sudo-env.log"
+: > "$tmp/chown.log"
 : > "$tmp/bw.log"
 
 cat > "$fakebin/bw" <<'EOF'
@@ -49,10 +51,25 @@ cat > "$fakebin/sudo" <<'EOF'
 set -eu
 printf '%s\n' "$*" >> "$FAKE_SUDO_LOG"
 if [ "${1:-}" = "-n" ]; then shift; fi
-[ "${1:-}" = "env" ] || { echo 'unexpected sudo command' >&2; exit 2; }
-ATTIC_SETUP_ETC_DIR="$FAKE_ETC_DIR" "$@"
+[ "${1:-}" = "env" ] && [ "${2:-}" = "-u" ] && [ "${3:-}" = "BW_SESSION" ] && [ "${4:-}" = "--" ] \
+  || { echo 'unexpected sudo command' >&2; exit 2; }
+shift 4
+[ "${1:-}" = "sh" ] && [ "${2:-}" = "-c" ] \
+  || { echo 'unexpected privileged command' >&2; exit 2; }
+script=${3:-}
+script=${script//\/etc\/nix/$FAKE_ETC_DIR}
+unset BW_SESSION
+env > "$FAKE_SUDO_ENV_LOG"
+exec sh -c "$script"
 EOF
 chmod +x "$fakebin/sudo"
+
+cat > "$fakebin/chown" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+printf '%s\n' "$*" >> "$FAKE_CHOWN_LOG"
+EOF
+chmod +x "$fakebin/chown"
 
 mkdir -p "$tmp/failbin"
 printf '#!/usr/bin/env bash\nexit 1\n' > "$tmp/failbin/mv"
@@ -114,6 +131,8 @@ assert_present() {
 reset_logs() {
   : > "$tmp/bw.log"
   : > "$tmp/sudo.log"
+  : > "$tmp/sudo-env.log"
+  : > "$tmp/chown.log"
 }
 
 run_cmd() { # cmd, items, status, out, [path-prefix], [login-exit]
@@ -124,8 +143,9 @@ run_cmd() { # cmd, items, status, out, [path-prefix], [login-exit]
     FAKE_BW_STATUS="$status" \
     FAKE_BW_LOG="$tmp/bw.log" \
     FAKE_SUDO_LOG="$tmp/sudo.log" \
+    FAKE_SUDO_ENV_LOG="$tmp/sudo-env.log" \
+    FAKE_CHOWN_LOG="$tmp/chown.log" \
     FAKE_ETC_DIR="$etc" \
-    ATTIC_SETUP_ETC_DIR="$etc" \
     BW_SESSION='test-session-value' \
     FAKE_BW_LOGIN_STATUS="$login_status" \
     "$setup" "$cmd" >"$out" 2>&1; then
@@ -165,7 +185,7 @@ jq -n --arg name "$note_name" --arg token "$token_one" \
   '[{type: 2, name: $name, notes: "eyJhbGciOiJIUzI1NiJ9.notbase64.signature"}]' > "$cases/bad-payload.json"
 printf '%s\n' '[]' > "$cases/none.json"
 
-sentinel='machine attic.panic.ac password previous'
+sentinel='machine attic.panic.ac login attic password previous'
 printf '%s\n' "$sentinel" > "$etc/attic.netrc"
 chmod 0600 "$etc/attic.netrc"
 
@@ -212,13 +232,19 @@ if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/out1"; then
 else
   bad 'valid note installs on the intended server'
 fi
-assert_eq 'netrc entry is the raw token' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac password $token_one"
+assert_eq 'netrc entry is the canonical layout' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_one"
 assert_eq 'netrc mode is 0600' "$(stat -c %a "$etc/attic.netrc")" '600'
-assert_eq 'netrc owner is the test user' "$(stat -c %u "$etc/attic.netrc")" "$(id -u)"
 assert_eq 'no temporary file remains' "$(find "$etc" -maxdepth 1 -name '.attic.netrc.*' -print)" ''
 assert_absent 'token is not printed on success' "$tmp/out1" "$token_one"
 assert_absent 'token is not in sudo arguments' "$tmp/sudo.log" "$token_one"
 assert_absent 'vault session is not in sudo arguments' "$tmp/sudo.log" 'test-session-value'
+assert_absent 'privileged environment has no token' "$tmp/sudo-env.log" "$token_one"
+assert_absent 'privileged environment has no session' "$tmp/sudo-env.log" 'BW_SESSION'
+assert_absent 'checkout script is not executed as root' "$tmp/sudo.log" 'scripts/attic-setup.sh'
+assert_absent 'no install subcommand is passed to root' "$tmp/sudo.log" '--install-netrc'
+assert_present 'privileged install is a fixed inline script' "$tmp/sudo.log" 'sh -c'
+assert_present 'privileged install uses the fixed destination' "$tmp/sudo.log" '/etc/nix/attic.netrc'
+assert_present 'privileged install requests root ownership' "$tmp/chown.log" 'root:root'
 assert_present 'exact note name is searched' "$tmp/bw.log" 'list items --search NixOS Attic Pull Token'
 assert_present 'install stage strips BW_SESSION' "$tmp/sudo.log" 'env -u BW_SESSION'
 assert_present 'non-terminal runs use sudo -n' "$tmp/sudo.log" '-n env -u BW_SESSION'
@@ -231,7 +257,7 @@ if run_cmd setup "$cases/two.json" "$tmp/status-unlocked-slash.json" "$tmp/out2"
 else
   bad 'a configured server with a trailing slash is accepted'
 fi
-assert_eq 'rerun writes the new token' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac password $token_two"
+assert_eq 'rerun writes the new token' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_two"
 assert_eq 'rerun keeps mode 0600' "$(stat -c %a "$etc/attic.netrc")" '600'
 
 expect_failure() {
@@ -243,7 +269,7 @@ expect_failure() {
   else
     ok "$desc"
   fi
-  assert_preserved "$desc leaves the prior file intact" "machine attic.panic.ac password $token_two"
+  assert_preserved "$desc leaves the prior file intact" "machine attic.panic.ac login attic password $token_two"
   assert_absent "$desc does not print the token" "$out" "$token_one"
   assert_absent "$desc does not print the prior token" "$out" "$token_two"
 }
@@ -266,14 +292,32 @@ else
 fi
 assert_eq 'unrelated netrc content is unchanged' "$(cat -- "$etc/attic.netrc")" 'machine other.example password keep'
 
-printf 'machine attic.panic.ac\npassword old\n' > "$etc/attic.netrc"
+printf 'machine attic.panic.ac\nlogin attic\npassword old\n' > "$etc/attic.netrc"
 reset_logs
 if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/multiline-netrc-out"; then
   ok 'same-machine multiline netrc is refreshable'
 else
   bad 'same-machine multiline netrc is refreshable'
 fi
-assert_eq 'multiline netrc is replaced with one entry' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac password $token_one"
+assert_eq 'multiline netrc is replaced with the canonical entry' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_one"
+
+printf 'machine attic.panic.ac password old\n' > "$etc/attic.netrc"
+reset_logs
+if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/legacy-netrc-out"; then
+  ok 'legacy same-machine netrc is refreshable'
+else
+  bad 'legacy same-machine netrc is refreshable'
+fi
+assert_eq 'legacy netrc is replaced with the canonical entry' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_one"
+
+printf 'machine attic.panic.ac login attic password old\n' > "$etc/attic.netrc"
+reset_logs
+if run_cmd setup "$cases/two.json" "$tmp/status-unlocked.json" "$tmp/canonical-refresh-out"; then
+  ok 'canonical same-machine netrc is refreshable'
+else
+  bad 'canonical same-machine netrc is refreshable'
+fi
+assert_eq 'canonical netrc is refreshed with the new token' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_two"
 
 printf 'password old\n' > "$etc/attic.netrc"
 reset_logs
@@ -315,7 +359,7 @@ if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/write-fail-
 else
   ok 'failed atomic replace is reported'
 fi
-assert_preserved 'failed replace leaves the prior file intact' "machine attic.panic.ac password $token_two"
+assert_preserved 'failed replace leaves the prior file intact' "machine attic.panic.ac login attic password $token_two"
 assert_eq 'failed replace removes its temporary file' "$(find "$etc" -maxdepth 1 -name '.attic.netrc.*' -print)" ''
 
 # attic:bw-config: no-op when already correct, explicit set otherwise, and no
