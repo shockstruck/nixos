@@ -49,16 +49,24 @@ chmod +x "$fakebin/bw"
 cat > "$fakebin/sudo" <<'EOF'
 #!/usr/bin/env bash
 set -eu
+if [ -n "${BW_SESSION:-}" ]; then
+  echo 'BW_SESSION leaked into the sudo environment' >&2
+  exit 3
+fi
+if [ -n "${FAKE_BW_ITEMS:-}" ] && [ -f "$FAKE_BW_ITEMS" ]; then
+  credential=$(jq -r '.[0].notes // empty' "$FAKE_BW_ITEMS" 2>/dev/null || true)
+  if [ -n "$credential" ] && env | grep -qF -- "$credential"; then
+    echo 'credential leaked into the sudo environment' >&2
+    exit 4
+  fi
+fi
 printf '%s\n' "$*" >> "$FAKE_SUDO_LOG"
 if [ "${1:-}" = "-n" ]; then shift; fi
-[ "${1:-}" = "env" ] && [ "${2:-}" = "-u" ] && [ "${3:-}" = "BW_SESSION" ] && [ "${4:-}" = "--" ] \
-  || { echo 'unexpected sudo command' >&2; exit 2; }
-shift 4
+[ "${1:-}" = "--" ] && shift
 [ "${1:-}" = "sh" ] && [ "${2:-}" = "-c" ] \
   || { echo 'unexpected privileged command' >&2; exit 2; }
 script=${3:-}
 script=${script//\/etc\/nix/$FAKE_ETC_DIR}
-unset BW_SESSION
 env > "$FAKE_SUDO_ENV_LOG"
 exec sh -c "$script"
 EOF
@@ -246,8 +254,9 @@ assert_present 'privileged install is a fixed inline script' "$tmp/sudo.log" 'sh
 assert_present 'privileged install uses the fixed destination' "$tmp/sudo.log" '/etc/nix/attic.netrc'
 assert_present 'privileged install requests root ownership' "$tmp/chown.log" 'root:root'
 assert_present 'exact note name is searched' "$tmp/bw.log" 'list items --search NixOS Attic Pull Token'
-assert_present 'install stage strips BW_SESSION' "$tmp/sudo.log" 'env -u BW_SESSION'
-assert_present 'non-terminal runs use sudo -n' "$tmp/sudo.log" '-n env -u BW_SESSION'
+assert_present 'sudo is invoked after the session is removed' "$tmp/sudo.log" '-- sh -c'
+assert_present 'non-terminal runs use sudo -n' "$tmp/sudo.log" '-n -- sh -c'
+assert_absent 'sudo command never mentions BW_SESSION' "$tmp/sudo.log" 'BW_SESSION'
 assert_absent 'setup never changes the Bitwarden server' "$tmp/bw.log" 'config server'
 assert_absent 'setup never starts an SSO login' "$tmp/bw.log" 'login --sso'
 
@@ -318,6 +327,26 @@ else
   bad 'canonical same-machine netrc is refreshable'
 fi
 assert_eq 'canonical netrc is refreshed with the new token' "$(cat -- "$etc/attic.netrc")" "machine attic.panic.ac login attic password $token_two"
+
+trailing=$'machine attic.panic.ac login attic password old\nunexpected'
+printf '%s\n' "$trailing" > "$etc/attic.netrc"
+reset_logs
+if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/trailing-out"; then
+  bad 'trailing unknown fields are refused'
+else
+  ok 'trailing unknown fields are refused'
+fi
+assert_eq 'trailing unknown fields leave the file untouched' "$(cat -- "$etc/attic.netrc")" "$trailing"
+
+duplicate=$'machine attic.panic.ac login attic password old\nmachine attic.panic.ac login attic password older'
+printf '%s\n' "$duplicate" > "$etc/attic.netrc"
+reset_logs
+if run_cmd setup "$cases/one.json" "$tmp/status-unlocked.json" "$tmp/duplicate-out"; then
+  bad 'duplicate same-machine entries are refused'
+else
+  ok 'duplicate same-machine entries are refused'
+fi
+assert_eq 'duplicate same-machine entries leave the file untouched' "$(cat -- "$etc/attic.netrc")" "$duplicate"
 
 printf 'password old\n' > "$etc/attic.netrc"
 reset_logs

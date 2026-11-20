@@ -53,18 +53,18 @@ dest=/etc/nix/attic.netrc
 [ ! -L "$dest" ] || { echo 'attic-setup: refusing to replace the symlink at /etc/nix/attic.netrc' >&2; exit 1; }
 if [ -e "$dest" ]; then
   [ -f "$dest" ] || { echo 'attic-setup: refusing to replace the non-regular file /etc/nix/attic.netrc' >&2; exit 1; }
-  entries=$(awk '
+  awk '
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*$/ { next }
-    {
-      for (i = 1; i <= NF; i++) {
-        if ($i == "machine") ours = ($(i + 1) == "attic.panic.ac")
-        else if ($i == "default") print "default"
-        else if (!ours) print "stray"
-      }
+    { for (i = 1; i <= NF; i++) tok[++n] = $i }
+    END {
+      if (n == 0) exit 0
+      if (n == 4 && tok[1] == "machine" && tok[2] == "attic.panic.ac" && tok[3] == "password") exit 0
+      if (n == 6 && tok[1] == "machine" && tok[2] == "attic.panic.ac" && tok[3] == "login" && tok[4] == "attic" && tok[5] == "password") exit 0
+      exit 1
     }
-  ' "$dest") || { echo 'attic-setup: cannot read the existing /etc/nix/attic.netrc' >&2; exit 1; }
-  [ -z "$entries" ] || { echo 'attic-setup: refusing to overwrite /etc/nix/attic.netrc: it names another netrc entry' >&2; exit 1; }
+  ' "$dest" \
+    || { echo 'attic-setup: refusing to overwrite /etc/nix/attic.netrc: it is not one supported Attic entry' >&2; exit 1; }
 fi
 umask 077
 tmp=$(mktemp /etc/nix/.attic.netrc.XXXXXX) || { echo 'attic-setup: cannot create a temporary file in /etc/nix' >&2; exit 1; }
@@ -83,7 +83,7 @@ ROOT_SCRIPT
   local sudo_flags=()
   [ -t 0 ] || sudo_flags=(-n)
   printf '%s\n' "$netrc_line" \
-    | sudo "${sudo_flags[@]}" env -u BW_SESSION -- sh -c "$root_script" \
+    | env -u BW_SESSION sudo "${sudo_flags[@]}" -- sh -c "$root_script" \
     || die 'installing the credential failed; the previous file was left unchanged (run from an interactive terminal if sudo needs a password)'
 }
 
