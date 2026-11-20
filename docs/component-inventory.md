@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `b31ef75` (2026-11-20). This doc is not
+Captured against `origin/main` @ `c18787b` (2026-11-20). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -62,7 +62,21 @@ appends `https://attic.panic.ac/nixos` to nixpkgs' substituters and
 substitution (`nix run`, `nixos-rebuild`) can use the private cache while signature
 verification stays on. `nix.settings.netrc-file = "/etc/nix/attic.netrc"` points the
 daemon at a root-owned mode-0600 netrc holding its console pull-only credential,
-provisioned on the host outside the store. Desktop and laptop do not configure Attic.
+provisioned on the host outside the store.
+
+`configurations/nixos/desktop/default.nix` (desktop only): the same Attic
+`nix.settings` block — `extra-substituters` appends `https://attic.panic.ac/nixos`,
+`extra-trusted-public-keys` appends the `nixos` Attic signing key, and
+`netrc-file = "/etc/nix/attic.netrc"` points the daemon at a root-owned mode-0600
+netrc holding its desktop pull-only credential, provisioned on the host outside
+the store.
+
+`configurations/nixos/laptop/default.nix` (laptop only): the same Attic
+`nix.settings` block — `extra-substituters` appends `https://attic.panic.ac/nixos`,
+`extra-trusted-public-keys` appends the `nixos` Attic signing key, and
+`netrc-file = "/etc/nix/attic.netrc"` points the daemon at a root-owned mode-0600
+netrc holding its laptop pull-only credential, provisioned on the host outside
+the store.
 
 `configurations/nixos/desktop/hardware.nix` (so desktop and console, not
 laptop) prepends `hardware.firmware` with a local `runCommand` package of the
