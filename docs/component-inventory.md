@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `839566a` (2026-11-20). This doc is not
+Captured against `origin/main` @ `b31ef75` (2026-11-20). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -55,6 +55,14 @@ files by path, and supplies its own `graphics.nix` (no ROCm OpenCL/Ollama;
 | desktop | `configurations/nixos/desktop/default.nix` | `desktop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
 | laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix`, `./echo-flashing.nix` |
 | console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
+
+`configurations/nixos/console/default.nix` (console only): `nix.settings.extra-substituters`
+appends `https://attic.panic.ac/nixos` to nixpkgs' substituters and
+`extra-trusted-public-keys` appends the `nixos` Attic signing key, so daemon-driven
+substitution (`nix run`, `nixos-rebuild`) can use the private cache while signature
+verification stays on. `nix.settings.netrc-file = "/etc/nix/attic.netrc"` points the
+daemon at a root-owned mode-0600 netrc holding its console pull-only credential,
+provisioned on the host outside the store. Desktop and laptop do not configure Attic.
 
 `configurations/nixos/desktop/hardware.nix` (so desktop and console, not
 laptop) prepends `hardware.firmware` with a local `runCommand` package of the
