@@ -6,6 +6,10 @@
 # entry in /etc/nix/attic.netrc, owned by root with mode 0600, so the Nix daemon
 # can read the private cache without per-command flags.
 #
+# The bw-config and bw-login commands prepare the Bitwarden CLI for the
+# self-hosted vault. setup verifies that server before it reads the note, so a
+# cloud or other-server session can never supply the credential.
+#
 # ATTIC_SETUP_ETC_DIR moves the install destination so the privileged stage can
 # be exercised against a disposable fixture. A real `sudo` invocation drops it
 # under the default environment reset; the default is /etc/nix.
@@ -13,12 +17,31 @@ set -eu
 
 NOTE_NAME='NixOS Attic Pull Token'
 NETRC_MACHINE='attic.panic.ac'
+BW_SERVER='https://vault.panic.ac'
 etc_dir=${ATTIC_SETUP_ETC_DIR:-/etc/nix}
 netrc_path="$etc_dir/attic.netrc"
 
 die() {
   printf 'attic-setup: %s\n' "$*" >&2
   exit 1
+}
+
+status_field() {
+  printf '%s' "$1" | jq -r --arg field "$2" '.[$field] // empty' 2>/dev/null
+}
+
+same_server() {
+  [ "${1%/}" = "$BW_SERVER" ]
+}
+
+require_bw_server() {
+  local server
+  server=$(status_field "$1" serverUrl) \
+    || die 'could not read the Bitwarden server configuration; run task attic:bw-config'
+  [ -n "$server" ] \
+    || die 'the Bitwarden CLI has no server configured; run task attic:bw-config'
+  same_server "$server" \
+    || die "the Bitwarden CLI is configured for $server, not $BW_SERVER; run task attic:bw-config"
 }
 
 install_netrc() {
@@ -57,14 +80,48 @@ install_netrc() {
   tmp=''
 }
 
-main() {
+bw_config() {
+  command -v bw >/dev/null 2>&1 || die 'the Bitwarden CLI (bw) is not on PATH'
+  command -v jq >/dev/null 2>&1 || die 'jq is not on PATH'
+
+  status_json=$(bw status 2>/dev/null) || die 'could not read Bitwarden status'
+  server=$(status_field "$status_json" serverUrl) || die 'could not read the Bitwarden server configuration'
+  state=$(status_field "$status_json" status) || die 'could not read the Bitwarden status'
+
+  if same_server "$server"; then
+    printf 'The Bitwarden CLI already uses %s.\n' "$BW_SERVER"
+    return 0
+  fi
+  if [ -n "$state" ] && [ "$state" != 'unauthenticated' ]; then
+    die "the Bitwarden CLI is signed in on ${server:-an unconfigured server}; refusing to switch servers. Sign out or use a separate CLI profile, then run task attic:bw-config."
+  fi
+
+  bw config server "$BW_SERVER" || die 'could not configure the Bitwarden CLI server'
+  status_json=$(bw status 2>/dev/null) || die 'could not verify the Bitwarden server configuration'
+  server=$(status_field "$status_json" serverUrl) || die 'could not verify the Bitwarden server configuration'
+  same_server "$server" \
+    || die "the Bitwarden CLI reports ${server:-no server} after configuration; expected $BW_SERVER"
+  printf 'The Bitwarden CLI now uses %s.\n' "$BW_SERVER"
+}
+
+bw_login() {
+  command -v bw >/dev/null 2>&1 || die 'the Bitwarden CLI (bw) is not on PATH'
+  command -v jq >/dev/null 2>&1 || die 'jq is not on PATH'
+
+  status_json=$(bw status 2>/dev/null) || die 'could not read Bitwarden status; run task attic:bw-config first'
+  require_bw_server "$status_json"
+  bw login --sso
+}
+
+attic_setup() {
   command -v bw >/dev/null 2>&1 || die 'the Bitwarden CLI (bw) is not on PATH'
   command -v jq >/dev/null 2>&1 || die 'jq is not on PATH'
   command -v sudo >/dev/null 2>&1 || die 'sudo is not on PATH'
 
-  status=$(bw status 2>/dev/null) || die 'could not read Bitwarden status; run "bw login" and try again'
-  [ "$(printf '%s' "$status" | jq -r '.status // empty' 2>/dev/null)" = 'unlocked' ] \
-    || die 'Bitwarden is not unlocked; run "bw unlock" and export BW_SESSION before this task'
+  status_json=$(bw status 2>/dev/null) || die 'could not read Bitwarden status; run task attic:bw-config and task attic:bw-login first'
+  require_bw_server "$status_json"
+  [ "$(status_field "$status_json" status)" = 'unlocked' ] \
+    || die 'Bitwarden is not unlocked; run "bw unlock" and export BW_SESSION in this shell before this task'
 
   items=$(bw list items --search "$NOTE_NAME" 2>/dev/null) \
     || die 'could not list Bitwarden items; check the session and try again'
@@ -112,10 +169,24 @@ main() {
     "$NETRC_MACHINE" "$netrc_path"
 }
 
-if [ "${1:-}" = '--install-netrc' ]; then
-  [ "$#" -eq 1 ] || die 'the install stage takes no arguments'
-  install_netrc
-else
-  [ "$#" -eq 0 ] || die 'this task takes no arguments'
-  main
-fi
+case "${1:-setup}" in
+  setup)
+    [ "$#" -le 1 ] || die 'setup takes no arguments'
+    attic_setup
+    ;;
+  bw-config)
+    [ "$#" -eq 1 ] || die 'bw-config takes no arguments'
+    bw_config
+    ;;
+  bw-login)
+    [ "$#" -eq 1 ] || die 'bw-login takes no arguments'
+    bw_login
+    ;;
+  --install-netrc)
+    [ "$#" -eq 1 ] || die 'the install stage takes no arguments'
+    install_netrc
+    ;;
+  *)
+    die 'unknown command (expected setup, bw-config, bw-login, or --install-netrc)'
+    ;;
+esac

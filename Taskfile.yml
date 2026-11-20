@@ -4,4 +4,14 @@ tasks:
   attic:setup:
     desc: Install the Attic reader credential from Bitwarden
     cmds:
-      - ./scripts/attic-setup.sh
+      - ./scripts/attic-setup.sh setup
+
+  attic:bw-config:
+    desc: Point the Bitwarden CLI at the self-hosted vault server
+    cmds:
+      - ./scripts/attic-setup.sh bw-config
+
+  attic:bw-login:
+    desc: Log in to the configured Bitwarden server with SSO
+    cmds:
+      - ./scripts/attic-setup.sh bw-login
