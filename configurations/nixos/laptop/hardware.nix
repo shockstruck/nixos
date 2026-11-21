@@ -54,7 +54,7 @@
 
       level="$(cat "$led")"
       case "$level" in
-        '' | *[!0-9]*) exit 0 ;;
+        "" | *[!0-9]*) exit 0 ;;
       esac
 
       printf '%s\n' "$level" > "$state"
@@ -69,7 +69,7 @@
 
       level="$(cat "$state")"
       case "$level" in
-        '' | *[!0-9]*) exit 0 ;;
+        "" | *[!0-9]*) exit 0 ;;
       esac
 
       max=0
@@ -77,7 +77,7 @@
         max="$(cat "$led/max_brightness")"
       fi
       case "$max" in
-        '' | *[!0-9]*) max=0 ;;
+        "" | *[!0-9]*) max=0 ;;
       esac
       if [ "$level" -gt "$max" ]; then
         exit 0
