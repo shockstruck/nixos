@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `9b027cd` (2026-11-21). This doc is not
+Captured against `origin/main` @ `f9b72a2` (2026-11-21). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -16,16 +16,16 @@ declared refs from `flake.nix`; they match each lock node's `original.ref`
 | nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `0bb8272318b4` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `ff0e21a414d4` | nixpkgs |
 | home-manager | `github:nix-community/home-manager` | `2b13c9cb3aa2` | nixpkgs |
-| disko | `github:nix-community/disko` | `cedd626e11b6` | nixpkgs |
-| flake-parts | `github:hercules-ci/flake-parts` | `024633cd702b` | — |
-| nixos-hardware | `github:NixOS/nixos-hardware` | `04c6b94fa104` | nixpkgs |
+| disko | `github:nix-community/disko` | `44761d4f745b` | nixpkgs |
+| flake-parts | `github:hercules-ci/flake-parts` | `ea2630b74709` | — |
+| nixos-hardware | `github:NixOS/nixos-hardware` | `33475966110d` | nixpkgs |
 | nixos-unified | `github:srid/nixos-unified` | `94773b76bb1f` | — |
 | stasis | `github:saltnpepper97/stasis/v1.7.0` | `6bdcd3423ebf` | nixpkgs, flake-parts |
-| nix-index-database | `github:nix-community/nix-index-database` | `e22762b58789` | nixpkgs |
-| nixvim | `github:nix-community/nixvim` | `453dc9c5037e` | nixpkgs, flake-parts |
-| luciole | `github:noctalia-dev/luciole` | `0b37f2cc760c` | nixpkgs |
+| nix-index-database | `github:nix-community/nix-index-database` | `9bd074026d6d` | nixpkgs |
+| nixvim | `github:nix-community/nixvim` | `b67578f451bd` | nixpkgs, flake-parts |
+| luciole | `github:noctalia-dev/luciole` | `93df31032079` | nixpkgs |
 | noctalia | `github:noctalia-dev/noctalia-shell/v5.4.1` | `815aebe1cfd7` | nixpkgs |
-| nix-cachyos-kernel | `github:xddxdd/nix-cachyos-kernel/release` | `baa4163a89b8` | flake-parts (not nixpkgs: upstream forbids it) |
+| nix-cachyos-kernel | `github:xddxdd/nix-cachyos-kernel/release` | `ffdb35a77433` | flake-parts (not nixpkgs: upstream forbids it) |
 
 Inputs that follow `nixpkgs`: `nix-darwin`, `home-manager`, `disko`,
 `nixos-hardware`, `stasis`, `nix-index-database`, `nixvim`, `noctalia`, `luciole`.
