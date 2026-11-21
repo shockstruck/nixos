@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `40b656c` (2026-11-21). This doc is not
+Captured against `origin/main` @ `a75fb63` (2026-11-21). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -95,6 +95,23 @@ host config forces the shared Hyprland touchpad default off
 = lib.mkForce false`), so the laptop touchpad scrolls traditionally while the
 desktop and console sessions keep `modules/home/hyprland.nix`'s shared input
 defaults.
+
+`configurations/nixos/laptop/graphics.nix` (laptop only): the T500's NVIDIA
+layer — `nixpkgs.config.cudaCapabilities = [ "7.5" ]`, the `nvidia_uvm` kernel
+module, `hardware.graphics` with 32-bit support, the proprietary driver with
+`hardware.nvidia.prime.offload` (iGPU `PCI:0:2:0`, T500 `PCI:1:0:0`) and
+`offload.enableOffloadCmd`, and `services.xserver.videoDrivers = [ "nvidia" ]`.
+The same module also installs `rsps-with-gl` (`pkgs.writeShellApplication`),
+which takes an existing launch command: usage is
+`rsps-with-gl <existing command and arguments>`, for example
+`rsps-with-gl java -jar /path/to/client.jar`. It prepends the pinned nixpkgs
+`libGL` (`libglvnd`, via `lib.makeLibraryPath`) to `LD_LIBRARY_PATH` for that
+one process only, keeps a nonempty inherited path without adding an empty path
+segment, and `exec`s the command unchanged, so Java, GPU and PRIME-offload
+choices stay with the caller; it does not log the arguments. With no command it
+prints usage and exits non-zero. The stock `runelite` package already supplies
+`libGL` and is unchanged, and hardware rendering of the actual RSPS client is
+not verified here.
 
 `configurations/nixos/laptop/echo-flashing.nix` (laptop only): `environment.systemPackages
 = [ firebreak android-tools chromium ]` (firebreak from `packages/firebreak.nix`
