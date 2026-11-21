@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `39ebca0` (2026-11-21). This doc is not
+Captured against `origin/main` @ `6d9290a` (2026-11-21). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -85,6 +85,22 @@ each a hash-pinned `fetchurl` from linux-firmware commit `9a7c283f` (AMD's
 revert of the 2026-08/09 GC 11.0.0 updates), shadowing nixpkgs'
 linux-firmware 20260916 copies of those files only; to be dropped once
 nixpkgs ships a newer linux-firmware tag.
+
+`configurations/nixos/laptop/hardware.nix` (laptop only): the ThinkPad
+`nixos-hardware` modules (`lenovo-thinkpad`, `common-cpu-intel`,
+`common-pc-ssd`), `boot.kernelModules = [ "kvm-intel" ]`, `services.fprintd.enable`
+with a sufficient `security.pam.services.sudo.fprintAuth`, and two systemd
+oneshots over the `tpacpi::kbd_backlight` LED. `keyboard-backlight-default`
+(`wantedBy multi-user.target`, after
+`systemd-backlight@leds:tpacpi::kbd_backlight.service`, with a
+`ConditionPathExists` on the LED) sets the backlight to 100% at boot with
+`brightnessctl`. `keyboard-backlight-sleep` is `wantedBy` and `before`
+`sleep.target`, with `StopWhenUnneeded`, `RemainAfterExit` and a private
+`RuntimeDirectory`; its `script` copies the LED's raw sysfs `brightness` value
+(a real `0` included) into `$RUNTIME_DIRECTORY` before sleep, and its `preStop`
+writes it back when wake makes the unit unneeded, skipping when the LED or a
+digits-only saved value is absent rather than restoring a stale level or a
+default.
 
 `configurations/nixos/laptop/default.nix` (laptop only): `environment.systemPackages
 = [ pkgs.temurin-bin-11 pkgs.python3 ]` — Eclipse Temurin JDK 11
