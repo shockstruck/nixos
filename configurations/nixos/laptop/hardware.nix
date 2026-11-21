@@ -72,16 +72,18 @@
         "" | *[!0-9]*) exit 0 ;;
       esac
 
-      max=0
+      max=""
       if [ -r "$led/max_brightness" ]; then
         max="$(cat "$led/max_brightness")"
       fi
       case "$max" in
-        "" | *[!0-9]*) max=0 ;;
+        "" | *[!0-9]*) exit 0 ;;
       esac
-      if [ "$level" -gt "$max" ]; then
-        exit 0
-      fi
+
+      # A digits-only value can still be too large for the shell to compare; the
+      # comparison itself must succeed, so a failed one skips the write instead
+      # of falling through to it.
+      [ "$level" -le "$max" ] || exit 0
 
       printf '%s\n' "$level" > "$led/brightness"
     '';
