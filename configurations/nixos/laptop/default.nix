@@ -1,4 +1,4 @@
-{ flake, lib, pkgs, ... }:
+{ flake, pkgs, ... }:
 
 let
   inherit (flake) inputs;
@@ -37,13 +37,6 @@ in
     ];
     netrc-file = "/etc/nix/attic.netrc";
   };
-
-  # The shared Hyprland home module enables natural (inverted) touchpad
-  # scrolling for every host. Only the laptop has a touchpad that must scroll
-  # traditionally, so force that one leaf off here; desktop, console and
-  # external mice keep the shared input defaults.
-  home-manager.users.kevin.wayland.windowManager.hyprland.settings.config.input.touchpad.natural_scroll =
-    lib.mkForce false;
 
   system.stateVersion = "24.11";
 }
