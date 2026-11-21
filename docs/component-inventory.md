@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `a75fb63` (2026-11-21). This doc is not
+Captured against `origin/main` @ `9b027cd` (2026-11-21). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -13,9 +13,9 @@ declared refs from `flake.nix`; they match each lock node's `original.ref`
 
 | Input | Source URL | Locked rev | Follows |
 | --- | --- | --- | --- |
-| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `04906337b6d5` | — |
+| nixpkgs | `github:nixos/nixpkgs/nixos-unstable` | `0bb8272318b4` | — |
 | nix-darwin | `github:LnL7/nix-darwin` | `ff0e21a414d4` | nixpkgs |
-| home-manager | `github:nix-community/home-manager` | `095fef2f265c` | nixpkgs |
+| home-manager | `github:nix-community/home-manager` | `2b13c9cb3aa2` | nixpkgs |
 | disko | `github:nix-community/disko` | `cedd626e11b6` | nixpkgs |
 | flake-parts | `github:hercules-ci/flake-parts` | `024633cd702b` | — |
 | nixos-hardware | `github:NixOS/nixos-hardware` | `04c6b94fa104` | nixpkgs |
