@@ -12,6 +12,9 @@ in
   imports = [
     self.nixosModules.default
     self.nixosModules.console
+    # Console-only and disabled by default; a path import keeps it out of the
+    # shared `nixosModules.console` import list.
+    ../../modules/nixos/console/project-alpha-runner.nix
     inputs.disko.nixosModules.disko
     ../desktop/boot.nix
     ../desktop/hardware.nix
