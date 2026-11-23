@@ -217,11 +217,10 @@ in
         ReadWritePaths = [ stateDir ];
 
         ExecStart = "${launcher}/bin/project-alpha-console-runner";
+        # One command string: systemd renders each list item as its own
+        # ExecStopPost directive, so a split argv would not run.
         ExecStopPost = [
-          "${pkgs.coreutils}/bin/rm"
-          "-f"
-          "${stateDir}/scratch.img"
-          "${stateDir}/store.img"
+          "${pkgs.coreutils}/bin/rm -f ${stateDir}/scratch.img ${stateDir}/store.img"
         ];
 
         # One fresh JIT configuration, read from the broker's socket by the
