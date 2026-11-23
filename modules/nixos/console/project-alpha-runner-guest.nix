@@ -10,12 +10,11 @@
 # that blob as a root-only `raw` sysfs attribute
 # (`drivers/firmware/qemu_fw_cfg.c`: `S_IRUSR`) and the bootstrap below reads it
 # once, unlinks the temporary copy, and hands it to `Runner.Listener`.
-{
-  config,
-  modulesPath,
-  pkgs,
-  fwCfgName,
-  ...
+{ config
+, modulesPath
+, pkgs
+, fwCfgName
+, ...
 }:
 
 let

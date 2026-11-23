@@ -23,11 +23,10 @@
 # packed into it. The root disk is a fresh ext4 image in the unit's state
 # directory, recreated on every start and removed when the unit stops, so no
 # guest state or runner work survives.
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 
 let
