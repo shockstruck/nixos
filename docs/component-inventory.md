@@ -54,7 +54,7 @@ files by path, and supplies its own `graphics.nix` (no ROCm OpenCL/Ollama;
 | --- | --- | --- | --- | --- | --- |
 | desktop | `configurations/nixos/desktop/default.nix` | `desktop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix` |
 | laptop | `configurations/nixos/laptop/default.nix` | `laptop` | `x86_64-linux` | `24.11` | `./boot.nix`, `./hardware.nix`, `./graphics.nix`, `./power.nix`, `./storage.nix`, `./echo-flashing.nix` |
-| console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../../modules/nixos/console/project-alpha-runner.nix`, `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
+| console | `configurations/nixos/console/default.nix` | `console` | `x86_64-linux` | `26.05` | `../../../modules/nixos/console/project-alpha-runner.nix`, `../desktop/boot.nix`, `../desktop/hardware.nix`, `../desktop/power.nix`, `../desktop/storage.nix`, `./graphics.nix` |
 
 `configurations/nixos/console/default.nix` (console only): `nix.settings.extra-substituters`
 appends `https://attic.panic.ac/nixos` to nixpkgs' substituters and
