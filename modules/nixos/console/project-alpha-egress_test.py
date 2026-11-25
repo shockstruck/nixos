@@ -645,9 +645,9 @@ class UnitsJsonTests(unittest.TestCase):
 
     def test_private_devices_is_exact_three_services(self):
         expected = {
-            "project-alpha-egress-overlap.service",
-            "project-alpha-egress-dns.service",
-            "project-alpha-egress-relay.service",
+            ("project-alpha-egress-overlap.service", "serviceConfig"),
+            ("project-alpha-egress-dns.service", "serviceConfig"),
+            ("project-alpha-egress-relay.service", "serviceConfig"),
         }
         present = set()
         for name, unit in self.units.items():
@@ -656,11 +656,54 @@ class UnitsJsonTests(unittest.TestCase):
             for section in ("unitConfig", "serviceConfig", "socketConfig"):
                 config = unit.get(section, {})
                 if "PrivateDevices" in config:
-                    present.add(name)
+                    present.add((name, section))
                     self.assertEqual(
                         config["PrivateDevices"], "yes", f"{name} {section}"
                     )
         self.assertEqual(present, expected)
+
+    def test_relay_service_config_key_set_is_exact(self):
+        relay = self.units["project-alpha-egress-relay.service"]["serviceConfig"]
+        self.assertEqual(
+            set(relay),
+            {
+                "Type",
+                "User",
+                "Group",
+                "NoNewPrivileges",
+                "RestrictSUIDSGID",
+                "LockPersonality",
+                "RestrictRealtime",
+                "CapabilityBoundingSet",
+                "AmbientCapabilities",
+                "ProtectSystem",
+                "ProtectHome",
+                "ProtectClock",
+                "ProtectControlGroups",
+                "ProtectHostname",
+                "ProtectKernelLogs",
+                "ProtectKernelModules",
+                "ProtectKernelTunables",
+                "PrivateTmp",
+                "PrivateDevices",
+                "UMask",
+                "Restart",
+                "MemorySwapMax",
+                "SystemCallArchitectures",
+                "SystemCallErrorNumber",
+                "MemoryMax",
+                "CPUQuota",
+                "TasksMax",
+                "LimitNOFILE",
+                "RestrictAddressFamilies",
+                "RestrictNamespaces",
+                "InaccessiblePaths",
+                "SystemCallFilter",
+                "LogRateLimitIntervalSec",
+                "LogRateLimitBurst",
+            },
+        )
+        self.assertEqual(len(relay), 34)
 
     def test_relay_only_caps_the_journal_rate(self):
         relay = self.units["project-alpha-egress-relay.service"]["serviceConfig"]
@@ -1526,6 +1569,226 @@ class NixTextTests(unittest.TestCase):
         self.assertEqual(len(lines), 3)
         for line in lines:
             self.assertIn("/bin/python3 -I -B ", line)
+
+
+def nix_code():
+    """The Nix file without whole-line comments, as `NixTextTests.nix_code`."""
+    text = NIX_FILE.read_text(encoding="utf-8")
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+def nix_flat():
+    return " ".join(nix_code().split())
+
+
+def matched_brace(text, start):
+    """Index of the `}` that closes the `{` at `start`, ignoring strings."""
+    if text[start] != "{":
+        raise AssertionError(f"expected '{{' at {start}, got {text[start]!r}")
+    depth = 0
+    in_string = False
+    index = start
+    while index < len(text):
+        char = text[index]
+        if in_string:
+            if char == "\\":
+                index += 2
+                continue
+            if char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    raise AssertionError("unbalanced braces in project-alpha-egress.nix")
+
+
+def nix_unit_calls():
+    return re.findall(r'\b(mkService|mkSocket) "([^"]+)"', nix_flat())
+
+
+BINDING = re.compile(
+    r'systemd\.(services|sockets)\.(?:"([^"]+)"|([A-Za-z0-9_@.\-]+))\s*=\s*'
+)
+
+
+def nix_unit_bindings():
+    """(manager, attribute, expression) for every systemd unit, in order."""
+    flat = nix_flat()
+    bindings = []
+    position = 0
+    while True:
+        match = BINDING.search(flat, position)
+        if match is None:
+            return bindings
+        index = match.end()
+        depth = 0
+        in_string = False
+        while index < len(flat):
+            char = flat[index]
+            if in_string:
+                if char == "\\":
+                    index += 2
+                    continue
+                if char == '"':
+                    in_string = False
+            elif char == '"':
+                in_string = True
+            elif char in "{[(":
+                depth += 1
+            elif char in "}])":
+                depth -= 1
+            elif char == ";" and depth == 0:
+                break
+            index += 1
+        bindings.append(
+            (
+                match.group(1),
+                match.group(2) or match.group(3),
+                flat[match.end() : index].strip(),
+            )
+        )
+        position = index + 1
+
+
+def nix_call_parts(expression):
+    """(helper, JSON name, extraConfig block) for one sole `mk*` call."""
+    match = re.match(
+        r'(mkService|mkSocket) "([^"]+)" "[^"]*" (\{)', expression
+    )
+    if match is None:
+        return None
+    close = matched_brace(expression, match.end() - 1)
+    if expression[close + 1 :].strip():
+        return None
+    return match.group(1), match.group(2), expression[match.end() - 1 : close + 1]
+
+
+def nix_top_level_keys(block):
+    """Keys of the top-level `key = value;` statements inside a `{...}` block."""
+    inner = block[1:-1].strip()
+    keys = []
+    start = 0
+    depth = 0
+    in_string = False
+    index = 0
+    while index < len(inner):
+        char = inner[index]
+        if in_string:
+            if char == "\\":
+                index += 2
+                continue
+            if char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "{[(":
+            depth += 1
+        elif char in "}])":
+            depth -= 1
+        elif char == ";" and depth == 0:
+            assignment = inner[start:index].strip()
+            start = index + 1
+            if assignment:
+                key, separator, _ = assignment.partition("=")
+                if not separator:
+                    raise AssertionError(f"not an assignment: {assignment!r}")
+                keys.append(key.strip())
+        index += 1
+    if inner[start:].strip():
+        raise AssertionError(f"assignment without ';': {inner[start:]!r}")
+    return keys
+
+
+EXPECTED_UNIT_CALLS = [
+    ("mkService", "project-alpha-egress-overlap.service"),
+    ("mkService", "project-alpha-egress-netns.service"),
+    ("mkSocket", "project-alpha-egress-dns.socket"),
+    ("mkService", "project-alpha-egress-dns.service"),
+    ("mkSocket", "project-alpha-egress-relay.socket"),
+    ("mkService", "project-alpha-egress-relay.service"),
+    ("mkSocket", "project-alpha-egress.socket"),
+    ("mkService", "project-alpha-egress@.service"),
+]
+
+
+class NixWiringTests(unittest.TestCase):
+    def test_helper_bodies_are_exact(self):
+        code = nix_code()
+        expected = {
+            "mkService": "mkService = name: description: extraConfig: { inherit "
+            "description; unitConfig = units.${name}.unitConfig or { }; "
+            "serviceConfig = (units.${name}.serviceConfig or { }) // "
+            "extraConfig; }",
+            "mkSocket": "mkSocket = name: description: extraConfig: { inherit "
+            "description; unitConfig = units.${name}.unitConfig or { }; "
+            "socketConfig = (units.${name}.socketConfig or { }) // "
+            "extraConfig; }",
+        }
+        for helper, body in expected.items():
+            start = code.index(helper + " = ")
+            opening = code.index("{", start)
+            close = matched_brace(code, opening)
+            self.assertEqual(
+                " ".join(code[start : close + 1].split()), body, helper
+            )
+            self.assertEqual(code[close + 1], ";", helper)
+
+    def test_unit_calls_are_exact_and_ordered(self):
+        self.assertEqual(nix_unit_calls(), EXPECTED_UNIT_CALLS)
+
+    def test_unit_bindings_are_exact_and_ordered(self):
+        bindings = nix_unit_bindings()
+        self.assertEqual(
+            [(manager, attribute) for manager, attribute, _ in bindings],
+            [
+                ("services", "project-alpha-egress-overlap"),
+                ("services", "project-alpha-egress-netns"),
+                ("sockets", "project-alpha-egress-dns"),
+                ("services", "project-alpha-egress-dns"),
+                ("sockets", "project-alpha-egress-relay"),
+                ("services", "project-alpha-egress-relay"),
+                ("sockets", "project-alpha-egress"),
+                ("services", "project-alpha-egress@"),
+            ],
+        )
+        overlap = re.search(r'overlapUnit = (mkService) "([^"]+)"', nix_flat())
+        self.assertIsNotNone(overlap)
+        actual = []
+        for _manager, attribute, expression in bindings:
+            if attribute == "project-alpha-egress-overlap":
+                self.assertEqual(
+                    expression, "overlapUnit // { path = [ pkgs.iproute2 ]; }"
+                )
+                actual.append((overlap.group(1), overlap.group(2)))
+                continue
+            parts = nix_call_parts(expression)
+            self.assertIsNotNone(parts, attribute)
+            helper, json_name, _block = parts
+            actual.append((helper, json_name))
+        self.assertEqual(actual, EXPECTED_UNIT_CALLS)
+
+    def test_relay_extra_config_keys_are_exact(self):
+        relay = None
+        for _manager, attribute, expression in nix_unit_bindings():
+            if attribute == "project-alpha-egress-relay":
+                relay = expression
+        self.assertIsNotNone(relay)
+        parts = nix_call_parts(relay)
+        self.assertIsNotNone(parts)
+        keys = nix_top_level_keys(parts[2])
+        self.assertEqual(
+            set(keys),
+            {"ExecStartPre", "ExecStart", "ExecStartPost", "IPAddressDeny"},
+        )
+        self.assertEqual(len(keys), 4)
 
 
 if __name__ == "__main__":
