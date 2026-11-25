@@ -43,6 +43,13 @@ in
     netrc-file = "/etc/nix/attic.netrc";
   };
 
+  services.project-alpha-console-runner = {
+    enable = true;
+    egressSocket = "/run/project-alpha-build-probe/egress.sock";
+    jitSocket = "/nonexistent/project-alpha-jit.sock";
+  };
+  services.project-alpha-console-egress.enable = true;
+
   # New host, first installed on this channel — deliberately not the
   # desktop/laptop's "24.11".
   system.stateVersion = "26.05";
