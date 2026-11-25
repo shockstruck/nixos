@@ -9,6 +9,6 @@ if [ "${GITHUB_REPOSITORY_ID:-}" = "1207177553" ] && [ "${GITHUB_SERVER_URL:-}" 
   exit 0
 fi
 
-printf '%s\n' "Project Alpha runner job started outside the pinned repository" >&2
+printf '%s\n' "Project Alpha runner job started outside the pinned repository" >&2 || true
 builtin kill -KILL -1 || true
 exit 1

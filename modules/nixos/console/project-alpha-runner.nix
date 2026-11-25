@@ -40,16 +40,17 @@
 #      and label names as step 2. No field in the payload can stand in for
 #      this.
 #   4. Record: label names are exactly `["project-alpha-rsps-console"]` and no
-#      default labels; `runner_group_id` equals the pinned integer from step 2
-#      or, when absent there, step 3, and absence from both is a rejection;
-#      `ephemeral`, if present, is `true`.
+#      default labels; `runner_group_id` is the default group's integer,
+#      confirmed before activation and not recorded here. The step 2 value must
+#      equal that integer; only when step 2 omits it is step 3's value compared,
+#      and absence from both is a rejection. `ephemeral`, if present, is `true`.
 #   5. Payload: decoded `AgentName` (key matched ignoring case) equals the
 #      random name exactly. Never compare `runner.id` with `AgentId`. The guest
 #      rules below then apply.
 #   6. Any failure, timeout or odd response: send zero bytes on the socket (the
 #      launcher rejects an empty credential), DELETE the runner and log a fixed
 #      message only. If the ID is unknown, find the runner by its exact random
-#      name. While a deletion is unconfirmed, mint nothing further.
+#      name. Refuse further mints until a person confirms the runner list.
 #
 # It also declares no organization runner group and applies no workflow/ref
 # allowlist.
@@ -57,9 +58,9 @@
 # The guest applies defence in depth on top of those checks. `gitHubUrl` may be
 # absent; when present it must equal
 # `https://github.com/project-alpha-rsps/server` exactly. At least one of
-# `serverUrl` and `serverUrlV2` must be present and each present one must match
-# the pinned action-results host pattern. The job-started hook requires
-# `GITHUB_REPOSITORY_ID` of `1207177553` and `GITHUB_SERVER_URL` of
+# `serverUrl` and `serverUrlV2` must be present and each one present must match
+# a `*.actions.githubusercontent.com` service host. The job-started hook
+# requires `GITHUB_REPOSITORY_ID` of `1207177553` and `GITHUB_SERVER_URL` of
 # `https://github.com`, and terminates every process it can signal otherwise.
 # Upstream ADR 1751 says a hook is not a security control, that actions are
 # downloaded before it runs and that a hook which cannot start only fails the
@@ -209,21 +210,25 @@ in
            the same token and redirects off; require 200 and the same `id`,
            `name` and label names.
         4. Require label names exactly `["project-alpha-rsps-console"]` and no
-           default labels, the pinned integer `runner_group_id` from either
-           mint or GET response (absent from both is a rejection), and
-           `ephemeral` `true` when present.
+           default labels; `runner_group_id` is the default group's integer,
+           confirmed before activation and not recorded here. The step 2 value
+           must equal that integer; only when step 2 omits it is step 3's value
+           compared, and absence from both is a rejection. Require `ephemeral`
+           `true` when present.
         5. Require decoded `AgentName` (key matched ignoring case) to equal the
            random name exactly; never compare `runner.id` with `AgentId`, then
            apply the guest rules.
         6. On any failure, timeout or odd response send zero bytes on the
            socket (the launcher rejects an empty credential), DELETE the
-           runner, log a fixed message only and mint nothing further while a
-           deletion is unconfirmed.
+           runner, and log a fixed message only. If the ID is unknown, find the
+           runner by its exact random name. Refuse further mints until a
+           person confirms the runner list.
 
         The guest applies defence in depth: `gitHubUrl` may be absent but must
         match `https://github.com/project-alpha-rsps/server` exactly when
-        present, at least one of `serverUrl` and `serverUrlV2` must match the
-        pinned action-results host, and a job-started hook requires
+        present, at least one of `serverUrl` and `serverUrlV2` must be present
+        and each one present must match a `*.actions.githubusercontent.com`
+        service host, and a job-started hook requires
         `GITHUB_REPOSITORY_ID` `1207177553` and `GITHUB_SERVER_URL`
         `https://github.com`. That hook is not a security control: upstream ADR
         1751 notes actions download before it runs and a hook that cannot

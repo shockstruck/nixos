@@ -4,8 +4,9 @@
 The committed hook terminates every process it can signal. This test never
 executes that file and never runs its fail path with the real call: it checks
 the committed text, writes a copy whose one such call is replaced by a
-recorder, and runs only the copy under `bash -euo pipefail` with an explicit
-minimal environment that is never inherited from the test process.
+recorder, and runs only the copy under `bash` with the `set` options the runner
+uses, with an explicit minimal environment that is never inherited from the
+test process.
 """
 
 import os
@@ -62,14 +63,17 @@ class HookBehaviourTest(unittest.TestCase):
         with open(self.copy_path, "w", encoding="utf-8") as handle:
             handle.write(stubbed)
 
-    def run_hook(self, **overrides):
+    def environment(self, **overrides):
         env = {"PATH": "/usr/bin:/bin", "RECORDER": self.recorder}
         env.update(overrides)
+        return env
+
+    def run_hook(self, argv=None, **overrides):
         return subprocess.run(
-            ["bash", "-euo", "pipefail", self.copy_path],
+            argv or ["bash", "-euo", "pipefail", self.copy_path],
             capture_output=True,
             text=True,
-            env=env,
+            env=self.environment(**overrides),
         )
 
     def recorded(self):
@@ -115,6 +119,47 @@ class HookBehaviourTest(unittest.TestCase):
                 if os.path.exists(self.recorder):
                     os.unlink(self.recorder)
                 self.assert_failed(self.run_hook(**env))
+
+    def test_failure_when_stderr_is_closed(self):
+        if os.path.exists(self.recorder):
+            os.unlink(self.recorder)
+        result = subprocess.run(
+            ["bash", "-euo", "pipefail", self.copy_path],
+            stdout=subprocess.PIPE,
+            text=True,
+            env=self.environment(
+                GITHUB_REPOSITORY_ID="1207177554", GITHUB_SERVER_URL=SERVER_URL
+            ),
+            preexec_fn=lambda: os.close(2),
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(self.recorded(), ["hit"])
+
+    def test_failure_when_stderr_is_full(self):
+        if os.path.exists(self.recorder):
+            os.unlink(self.recorder)
+        with open("/dev/full", "wb") as full:
+            result = subprocess.run(
+                ["bash", "-euo", "pipefail", self.copy_path],
+                stdout=subprocess.PIPE,
+                stderr=full,
+                text=True,
+                env=self.environment(
+                    GITHUB_REPOSITORY_ID="1207177554", GITHUB_SERVER_URL=SERVER_URL
+                ),
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(self.recorded(), ["hit"])
+
+    def test_failure_under_bash_with_errexit(self):
+        result = self.run_hook(
+            ["bash", "-e", self.copy_path],
+            GITHUB_REPOSITORY_ID="1207177554",
+            GITHUB_SERVER_URL=SERVER_URL,
+        )
+        self.assert_failed(result)
 
 
 if __name__ == "__main__":

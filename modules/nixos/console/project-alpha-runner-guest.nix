@@ -12,8 +12,9 @@
 # `project-alpha-jit-state.sh`, which reads `.runner` the way Newtonsoft does
 # (case-insensitive keys), requires an ephemeral runner with a non-empty work
 # folder, allows `gitHubUrl` to be absent but requires an exact match when it is
-# present, and requires at least one `serverUrl`/`serverUrlV2` on GitHub's
-# action-results host. It materialises only the pinned runner's own state files
+# present, and requires at least one `serverUrl`/`serverUrlV2` to be present
+# with each one present matching a `*.actions.githubusercontent.com` service
+# host. It materialises only the pinned runner's own state files
 # under the guest-local `RUNNER_ROOT` — nothing is written until every value
 # has validated — deletes the payload, and starts `Runner.Listener` without the
 # blob in its argv or environment.

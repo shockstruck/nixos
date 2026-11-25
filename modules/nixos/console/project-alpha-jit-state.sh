@@ -110,8 +110,9 @@ fi
 
 # Guest rule 2: with no `gitHubUrl` the runner infers its service host from
 # `serverUrl`/`serverUrlV2`, so require at least one and pin every present one
-# to GitHub's action-results host. `\A`/`\z` reject embedded and trailing
-# newlines; jq's stderr is discarded and the message names no value.
+# to a `*.actions.githubusercontent.com` service host. `\A`/`\z` reject embedded
+# and trailing newlines; jq's stderr is discarded and the message names no
+# value.
 if ! jq -e '
   [to_entries[]
    | select((.key | ascii_downcase) == "serverurl" or (.key | ascii_downcase) == "serverurlv2")
