@@ -104,6 +104,12 @@ jobs:
           # Nothing here pushes; do not leave a credential in .git/config.
           persist-credentials: false
 
+      - name: Run console runner test suites
+        run: |
+          python3 -I -B modules/nixos/console/project-alpha-egress_test.py
+          python3 -I -B modules/nixos/console/project-alpha-jit-state_test.py
+          python3 -I -B modules/nixos/console/project-alpha-job-started_test.py
+
       # CUDA builds (e.g. laptop's ollama-cuda) are not on cache.nixos.org;
       # this community cache serves cudaSupport builds of nixos-unstable. A
       # miss on an unsigned or missing path is ignored by Nix, so this cannot
