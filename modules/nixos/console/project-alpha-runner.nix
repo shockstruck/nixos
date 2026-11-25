@@ -28,8 +28,8 @@
 # label and no default labels, uses the default group's integer
 # `runner_group_id` (confirmed before activation, not recorded here), declares
 # no organization runner group and applies no workflow/ref allowlist. It must
-# check the returned runner ID, labels and repository, and on any mismatch
-# delete the runner and discard the JIT.
+# check the returned `runner_group_id`, labels and repository, and on any
+# mismatch delete the runner and discard the JIT.
 #
 # No key is configured here. `shockstruck/nixos` is a public repository, so a
 # broker key never goes into Git, the store, an image, the guest or logs. If a
@@ -159,8 +159,8 @@ in
         labels, uses the default group's integer `runner_group_id` (confirmed
         before activation, not recorded here), declares no organization runner
         group and applies no workflow/ref allowlist. It must check the returned
-        runner ID, labels and repository, and on any mismatch delete the runner
-        and discard the JIT. No App key, installation token or generic
+        `runner_group_id`, labels and repository, and on any mismatch delete
+        the runner and discard the JIT. No App key, installation token or generic
         registration token is configured here.
       '';
     };
