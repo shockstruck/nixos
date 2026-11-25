@@ -11,11 +11,23 @@
 # (`drivers/firmware/qemu_fw_cfg.c`: `S_IRUSR`). The root bootstrap runs
 # `project-alpha-jit-state.sh`, which reads `.runner` the way Newtonsoft does
 # (case-insensitive keys), requires an ephemeral runner with a non-empty work
-# folder, and pins `gitHubUrl` to this repository as defence in depth. It
-# materialises only the pinned runner's own state files under the guest-local
-# `RUNNER_ROOT` — nothing is written until every value has validated — deletes
-# the payload, and starts `Runner.Listener` without the blob in its argv or
-# environment.
+# folder, allows `gitHubUrl` to be absent but requires an exact match when it is
+# present, and requires at least one `serverUrl`/`serverUrlV2` on GitHub's
+# action-results host. It materialises only the pinned runner's own state files
+# under the guest-local `RUNNER_ROOT` — nothing is written until every value
+# has validated — deletes the payload, and starts `Runner.Listener` without the
+# blob in its argv or environment.
+#
+# Before any job step runs, the runner starts the embedded job-started hook
+# (`ACTIONS_RUNNER_HOOK_JOB_STARTED`), which requires `GITHUB_REPOSITORY_ID` of
+# `1207177553` and `GITHUB_SERVER_URL` of `https://github.com` from the runner's
+# own context and otherwise terminates every process it can signal. Upstream
+# ADR 1751 says such a hook is not a security control, that actions are
+# downloaded before it runs and that a hook which cannot start only fails the
+# job; it never replaces the broker checks. The runner picks `bash` (else `sh`)
+# from the listener's `PATH` to run a `.sh` hook, and the pinned
+# `systemd.defaultPath` has neither, so the bootstrap's `runtimeInputs` carries
+# `pkgs.bash`.
 { config
 , modulesPath
 , pkgs
@@ -41,9 +53,19 @@ let
     text = builtins.readFile ./project-alpha-jit-state.sh;
   };
 
+  # The runner runs a `.sh` job-started hook with `bash` (else `sh`) from its
+  # own `PATH`; the file itself starts with a shellcheck directive, so
+  # `writeShellApplication` supplies the shebang and `set` options.
+  jobStartedHook = pkgs.writeShellApplication {
+    name = "project-alpha-job-started.sh";
+    runtimeInputs = [ ];
+    text = builtins.readFile ./project-alpha-job-started.sh;
+  };
+
   bootstrap = pkgs.writeShellApplication {
     name = "project-alpha-runner-bootstrap";
     runtimeInputs = [
+      pkgs.bash
       pkgs.coreutils
       pkgs.kmod
       pkgs.util-linux
@@ -72,11 +94,14 @@ let
       trap - EXIT
 
       # The listener reads .runner/.credentials from RUNNER_ROOT. The raw blob
-      # is gone before it starts and never reaches argv or the environment.
+      # is gone before it starts and never reaches argv or the environment. The
+      # job-started hook is a store path, not a credential, and needs `bash` on
+      # the listener's PATH to start.
       exec ${pkgs.util-linux}/bin/runuser -u ${runnerUser} -- \
         ${pkgs.coreutils}/bin/env \
         HOME=${runnerHome} \
         RUNNER_ROOT=${runnerRoot} \
+        ACTIONS_RUNNER_HOOK_JOB_STARTED=${jobStartedHook}/bin/project-alpha-job-started.sh \
         ${pkgs.github-runner}/bin/Runner.Listener run --once
     '';
   };
