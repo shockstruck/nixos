@@ -26,6 +26,9 @@
       "User": "project-alpha-egress-overlap",
       "Group": "project-alpha-egress-overlap",
       "NoNewPrivileges": "yes",
+      "RestrictSUIDSGID": "yes",
+      "LockPersonality": "yes",
+      "RestrictRealtime": "yes",
       "CapabilityBoundingSet": [
         ""
       ],
@@ -41,6 +44,7 @@
       "ProtectKernelModules": "yes",
       "ProtectKernelTunables": "yes",
       "PrivateTmp": "disconnected",
+      "PrivateDevices": "yes",
       "UMask": "0077",
       "Restart": "no",
       "MemorySwapMax": "0",
@@ -85,6 +89,9 @@
       "User": "project-alpha-egress-netns",
       "Group": "project-alpha-egress-netns",
       "NoNewPrivileges": "yes",
+      "RestrictSUIDSGID": "yes",
+      "LockPersonality": "yes",
+      "RestrictRealtime": "yes",
       "CapabilityBoundingSet": [
         "CAP_NET_ADMIN"
       ],
@@ -188,6 +195,9 @@
       "User": "project-alpha-egress-dns",
       "Group": "project-alpha-egress-dns",
       "NoNewPrivileges": "yes",
+      "RestrictSUIDSGID": "yes",
+      "LockPersonality": "yes",
+      "RestrictRealtime": "yes",
       "CapabilityBoundingSet": [
         ""
       ],
@@ -203,6 +213,7 @@
       "ProtectKernelModules": "yes",
       "ProtectKernelTunables": "yes",
       "PrivateTmp": "disconnected",
+      "PrivateDevices": "yes",
       "UMask": "0077",
       "Restart": "no",
       "MemorySwapMax": "0",
@@ -288,6 +299,9 @@
       "User": "project-alpha-egress-relay",
       "Group": "project-alpha-egress-relay",
       "NoNewPrivileges": "yes",
+      "RestrictSUIDSGID": "yes",
+      "LockPersonality": "yes",
+      "RestrictRealtime": "yes",
       "CapabilityBoundingSet": [
         ""
       ],
@@ -303,6 +317,7 @@
       "ProtectKernelModules": "yes",
       "ProtectKernelTunables": "yes",
       "PrivateTmp": "disconnected",
+      "PrivateDevices": "yes",
       "UMask": "0077",
       "Restart": "no",
       "MemorySwapMax": "0",
@@ -325,7 +340,9 @@
         "@system-service",
         "~@privileged",
         "~io_uring_setup io_uring_enter io_uring_register"
-      ]
+      ],
+      "LogRateLimitIntervalSec": "5min",
+      "LogRateLimitBurst": 512
     }
   },
   "project-alpha-egress.socket": {
@@ -386,6 +403,9 @@
       "User": "project-alpha-egress-passt",
       "Group": "project-alpha-egress-passt",
       "NoNewPrivileges": "yes",
+      "RestrictSUIDSGID": "yes",
+      "LockPersonality": "yes",
+      "RestrictRealtime": "yes",
       "CapabilityBoundingSet": [
         ""
       ],

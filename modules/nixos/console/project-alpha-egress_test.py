@@ -629,6 +629,56 @@ class UnitsJsonTests(unittest.TestCase):
             self.assertIn("io_uring_enter", filters, name)
             self.assertIn("io_uring_register", filters, name)
 
+    def test_egress_hardening_on_every_service(self):
+        services = [
+            "project-alpha-egress-overlap.service",
+            "project-alpha-egress-netns.service",
+            "project-alpha-egress-dns.service",
+            "project-alpha-egress-relay.service",
+            "project-alpha-egress@.service",
+        ]
+        self.assertEqual({name for name, _ in self.services()}, set(services))
+        for name in services:
+            config = self.units[name]["serviceConfig"]
+            for key in ("RestrictSUIDSGID", "LockPersonality", "RestrictRealtime"):
+                self.assertEqual(config[key], "yes", f"{name} {key}")
+
+    def test_private_devices_is_exact_three_services(self):
+        expected = {
+            "project-alpha-egress-overlap.service",
+            "project-alpha-egress-dns.service",
+            "project-alpha-egress-relay.service",
+        }
+        present = set()
+        for name, unit in self.units.items():
+            if name == "passtArgs":
+                continue
+            for section in ("unitConfig", "serviceConfig", "socketConfig"):
+                config = unit.get(section, {})
+                if "PrivateDevices" in config:
+                    present.add(name)
+                    self.assertEqual(
+                        config["PrivateDevices"], "yes", f"{name} {section}"
+                    )
+        self.assertEqual(present, expected)
+
+    def test_relay_only_caps_the_journal_rate(self):
+        relay = self.units["project-alpha-egress-relay.service"]["serviceConfig"]
+        self.assertEqual(relay["LogRateLimitIntervalSec"], "5min")
+        self.assertEqual(relay["LogRateLimitBurst"], 512)
+        present = set()
+        for name, unit in self.units.items():
+            if name == "passtArgs":
+                continue
+            for section in ("unitConfig", "serviceConfig", "socketConfig"):
+                config = unit.get(section, {})
+                for key in ("LogRateLimitIntervalSec", "LogRateLimitBurst"):
+                    if key in config:
+                        present.add((name, section))
+        self.assertEqual(
+            present, {("project-alpha-egress-relay.service", "serviceConfig")}
+        )
+
     def test_relay_and_passt_hide_resolv_conf(self):
         relay = self.units["project-alpha-egress-relay.service"]["serviceConfig"]
         passt = self.units["project-alpha-egress@.service"]["serviceConfig"]
@@ -1365,6 +1415,18 @@ class NixTextTests(unittest.TestCase):
         self.assertLess(code.index("systemd.services.project-alpha-egress-relay"), deny)
         self.assertLess(deny, code.index("systemd.sockets.project-alpha-egress ="))
         self.assertNotIn("IPAddressAllow", code)
+
+    def test_nix_names_no_egress_hardening_key(self):
+        code = self.nix_code()
+        for key in (
+            "RestrictSUIDSGID",
+            "LockPersonality",
+            "RestrictRealtime",
+            "PrivateDevices",
+            "LogRateLimitIntervalSec",
+            "LogRateLimitBurst",
+        ):
+            self.assertNotIn(key, code)
 
     def test_list_reader_definitions_are_exact(self):
         code = self.nix_code()
