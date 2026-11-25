@@ -1,0 +1,23 @@
+# Guest-namespace firewall. The guest's only reachable address is the gateway
+# address inside this namespace, and passt answers DHCP itself, so there is no
+# loopback, DHCP or ICMP rule. The forward chain stays empty and drops: the
+# namespace must never forward, even if the host's forwarding were inherited.
+table inet project_alpha_egress {
+    chain input {
+        type filter hook input priority filter; policy drop;
+        ct state established ct direction reply accept
+        ip daddr 198.18.0.1 tcp dport { 53, 443 } accept
+        ip daddr 198.18.0.1 udp dport 53 accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy drop;
+        ct state established ct direction reply accept
+        ip daddr 198.18.0.1 tcp dport { 53, 443 } accept
+        ip daddr 198.18.0.1 udp dport 53 accept
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+}

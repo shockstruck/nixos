@@ -1,0 +1,11 @@
+# IPv6 destinations the relay and its unit refuse, one prefix per line. The
+# NixOS module renders this same file into the relay service's
+# IPAddressDeny= (comments and blank lines stripped). The guest stack is IPv4
+# only; `::/0` is the whole-family denial the contract requires.
+::/128
+::1/128
+::/0
+fc00::/7
+fd00:ec2::254
+fe80::/10
+ff00::/8

@@ -320,6 +320,8 @@ in
       # host sleeps or shuts down.
       before = [ "sleep.target" ];
       conflicts = [ "sleep.target" ];
+      requires = [ "project-alpha-egress.socket" ];
+      after = [ "project-alpha-egress.socket" ];
 
       serviceConfig = {
         Type = "exec";
