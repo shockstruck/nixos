@@ -21,6 +21,14 @@ reject() {
   exit 1
 }
 
+# jq reads a stream of JSON documents and `-e` only reports the last one, so a
+# decoded value that carries extra documents must not pass. Slurp the decode,
+# require exactly one object and print just that object; every later check runs
+# on this extracted file.
+object_document() {
+  jq -ces 'if length == 1 and (.[0] | type) == "object" then .[0] else empty end' "$1"
+}
+
 if ! [ -s "$payload" ]; then
   reject "JIT payload is missing or empty"
 fi
@@ -28,10 +36,10 @@ if ! [ -d "$runnerRoot" ]; then
   reject "runner state directory is missing: $runnerRoot"
 fi
 
-if ! base64 --decode "$payload" > "$stateDir/payload.json" 2>/dev/null; then
+if ! base64 --decode "$payload" > "$stateDir/payload.decoded.json" 2>/dev/null; then
   reject "JIT payload is not valid base64"
 fi
-if ! jq -e 'type == "object"' "$stateDir/payload.json" >/dev/null; then
+if ! object_document "$stateDir/payload.decoded.json" > "$stateDir/payload.json" 2>/dev/null; then
   reject "JIT payload is not a JSON object"
 fi
 
@@ -43,16 +51,20 @@ if ! jq -e 'has(".runner") and has(".credentials")' "$stateDir/payload.json" >/d
   reject "JIT payload is missing .runner or .credentials"
 fi
 
-if ! jq -r '.[".runner"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/runner.json" 2>/dev/null; then
+if ! jq -r '.[".runner"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/runner.decoded.json" 2>/dev/null; then
   reject "JIT .runner state is not valid base64"
+fi
+if ! object_document "$stateDir/runner.decoded.json" > "$stateDir/runner.json" 2>/dev/null; then
+  reject "JIT .runner state is not an object with unique alphanumeric keys"
 fi
 
 # `.runner` is read by Newtonsoft, which matches its property names ignoring
 # case. Accept only a plain object whose keys are alphanumeric and unique when
-# case is folded, then look every setting up the same way.
+# case is folded, then look every setting up the same way. `\A` and `\z` keep
+# a trailing newline out of a key, which `$` would admit.
 if ! jq -e '
   type == "object"
-  and (keys | all(test("^[A-Za-z0-9]+$")))
+  and (keys | all(test("\\A[A-Za-z0-9]+\\z")))
   and (([keys[] | ascii_downcase] | length) == ([keys[] | ascii_downcase] | unique | length))
 ' "$stateDir/runner.json" >/dev/null 2>&1; then
   reject "JIT .runner state is not an object with unique alphanumeric keys"
@@ -91,13 +103,13 @@ if ! jq -e --arg url "$expectedUrl" '
   reject "JIT .runner state gitHubUrl does not match the expected repository"
 fi
 
-if ! jq -r '.[".credentials"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/credentials" 2>/dev/null; then
+if ! jq -r '.[".credentials"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/credentials.decoded" 2>/dev/null; then
   reject "JIT .credentials state is not valid base64"
 fi
-if ! [ -s "$stateDir/credentials" ]; then
+if ! [ -s "$stateDir/credentials.decoded" ]; then
   reject "JIT .credentials state is empty"
 fi
-if ! jq -e 'type == "object"' "$stateDir/credentials" >/dev/null; then
+if ! object_document "$stateDir/credentials.decoded" > "$stateDir/credentials.json" 2>/dev/null; then
   reject "JIT .credentials state is not a JSON object"
 fi
 
@@ -109,13 +121,11 @@ if jq -e 'has(".credentials_rsaparams")' "$stateDir/payload.json" >/dev/null; th
   haveRsaparams=1
 fi
 
-# Write what was checked: the normalised `.runner` object rather than the
-# broker's original serialisation.
-jq -c . "$stateDir/runner.json" > "$stateDir/runner.checked.json"
-
+# Write what was checked: `.runner` is the compact object extracted above, and
+# `.credentials` is written exactly as decoded.
 rm -f "$runnerRoot/.runner" "$runnerRoot/.credentials" "$runnerRoot/.credentials_rsaparams"
-install -m 0600 -o "$runnerUser" -g "$runnerUser" "$stateDir/runner.checked.json" "$runnerRoot/.runner"
-install -m 0600 -o "$runnerUser" -g "$runnerUser" "$stateDir/credentials" "$runnerRoot/.credentials"
+install -m 0600 -o "$runnerUser" -g "$runnerUser" "$stateDir/runner.json" "$runnerRoot/.runner"
+install -m 0600 -o "$runnerUser" -g "$runnerUser" "$stateDir/credentials.decoded" "$runnerRoot/.credentials"
 if [ "$haveRsaparams" = "1" ]; then
   install -m 0600 -o "$runnerUser" -g "$runnerUser" "$stateDir/rsaparams" "$runnerRoot/.credentials_rsaparams"
 fi

@@ -31,7 +31,7 @@ RECORDED_RUNNER = {
     "Ephemeral": "True",
     "PoolId": "1",
     "PoolName": None,
-    "ServerUrl": EXPECTED_URL,
+    "ServerUrl": "https://pipelines.actions.githubusercontent.com/placeholder/",
     "WorkFolder": "_work",
 }
 
@@ -141,9 +141,35 @@ class DecoderTest(unittest.TestCase):
         self.assert_accepted(self.decode(payload_for(fields)), fields)
 
     def test_rejections(self):
+        bad_runner = json.dumps(runner_fields(ephemeral=False))
+        good_runner = json.dumps(runner_fields())
+        good_payload = outer(
+            {".runner": b64(good_runner), ".credentials": b64(json.dumps(CREDENTIALS))}
+        )
+        two_credentials = json.dumps(CREDENTIALS) + "\n" + json.dumps({"scheme": "OAuth"})
         cases = {
             "not-base64": ("not base64!", "JIT payload is not valid base64"),
             "not-json": (b64("not json"), "JIT payload is not a JSON object"),
+            "payload-two-documents": (
+                good_payload + "\n" + good_payload,
+                "JIT payload is not a JSON object",
+            ),
+            "runner-two-documents-bad-good": (
+                payload_for(bad_runner + "\n" + good_runner),
+                "JIT .runner state is not an object with unique alphanumeric keys",
+            ),
+            "runner-two-documents-good-bad": (
+                payload_for(good_runner + "\n" + bad_runner),
+                "JIT .runner state is not an object with unique alphanumeric keys",
+            ),
+            "credentials-two-documents": (
+                payload_for(runner_fields(), credentials=two_credentials),
+                "JIT .credentials state is not a JSON object",
+            ),
+            "trailing-newline-key": (
+                payload_for({**runner_fields(), "a\n": "placeholder"}),
+                "JIT .runner state is not an object with unique alphanumeric keys",
+            ),
             "missing-both": (outer({"other": b64("{}")}), "JIT payload names unsupported runner state: other"),
             "missing-credentials": (
                 outer({".runner": b64(json.dumps(runner_fields()))}),
