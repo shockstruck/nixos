@@ -2,12 +2,13 @@
 
 # Materialises the broker's encoded JIT payload as the pinned runner's own
 # state files. Arguments: the payload file, the runner root, the runner user
-# and the one repository URL a `.runner` must pin. The outer payload is base64
-# of a JSON object that maps a config file name to that file's base64 content;
-# actions/runner's `Runner.cs` writes each key under `RUNNER_ROOT`. Only the
-# pinned runner's known config names are accepted. No payload string is used as
-# a path, put in argv or logged, and nothing is written until every accepted
-# state file has validated.
+# and the one repository URL a present `.runner` `gitHubUrl` must equal. The
+# outer payload is base64 of a JSON object that maps a config file name to that
+# file's base64 content; actions/runner's `Runner.cs` writes each key under
+# `RUNNER_ROOT`. Only the pinned runner's known config names are accepted, and
+# no payload string is used as a path, put in argv, or written to either output
+# stream: every rejection prints a fixed message that names no value. Nothing
+# is written until every accepted state file has validated.
 
 payload="$1"
 runnerRoot="$2"
@@ -43,9 +44,10 @@ if ! object_document "$stateDir/payload.decoded.json" > "$stateDir/payload.json"
   reject "JIT payload is not a JSON object"
 fi
 
-unknown="$(jq -r --argjson allowed '[".runner",".credentials",".credentials_rsaparams"]' 'keys_unsorted - $allowed | .[]' "$stateDir/payload.json")"
-if [ -n "$unknown" ]; then
-  reject "JIT payload names unsupported runner state: $unknown"
+if ! jq -e --argjson allowed '[".runner",".credentials",".credentials_rsaparams"]' '
+  (keys - $allowed) | length == 0
+' "$stateDir/payload.json" >/dev/null 2>&1; then
+  reject "JIT payload names unsupported runner state"
 fi
 if ! jq -e 'has(".runner") and has(".credentials")' "$stateDir/payload.json" >/dev/null; then
   reject "JIT payload is missing .runner or .credentials"
@@ -92,15 +94,40 @@ if ! jq -e '
   reject "JIT .runner state has no non-empty workFolder"
 fi
 
-if ! jq -e '
-  [to_entries[] | select(.key | ascii_downcase == "githuburl")] | length == 1
-' "$stateDir/runner.json" >/dev/null; then
-  reject "JIT .runner state is missing gitHubUrl"
-fi
+# Guest rule 1: `gitHubUrl` may be absent, but when present it must be a string
+# equal to the one expected repository URL. `null`, "" and non-strings fail.
 if ! jq -e --arg url "$expectedUrl" '
-  [to_entries[] | select(.key | ascii_downcase == "githuburl")][0].value == $url
-' "$stateDir/runner.json" >/dev/null; then
+  [to_entries[] | select(.key | ascii_downcase == "githuburl")] as $matches
+  | if ($matches | length) == 0 then true
+    else
+      ($matches | length) == 1
+      and (($matches[0].value | type) == "string")
+      and $matches[0].value == $url
+    end
+' "$stateDir/runner.json" >/dev/null 2>&1; then
   reject "JIT .runner state gitHubUrl does not match the expected repository"
+fi
+
+# Guest rule 2: with no `gitHubUrl` the runner infers its service host from
+# `serverUrl`/`serverUrlV2`, so require at least one and pin every present one
+# to a `*.actions.githubusercontent.com` service host. `\A`/`\z` reject embedded
+# and trailing newlines; jq's stderr is discarded and the message names no
+# value.
+if ! jq -e '
+  [to_entries[]
+   | select((.key | ascii_downcase) == "serverurl" or (.key | ascii_downcase) == "serverurlv2")
+   | .value] as $values
+  | if ($values | length) == 0 then false
+    else
+      $values | all(
+        if type == "string"
+        then test("\\Ahttps://[a-z0-9-]+\\.actions\\.githubusercontent\\.com(/[A-Za-z0-9/_-]*)?\\z")
+        else false
+        end
+      )
+    end
+' "$stateDir/runner.json" >/dev/null 2>&1; then
+  reject "JIT .runner state has no valid runner service URL"
 fi
 
 if ! jq -r '.[".credentials"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/credentials.decoded" 2>/dev/null; then

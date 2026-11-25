@@ -19,8 +19,14 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "project-alpha-jit-state.sh")
 EXPECTED_URL = "https://github.com/project-alpha-rsps/server"
+SERVICE_URL = "https://pipelines.actions.githubusercontent.com/placeholder/"
+SERVICE_URL_V2 = "https://pipelines.actions.githubusercontent.com/v2/another"
 RUNNER_USER = pwd.getpwuid(os.getuid()).pw_name
 CREDENTIALS = {"scheme": "OAuth", "token": "placeholder"}
+
+STATE_MESSAGE = "JIT payload names unsupported runner state"
+GITHUB_URL_MESSAGE = "JIT .runner state gitHubUrl does not match the expected repository"
+SERVICE_MESSAGE = "JIT .runner state has no valid runner service URL"
 
 # The shape recorded from a real JIT `.runner` in 2023: PascalCase keys,
 # string booleans, a null pool name and no GitHubUrl.
@@ -33,6 +39,22 @@ RECORDED_RUNNER = {
     "PoolName": None,
     "ServerUrl": "https://pipelines.actions.githubusercontent.com/placeholder/",
     "WorkFolder": "_work",
+}
+
+# Each of these is rejected by guest rule 2's service-host pattern.
+BAD_SERVICE_URLS = {
+    "userinfo": "https://user@pipelines.actions.githubusercontent.com/placeholder",
+    "port": "https://pipelines.actions.githubusercontent.com:443/placeholder",
+    "host-suffix": "https://pipelines.actions.githubusercontent.com.evil.example/",
+    "backslash": "https://pipelines.actions.githubusercontent.com\\placeholder",
+    "embedded-newline": "https://pipelines.actions.githubusercontent.com/place\nholder",
+    "trailing-newline": "https://pipelines.actions.githubusercontent.com/placeholder\n",
+    "http": "http://pipelines.actions.githubusercontent.com/placeholder",
+    "upper-case-host": "https://Pipelines.actions.githubusercontent.com/placeholder",
+    "empty-label": "https://.actions.githubusercontent.com/placeholder",
+    "query": "https://pipelines.actions.githubusercontent.com/?job=1",
+    "fragment": "https://pipelines.actions.githubusercontent.com/#job",
+    "missing-host-label": "https://actions.githubusercontent.com/placeholder",
 }
 
 
@@ -64,14 +86,16 @@ def runner_fields(**overrides):
         "ephemeral": True,
         "workFolder": "_work",
         "gitHubUrl": EXPECTED_URL,
+        "serverUrl": SERVICE_URL,
     }
     fields.update(overrides)
     return fields
 
 
-def without(fields, key):
+def without(fields, *keys):
     result = dict(fields)
-    del result[key]
+    for key in keys:
+        del result[key]
     return result
 
 
@@ -111,6 +135,7 @@ class DecoderTest(unittest.TestCase):
 
     def assert_accepted(self, result, expected_runner, expected_files=(".credentials", ".runner")):
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
         self.assertEqual(self.state_files(), sorted(expected_files))
         for name in self.state_files():
             mode = stat.S_IMODE(os.stat(os.path.join(self.runner_root, name)).st_mode)
@@ -123,6 +148,13 @@ class DecoderTest(unittest.TestCase):
     def assert_rejected(self, result, message):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(message, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(self.state_files(), [])
+
+    def assert_rejected_exactly(self, result, message):
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, message + "\n")
         self.assertEqual(self.state_files(), [])
 
     def test_valid_camel_case_runner_is_written_normalised(self):
@@ -135,10 +167,76 @@ class DecoderTest(unittest.TestCase):
             expected_files=(".credentials", ".credentials_rsaparams", ".runner"),
         )
 
-    def test_recorded_shape_with_pinned_url_is_accepted(self):
-        fields = dict(RECORDED_RUNNER)
+    def test_recorded_shape_verbatim_is_accepted(self):
+        self.assert_accepted(self.decode(payload_for(RECORDED_RUNNER)), RECORDED_RUNNER)
+
+    def test_githuburl_absent_is_accepted(self):
+        fields = without(runner_fields(), "gitHubUrl")
+        self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_githuburl_case_variant_is_accepted(self):
+        fields = without(runner_fields(), "gitHubUrl")
         fields["GitHubUrl"] = EXPECTED_URL
         self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_serverurl_only_is_accepted(self):
+        fields = without(runner_fields(), "gitHubUrl")
+        self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_serverurlv2_only_is_accepted(self):
+        fields = without(runner_fields(), "gitHubUrl", "serverUrl")
+        fields["serverUrlV2"] = SERVICE_URL_V2
+        self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_both_service_urls_are_accepted(self):
+        fields = runner_fields(serverUrlV2=SERVICE_URL_V2)
+        self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_case_variant_service_keys_are_accepted(self):
+        fields = without(runner_fields(), "gitHubUrl", "serverUrl")
+        fields["ServerUrl"] = SERVICE_URL
+        fields["SERVERURLV2"] = SERVICE_URL_V2
+        self.assert_accepted(self.decode(payload_for(fields)), fields)
+
+    def test_githuburl_rejections(self):
+        cases = {
+            "null": (runner_fields(gitHubUrl=None), GITHUB_URL_MESSAGE),
+            "empty": (runner_fields(gitHubUrl=""), GITHUB_URL_MESSAGE),
+            "non-string": (runner_fields(gitHubUrl=123), GITHUB_URL_MESSAGE),
+            "case-variant-mismatch": (
+                {**without(runner_fields(), "gitHubUrl"), "GitHubUrl": "https://github.com/project-alpha-rsps/other"},
+                GITHUB_URL_MESSAGE,
+            ),
+        }
+        for name, (fields, message) in cases.items():
+            with self.subTest(name=name):
+                self.assert_rejected(self.decode(payload_for(fields)), message)
+
+    def test_service_url_rejections(self):
+        cases = {
+            "neither": (without(runner_fields(), "gitHubUrl", "serverUrl"), SERVICE_MESSAGE),
+            "serverurl-null": (runner_fields(serverUrl=None), SERVICE_MESSAGE),
+            "serverurl-empty": (runner_fields(serverUrl=""), SERVICE_MESSAGE),
+            "serverurl-non-string": (runner_fields(serverUrl=123), SERVICE_MESSAGE),
+            "serverurlv2-null": (runner_fields(serverUrlV2=None), SERVICE_MESSAGE),
+            "serverurlv2-empty": (runner_fields(serverUrlV2=""), SERVICE_MESSAGE),
+            "serverurlv2-non-string": (runner_fields(serverUrlV2=123), SERVICE_MESSAGE),
+            "serverurl-good-v2-bad": (runner_fields(serverUrlV2="https://example.invalid/"), SERVICE_MESSAGE),
+            "serverurl-bad-v2-good": (
+                runner_fields(serverUrl="https://example.invalid/", serverUrlV2=SERVICE_URL_V2),
+                SERVICE_MESSAGE,
+            ),
+        }
+        for name, (fields, message) in cases.items():
+            with self.subTest(name=name):
+                self.assert_rejected(self.decode(payload_for(fields)), message)
+
+    def test_bad_service_url_forms(self):
+        for key in ("serverUrl", "serverUrlV2"):
+            for name, url in BAD_SERVICE_URLS.items():
+                with self.subTest(key=key, name=name):
+                    fields = runner_fields(**{key: url})
+                    self.assert_rejected(self.decode(payload_for(fields)), SERVICE_MESSAGE)
 
     def test_rejections(self):
         bad_runner = json.dumps(runner_fields(ephemeral=False))
@@ -170,18 +268,18 @@ class DecoderTest(unittest.TestCase):
                 payload_for({**runner_fields(), "a\n": "placeholder"}),
                 "JIT .runner state is not an object with unique alphanumeric keys",
             ),
-            "missing-both": (outer({"other": b64("{}")}), "JIT payload names unsupported runner state: other"),
+            "missing-both": (outer({"other": b64("{}")}), STATE_MESSAGE),
             "missing-credentials": (
                 outer({".runner": b64(json.dumps(runner_fields()))}),
                 "JIT payload is missing .runner or .credentials",
             ),
             "unexpected-filename": (
                 payload_for(runner_fields(), extra={".agent": b64("{}")}),
-                "JIT payload names unsupported runner state: .agent",
+                STATE_MESSAGE,
             ),
             "unexpected-traversal": (
                 payload_for(runner_fields(), extra={"../../etc/evil": b64("{}")}),
-                "JIT payload names unsupported runner state: ../../etc/evil",
+                STATE_MESSAGE,
             ),
             "non-ephemeral": (payload_for(runner_fields(ephemeral=False)), "JIT .runner state is not ephemeral"),
             "missing-workfolder": (
@@ -206,25 +304,21 @@ class DecoderTest(unittest.TestCase):
                 payload_for(runner_fields(), credentials="not json"),
                 "JIT .credentials state is not a JSON object",
             ),
-            "recorded-shape-verbatim": (
-                payload_for(RECORDED_RUNNER),
-                "JIT .runner state is missing gitHubUrl",
-            ),
             "another-repository": (
                 payload_for(runner_fields(gitHubUrl="https://github.com/project-alpha-rsps/other")),
-                "JIT .runner state gitHubUrl does not match the expected repository",
+                GITHUB_URL_MESSAGE,
             ),
             "organization-url": (
                 payload_for(runner_fields(gitHubUrl="https://github.com/project-alpha-rsps")),
-                "JIT .runner state gitHubUrl does not match the expected repository",
+                GITHUB_URL_MESSAGE,
             ),
             "trailing-slash": (
                 payload_for(runner_fields(gitHubUrl=EXPECTED_URL + "/")),
-                "JIT .runner state gitHubUrl does not match the expected repository",
+                GITHUB_URL_MESSAGE,
             ),
             "upper-case-host": (
                 payload_for(runner_fields(gitHubUrl="https://GitHub.com/project-alpha-rsps/server")),
-                "JIT .runner state gitHubUrl does not match the expected repository",
+                GITHUB_URL_MESSAGE,
             ),
             "duplicate-ephemeral": (
                 payload_for({**runner_fields(), "Ephemeral": "True"}),
@@ -266,6 +360,34 @@ class DecoderTest(unittest.TestCase):
         for name, (content, message) in cases.items():
             with self.subTest(name=name):
                 self.assert_rejected(self.decode(content), message)
+
+    def test_outer_key_rejections_print_one_fixed_line(self):
+        marker = "MARKER_FROM_PAYLOAD"
+        cases = {
+            "empty": {"": b64("{}")},
+            "newline": {"\n": b64("{}")},
+            "marker": {marker: b64("{}")},
+            "ansi-newline-marker": {"\x1b[31m\n" + marker: b64("{}")},
+        }
+        for name, extra in cases.items():
+            with self.subTest(name=name):
+                result = self.decode(payload_for(runner_fields(), extra=extra))
+                self.assert_rejected_exactly(result, STATE_MESSAGE)
+                self.assertNotIn(marker, result.stdout + result.stderr)
+
+    def test_payload_values_never_reach_either_stream(self):
+        marker = "MARKER_FROM_PAYLOAD"
+        cases = {
+            "gitHubUrl": (runner_fields(gitHubUrl=marker), GITHUB_URL_MESSAGE),
+            "serverUrl": (runner_fields(serverUrl=marker), SERVICE_MESSAGE),
+            "serverUrlV2": (runner_fields(serverUrlV2=marker), SERVICE_MESSAGE),
+        }
+        for name, (fields, message) in cases.items():
+            with self.subTest(name=name):
+                result = self.decode(payload_for(fields))
+                self.assert_rejected_exactly(result, message)
+                self.assertNotIn(marker, result.stdout)
+                self.assertNotIn(marker, result.stderr)
 
 
 if __name__ == "__main__":

@@ -23,13 +23,53 @@
 #     to `Runner.Listener` once.
 #
 # The broker serving `jitSocket` is not part of this module. It must
-# authenticate its caller and use a token scoped to `project-alpha-rsps/server`
-# only; it registers the runner with the exact `project-alpha-rsps-console`
-# label and no default labels, uses the default group's integer
-# `runner_group_id` (confirmed before activation, not recorded here), declares
-# no organization runner group and applies no workflow/ref allowlist. It must
-# check the returned `runner_group_id`, labels and repository, and on any
-# mismatch delete the runner and discard the JIT.
+# authenticate its caller and follow these rules, which gate activation:
+#
+#   1. Token: request it for repository ID `1207177553` with
+#      `administration: write`. The response must show
+#      `repository_selection` = `selected`, exactly one repository with that ID
+#      and full name `project-alpha-rsps/server`, and permissions exactly
+#      `administration: write` and `metadata: read`.
+#   2. Mint: POST to the constant path
+#      `/repos/project-alpha-rsps/server/actions/runners/generate-jitconfig` on
+#      `api.github.com` with redirects off and a fresh random runner name, and
+#      accept only 201.
+#   3. Repository proof: GET
+#      `/repos/project-alpha-rsps/server/actions/runners/{runner.id}` with the
+#      same token and redirects off, and require 200 with the same `id`, `name`
+#      and label names as step 2. No field in the payload can stand in for
+#      this.
+#   4. Record: label names are exactly `["project-alpha-rsps-console"]` and no
+#      default labels; `runner_group_id` is the default group's integer,
+#      confirmed before activation and not recorded here. The step 2 value must
+#      equal that integer; only when step 2 omits it is step 3's value compared,
+#      and absence from both is a rejection. `ephemeral`, if present, is `true`.
+#   5. Payload: decoded `AgentName` (key matched ignoring case) equals the
+#      random name exactly. Never compare `runner.id` with `AgentId`. The guest
+#      rules below then apply.
+#   6. Any failure, timeout or odd response: send zero bytes on the socket (the
+#      launcher rejects an empty credential), DELETE the runner and log a fixed
+#      message only. If the ID is unknown, find the runner by its exact random
+#      name. Refuse further mints until a person confirms the runner list.
+#
+# It also declares no organization runner group and applies no workflow/ref
+# allowlist.
+#
+# The guest applies defence in depth on top of those checks. `gitHubUrl` may be
+# absent; when present it must equal
+# `https://github.com/project-alpha-rsps/server` exactly. At least one of
+# `serverUrl` and `serverUrlV2` must be present and each one present must match
+# a `*.actions.githubusercontent.com` service host. The job-started hook
+# requires `GITHUB_REPOSITORY_ID` of `1207177553` and `GITHUB_SERVER_URL` of
+# `https://github.com`, and terminates every process it can signal otherwise.
+# Upstream ADR 1751 says a hook is not a security control, that actions are
+# downloaded before it runs and that a hook which cannot start only fails the
+# job; it never replaces the broker rules.
+#
+# The one-JIT-per-start option is supported only by a reviewed mint tool that
+# runs broker steps 2-6 off the console; in place of step 1 it checks that
+# `GET /repos/project-alpha-rsps/server` returns ID `1207177553`. Pasting a JIT
+# with no checks is not acceptable.
 #
 # No key is configured here. `shockstruck/nixos` is a public repository, so a
 # broker key never goes into Git, the store, an image, the guest or logs. If a
@@ -154,14 +194,52 @@ in
         one fresh, single-use GitHub encoded JIT configuration for a
         repository-level runner on `project-alpha-rsps/server` only, read once
         through systemd `LoadCredential=`. The broker must authenticate its
-        caller and use a token scoped to that repository; it registers the
-        runner with the exact `project-alpha-rsps-console` label and no default
-        labels, uses the default group's integer `runner_group_id` (confirmed
-        before activation, not recorded here), declares no organization runner
-        group and applies no workflow/ref allowlist. It must check the returned
-        `runner_group_id`, labels and repository, and on any mismatch delete
-        the runner and discard the JIT. No App key, installation token or generic
-        registration token is configured here.
+        caller and follow these rules:
+
+        1. Request a token for repository ID `1207177553` with
+           `administration: write`; the response must show
+           `repository_selection` = `selected`, exactly that one repository
+           with full name `project-alpha-rsps/server`, and permissions exactly
+           `administration: write` and `metadata: read`.
+        2. POST the constant
+           `/repos/project-alpha-rsps/server/actions/runners/generate-jitconfig`
+           path on `api.github.com` with redirects off and a fresh random
+           runner name; accept only 201.
+        3. Prove the repository with GET on
+           `/repos/project-alpha-rsps/server/actions/runners/{runner.id}` using
+           the same token and redirects off; require 200 and the same `id`,
+           `name` and label names.
+        4. Require label names exactly `["project-alpha-rsps-console"]` and no
+           default labels; `runner_group_id` is the default group's integer,
+           confirmed before activation and not recorded here. The step 2 value
+           must equal that integer; only when step 2 omits it is step 3's value
+           compared, and absence from both is a rejection. Require `ephemeral`
+           `true` when present.
+        5. Require decoded `AgentName` (key matched ignoring case) to equal the
+           random name exactly; never compare `runner.id` with `AgentId`, then
+           apply the guest rules.
+        6. On any failure, timeout or odd response send zero bytes on the
+           socket (the launcher rejects an empty credential), DELETE the
+           runner, and log a fixed message only. If the ID is unknown, find the
+           runner by its exact random name. Refuse further mints until a
+           person confirms the runner list.
+
+        The guest applies defence in depth: `gitHubUrl` may be absent but must
+        match `https://github.com/project-alpha-rsps/server` exactly when
+        present, at least one of `serverUrl` and `serverUrlV2` must be present
+        and each one present must match a `*.actions.githubusercontent.com`
+        service host, and a job-started hook requires
+        `GITHUB_REPOSITORY_ID` `1207177553` and `GITHUB_SERVER_URL`
+        `https://github.com`. That hook is not a security control: upstream ADR
+        1751 notes actions download before it runs and a hook that cannot
+        start only fails the job, so it never replaces the broker checks. The
+        one-JIT-per-start option needs a reviewed mint tool that runs steps 2-6
+        off the console and, in place of step 1, checks that
+        `GET /repos/project-alpha-rsps/server` returns ID `1207177553`;
+        pasting an unchecked JIT is not acceptable. The broker declares no
+        organization runner group and applies no workflow/ref allowlist. No App
+        key, installation token or generic registration token is configured
+        here.
       '';
     };
 
