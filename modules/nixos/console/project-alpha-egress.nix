@@ -24,10 +24,11 @@
 #
 # The allow list, deny lists and HAProxy configuration are static files beside
 # this module, so the test file reads exactly what runs. The only values Nix
-# adds to the unit bodies are the `Exec*=` lines, the gateway's `ListenStream`
-# (from the runner's `egressSocket`, so no socket path is committed here) and
-# the relay's `IPAddressDeny=`, rendered from the same two deny lists HAProxy
-# reads. No unit here starts by default.
+# adds to the unit bodies are the `Exec*=` lines, the overlap unit's
+# `iproute2` `PATH`, the gateway's `ListenStream` (from the runner's
+# `egressSocket`, so no socket path is committed here) and the relay's
+# `IPAddressDeny=`, rendered from the same two deny lists HAProxy reads. No
+# unit here starts by default.
 { config
 , lib
 , pkgs
@@ -77,6 +78,13 @@ let
     socketConfig = (units.${name}.socketConfig or { }) // extraConfig;
   };
 
+  overlapUnit = mkService
+    "project-alpha-egress-overlap.service"
+    "Project Alpha console egress: host route overlap check"
+    {
+      ExecStart = "${pkgs.python3}/bin/python3 -I -B ${assets}/overlap.py";
+    };
+
   # The namespace script is static so the test reads exactly what runs; the
   # wrapper only supplies `ip`, `nft` and the text tools on PATH. `$0` inside
   # the script is still its store path, so `namespace.nft` resolves beside it.
@@ -102,11 +110,11 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = builtins.match "/run/[^/]+/[^/]+" runner.egressSocket != null;
+        assertion = builtins.match "/run/project-alpha-[a-z0-9-]+/[A-Za-z0-9][A-Za-z0-9._-]*" runner.egressSocket != null;
         message = ''
           services.project-alpha-console-runner.egressSocket must name one
-          socket file directly inside one /run directory, so the gateway can
-          create that directory 0700 root:root.
+          socket file inside a dedicated /run/project-alpha-* directory, so
+          the gateway can create that directory 0700 root:root.
         '';
       }
     ];
@@ -123,12 +131,10 @@ in
       "d ${socketDir} 0700 root root -"
     ];
 
-    systemd.services.project-alpha-egress-overlap = mkService
-      "project-alpha-egress-overlap.service"
-      "Project Alpha console egress: host route overlap check"
-      {
-        ExecStart = "${pkgs.python3}/bin/python3 ${assets}/overlap.py";
-      };
+    systemd.services.project-alpha-egress-overlap = overlapUnit // {
+      # `ip` is not part of systemd.defaultPath at the pinned nixpkgs.
+      path = [ pkgs.iproute2 ];
+    };
 
     systemd.services.project-alpha-egress-netns = mkService
       "project-alpha-egress-netns.service"
@@ -146,7 +152,7 @@ in
       "project-alpha-egress-dns.service"
       "Project Alpha console egress: DNS sinkhole"
       {
-        ExecStart = "${pkgs.python3}/bin/python3 ${assets}/dns.py";
+        ExecStart = "${pkgs.python3}/bin/python3 -I -B ${assets}/dns.py";
       };
 
     systemd.sockets.project-alpha-egress-relay = mkSocket
@@ -162,7 +168,7 @@ in
         # unit proves EPERM before HAProxy starts. ExecStartPost keeps an
         # immediate HAProxy exit inside the start job instead of leaving a
         # socket that accepts and then closes.
-        ExecStartPre = "${pkgs.python3}/bin/python3 ${assets}/deny_probe.py";
+        ExecStartPre = "${pkgs.python3}/bin/python3 -I -B ${assets}/deny_probe.py";
         ExecStart = "${pkgs.haproxy}/bin/haproxy -db -f ${assets}/haproxy.cfg";
         ExecStartPost = "${pkgs.coreutils}/bin/sleep 1";
         IPAddressDeny = denyAddresses;

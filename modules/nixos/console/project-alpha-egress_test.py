@@ -313,6 +313,29 @@ class HaproxyTests(unittest.TestCase):
             )
             self.assertIn("req.ssl_sni,lower", line, name)
 
+    def test_timeout_tunnel_only_in_backend(self):
+        frontend = self.text.split("frontend guest", 1)[1].split(
+            "backend upstream_443", 1
+        )[0]
+        backend = self.text.split("backend upstream_443", 1)[1]
+        self.assertNotIn("timeout tunnel", frontend)
+        self.assertIn("timeout tunnel", backend)
+
+    def test_resolve_retry_budget_stays_under_inspect_delay(self):
+        def millis(pattern):
+            match = re.search(pattern, self.text, re.MULTILINE)
+            self.assertIsNotNone(match, pattern)
+            number = int(match.group(1))
+            return number * 1000 if match.group(2) == "ms" else number
+
+        match = re.search(r"^\s*resolve_retries (\d+)$", self.text, re.MULTILINE)
+        self.assertIsNotNone(match)
+        retries = int(match.group(1))
+        retry = millis(r"^\s*timeout retry (\d+)(ms|s)$")
+        inspect = millis(r"^\s*tcp-request inspect-delay (\d+)(ms|s)$")
+        self.assertEqual(retries, 3)
+        self.assertLess(retries * retry, inspect)
+
 
 class DenyListTests(unittest.TestCase):
     @classmethod
@@ -1050,6 +1073,53 @@ class DnsWireTests(unittest.TestCase):
             self.assertEqual(conn.sent, b"")
 
 
+class ConnectionThreadTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dns = load_module("dns")
+        cls.allow = cls.dns.load_allow()
+
+    def test_refused_thread_closes_only_that_connection(self):
+        class FakeConn:
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
+        class RefusingThread:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                raise RuntimeError("can't start new thread")
+
+        conn = FakeConn()
+        with mock.patch.object(self.dns.threading, "Thread", RefusingThread):
+            self.dns.start_connection(conn, self.allow)
+        self.assertTrue(conn.closed)
+
+    def test_started_thread_is_daemon(self):
+        seen = {}
+
+        class Recorder:
+            def __init__(self, **kwargs):
+                seen.update(kwargs)
+
+            def start(self):
+                seen["started"] = True
+
+        class FakeConn:
+            def close(self):
+                pass
+
+        with mock.patch.object(self.dns.threading, "Thread", Recorder):
+            self.dns.start_connection(FakeConn(), self.allow)
+        self.assertTrue(seen.get("started"))
+        self.assertTrue(seen.get("daemon"))
+        self.assertIs(seen.get("target"), self.dns.handle_tcp_connection)
+
+
 class ProbeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1141,6 +1211,51 @@ class NixTextTests(unittest.TestCase):
             "units.json",
         ):
             self.assertTrue((ASSETS / name).is_file(), name)
+
+    def test_overlap_unit_gets_iproute2_on_path(self):
+        text = NIX_FILE.read_text(encoding="utf-8")
+        self.assertEqual(text.count("path = [ pkgs.iproute2 ];"), 1)
+        start = text.index("systemd.services.project-alpha-egress-overlap")
+        end = text.index("systemd.services.project-alpha-egress-netns")
+        self.assertIn("path = [ pkgs.iproute2 ];", text[start:end])
+
+    def test_egress_socket_parent_regex(self):
+        text = NIX_FILE.read_text(encoding="utf-8")
+        match = re.search(
+            r'builtins\.match "([^"]+)" runner\.egressSocket', text
+        )
+        self.assertIsNotNone(match)
+        compiled = re.compile(match.group(1))
+        accepted = [
+            "/run/project-alpha-egress/gateway",
+            "/run/project-alpha-egress/gw.sock",
+            "/run/project-alpha-a0/a-b_c.d",
+            "/run/project-alpha-9/Z",
+        ]
+        rejected = [
+            "/run/systemd/x",
+            "/run/wrappers/x",
+            "/run/../x",
+            "/run/x",
+            "/run/other/x",
+            "/run/project-alpha-/x",
+            "/run/project-alpha-egress/",
+            "/run/project-alpha-egress/a/b",
+            "/tmp/project-alpha-egress/x",
+            "/run/project-alpha-egress/.hidden",
+            "/run/project-alpha-egress/-x",
+        ]
+        for path in accepted:
+            self.assertIsNotNone(compiled.fullmatch(path), path)
+        for path in rejected:
+            self.assertIsNone(compiled.fullmatch(path), path)
+
+    def test_python_entries_are_isolated_and_bytecode_free(self):
+        text = NIX_FILE.read_text(encoding="utf-8")
+        lines = [line for line in text.splitlines() if "/bin/python3" in line]
+        self.assertEqual(len(lines), 3)
+        for line in lines:
+            self.assertIn("/bin/python3 -I -B ", line)
 
 
 if __name__ == "__main__":

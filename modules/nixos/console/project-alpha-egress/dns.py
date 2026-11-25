@@ -222,6 +222,23 @@ def handle_udp(sock, allow):
         return
 
 
+def start_connection(conn, allow):
+    """Hand one TCP connection to a thread; refusal closes only that client.
+
+    A guest that exhausts `TasksMax` makes `Thread.start()` raise
+    `RuntimeError`. Letting that escape would kill the loop and take DNS down
+    for everyone, so a refused connection is closed and the daemon continues.
+    """
+    try:
+        threading.Thread(
+            target=handle_tcp_connection,
+            args=(conn, allow),
+            daemon=True,
+        ).start()
+    except RuntimeError:
+        conn.close()
+
+
 def listen_fds():
     pid = os.environ.get("LISTEN_PID")
     try:
@@ -255,11 +272,7 @@ def serve(allow):
                 except OSError:
                     continue
                 conn.setblocking(True)
-                threading.Thread(
-                    target=handle_tcp_connection,
-                    args=(conn, allow),
-                    daemon=True,
-                ).start()
+                start_connection(conn, allow)
             else:
                 key.data(key.fileobj, allow)
 
