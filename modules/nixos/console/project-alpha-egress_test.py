@@ -92,6 +92,11 @@ def normalize(entry):
     return str(net)
 
 
+def duration_millis(number, unit):
+    """Convert a HAProxy time unit to milliseconds, both units exercised."""
+    return number if unit == "ms" else number * 1000
+
+
 class AllowListTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -220,34 +225,127 @@ class HaproxyTests(unittest.TestCase):
 
     def test_sni_chars_rejects_bad_shapes(self):
         regex = self.acl_regex("sni_chars")
-        self.assertTrue(regex.fullmatch("github.com"))
-        self.assertTrue(regex.fullmatch("a.b-c.d"))
-        self.assertFalse(regex.fullmatch(""))
-        self.assertFalse(regex.fullmatch("x" * 254))
-        self.assertFalse(regex.fullmatch("github.com\n"))
-        self.assertFalse(regex.fullmatch("github.com\0evil"))
-        # A syntactically valid but unlisted name passes the character
-        # class; the exact list is what rejects it.
-        self.assertTrue(regex.fullmatch("github.com.evil.example"))
-        self.assertFalse(regex.fullmatch("github com"))
-        self.assertFalse(regex.fullmatch("github.com/evil"))
+        for name in (
+            "github.com",
+            "a.b-c.d",
+            "x" * 253,
+            # A syntactically valid but unlisted name passes the character
+            # class; the exact list is what rejects it.
+            "github.com.evil.example",
+        ):
+            self.assertIsNotNone(regex.search(name), repr(name))
+        for name in (
+            "",
+            "x" * 254,
+            " xgithub.com",
+            "github.com ",
+            "github.com\n",
+            "\0github.com",
+            "github.com\0evil",
+            "github com",
+            "github.com/evil",
+        ):
+            self.assertIsNone(regex.search(name), repr(name))
 
     def test_sni_actions_is_one_label(self):
         regex = self.acl_regex("sni_actions")
-        self.assertTrue(
-            regex.fullmatch("run-actions-1-azure-eastus.actions.githubusercontent.com")
-        )
-        self.assertFalse(regex.fullmatch("a.b.actions.githubusercontent.com"))
-        self.assertFalse(regex.fullmatch("actions.githubusercontent.com"))
-        self.assertFalse(
-            regex.fullmatch("xactions.githubusercontent.com.evil.example")
-        )
-        self.assertFalse(
-            regex.fullmatch("run.actions.githubusercontent.com\n")
-        )
-        self.assertFalse(
-            regex.fullmatch("run.actions.githubusercontent.com\0evil")
-        )
+        positive = "run-actions-1-azure-eastus.actions.githubusercontent.com"
+        self.assertIsNotNone(regex.search(positive))
+        for name in (
+            "a.b.actions.githubusercontent.com",
+            "actions.githubusercontent.com",
+            "evil.example." + positive,
+            positive + ".evil.example",
+            positive + "\n",
+            "\0" + positive,
+            # One name per dot in the ACL: an unescaped dot would let the
+            # separator be any character.
+            "x-actions.githubusercontent.com",
+            "x.actions-githubusercontent.com",
+            "x.actions.githubusercontent-com",
+        ):
+            self.assertIsNone(regex.search(name), repr(name))
+
+    def test_dns_matches_the_same_edge_names(self):
+        dns = load_module("dns")
+        allow = dns.load_allow()
+        positive = "run-actions-1-azure-eastus.actions.githubusercontent.com"
+        self.assertTrue(dns.name_allowed("github.com", allow))
+        self.assertTrue(dns.name_allowed(positive, allow))
+        for name in (
+            "xgithub.com",
+            "github.com.evil.example",
+            "github.com ",
+            "github.com\n",
+            "\0github.com",
+            "github.com\0evil",
+            "x-actions.githubusercontent.com",
+            "x.actions-githubusercontent.com",
+            "x.actions.githubusercontent-com",
+            "evil.example." + positive,
+            positive + ".evil.example",
+            positive + "\n",
+            "\0" + positive,
+            "a.b.actions.githubusercontent.com",
+            "actions.githubusercontent.com",
+        ):
+            self.assertFalse(dns.name_allowed(name, allow), repr(name))
+
+    def test_config_is_pinned_whole(self):
+        expected = [
+            "global",
+            "default-path config",
+            "dns-accept-family ipv4",
+            "maxconn 256",
+            "nbthread 2",
+            "httpclient.resolvers.disabled on",
+            "log stderr format raw daemon",
+            "resolvers upstream",
+            "nameserver upstream1 1.1.1.1:53",
+            "nameserver upstream2 9.9.9.9:53",
+            "accepted_payload_size 1232",
+            "resolve_retries 3",
+            "timeout resolve 1s",
+            "timeout retry 1s",
+            "frontend guest",
+            "mode tcp",
+            "bind fd@3",
+            "log global",
+            'log-format "egress entry=%[var(txn.entry)] state=%ts"',
+            "tcp-request inspect-delay 10s",
+            r"acl sni_chars req.ssl_sni,lower -m reg '\A[a-z0-9.-]{1,253}\z'",
+            "acl sni_listed req.ssl_sni,lower -m str -f allow-exact.list",
+            r"acl sni_actions req.ssl_sni,lower -m reg '\A[a-z0-9-]+\.actions\.githubusercontent\.com\z'",
+            "tcp-request content set-var(txn.entry) str(rejected-sni)",
+            "tcp-request content reject unless { req.ssl_hello_type 1 }",
+            "tcp-request content reject unless sni_chars",
+            "tcp-request content reject unless sni_listed || sni_actions",
+            "tcp-request content set-var(txn.entry) str(rejected-resolve)",
+            "tcp-request content do-resolve(txn.dst,upstream,ipv4) req.ssl_sni,lower",
+            "tcp-request content reject unless { var(txn.dst) -m found }",
+            "tcp-request content reject unless { var(txn.dst) -m ip 0.0.0.0/1 128.0.0.0/1 }",
+            "tcp-request content set-var(txn.entry) str(rejected-address)",
+            "tcp-request content reject if { var(txn.dst) -m ip -f deny-ipv4.list }",
+            "tcp-request content set-dst var(txn.dst)",
+            "tcp-request content set-dst-port int(443)",
+            "tcp-request content set-var(txn.entry) req.ssl_sni,lower if sni_listed",
+            "tcp-request content set-var(txn.entry) str(*.actions.githubusercontent.com) if sni_actions !sni_listed",
+            "tcp-request content accept if sni_listed || sni_actions",
+            "tcp-request content reject",
+            "timeout client 30s",
+            "default_backend upstream_443",
+            "backend upstream_443",
+            "mode tcp",
+            "timeout connect 5s",
+            "timeout server 30s",
+            "timeout tunnel 1h",
+            "server upstream 0.0.0.0:443",
+        ]
+        self.assertEqual(self.lines, expected)
+
+    def test_duration_helper_uses_both_units(self):
+        self.assertEqual(duration_millis(500, "ms"), 500)
+        self.assertEqual(duration_millis(10, "s"), 10000)
 
     def test_chars_acl_precedes_list_acl(self):
         chars = self.lines.index(
@@ -325,8 +423,7 @@ class HaproxyTests(unittest.TestCase):
         def millis(pattern):
             match = re.search(pattern, self.text, re.MULTILINE)
             self.assertIsNotNone(match, pattern)
-            number = int(match.group(1))
-            return number * 1000 if match.group(2) == "ms" else number
+            return duration_millis(int(match.group(1)), match.group(2))
 
         match = re.search(r"^\s*resolve_retries (\d+)$", self.text, re.MULTILINE)
         self.assertIsNotNone(match)
@@ -590,6 +687,31 @@ class UnitsJsonTests(unittest.TestCase):
             self.assertIn(group, filters)
         self.assertNotIn("~@privileged", filters)
 
+    def test_joins_namespace_only_on_sockets_and_template(self):
+        present = set()
+        for name, unit in self.units.items():
+            if name == "passtArgs":
+                continue
+            for section in ("unitConfig", "serviceConfig", "socketConfig"):
+                if "JoinsNamespaceOf" in unit.get(section, {}):
+                    present.add(name)
+        self.assertEqual(
+            present,
+            {
+                "project-alpha-egress-dns.socket",
+                "project-alpha-egress-relay.socket",
+                "project-alpha-egress@.service",
+            },
+        )
+        for name in (
+            "project-alpha-egress-dns.service",
+            "project-alpha-egress-relay.service",
+        ):
+            for section in ("unitConfig", "serviceConfig", "socketConfig"):
+                self.assertNotIn(
+                    "JoinsNamespaceOf", self.units[name].get(section, {}), name
+                )
+
     def test_overlap_and_netns_run_on_the_host(self):
         overlap = self.units["project-alpha-egress-overlap.service"]["serviceConfig"]
         netns = self.units["project-alpha-egress-netns.service"]["serviceConfig"]
@@ -703,6 +825,41 @@ class UnitsJsonTests(unittest.TestCase):
         text = read("units.json")
         self.assertNotIn("wantedBy", text)
         self.assertNotIn("RefuseManualStart", text)
+
+
+class NetnsScriptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.text = read("netns-setup.sh")
+
+    def test_code_lines_are_pinned_in_order(self):
+        expected = [
+            "set -euo pipefail",
+            "fail() {",
+            "printf '%s\\n' \"$*\" >&2",
+            "exit 1",
+            "}",
+            "links_up=$(ip -o link show up | awk -F': ' '{ print $2 }' | grep -vx 'lo' || true)",
+            '[ -z "$links_up" ] || fail "egress namespace guard: a non-loopback link is up"',
+            "addresses=$(ip -o addr show | awk '$2 != \"lo\" { print $2 \" \" $4 }')",
+            '[ -z "$addresses" ] || fail "egress namespace guard: a non-loopback address exists"',
+            "ruleset=$(nft list ruleset)",
+            '[ -z "$ruleset" ] || fail "egress namespace guard: the ruleset is not empty"',
+            "here=$(CDPATH='' cd -- \"$(dirname -- \"$0\")\" && pwd)",
+            'nft -f "$here/namespace.nft"',
+            "ip link add pa-egress0 type dummy",
+            "ip addr add 198.18.0.1/30 dev pa-egress0",
+            "ip link set pa-egress0 up",
+            'if [ -n "$(ip -4 route show default)" ] || [ -n "$(ip -6 route show default)" ]; then',
+            'fail "egress namespace guard: a default route exists"',
+            "fi",
+        ]
+        actual = [
+            " ".join(line.split())
+            for line in self.text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        self.assertEqual(actual, expected)
 
 
 class NftTests(unittest.TestCase):
@@ -1168,6 +1325,12 @@ class ProbeTests(unittest.TestCase):
 
 
 class NixTextTests(unittest.TestCase):
+    def nix_code(self):
+        text = NIX_FILE.read_text(encoding="utf-8")
+        return "\n".join(
+            line for line in text.splitlines() if not line.lstrip().startswith("#")
+        )
+
     def test_module_is_off_by_default_and_has_one_gate(self):
         text = NIX_FILE.read_text(encoding="utf-8")
         self.assertEqual(text.count("lib.mkIf cfg.enable"), 1)
@@ -1176,6 +1339,51 @@ class NixTextTests(unittest.TestCase):
         self.assertNotIn("enable = true", text)
         self.assertNotIn("RefuseManualStart", text)
         self.assertIn("services.project-alpha-console-egress", text)
+
+    def test_exec_assignments_are_pinned_in_order(self):
+        expected = [
+            'ExecStart = "${pkgs.python3}/bin/python3 -I -B ${assets}/overlap.py";',
+            'ExecStart = "${netnsSetup}/bin/project-alpha-egress-netns-setup";',
+            'ExecStart = "${pkgs.python3}/bin/python3 -I -B ${assets}/dns.py";',
+            'ExecStartPre = "${pkgs.python3}/bin/python3 -I -B ${assets}/deny_probe.py";',
+            'ExecStart = "${pkgs.haproxy}/bin/haproxy -db -f ${assets}/haproxy.cfg";',
+            'ExecStartPost = "${pkgs.coreutils}/bin/sleep 1";',
+            'ExecStart = "${pkgs.passt}/bin/passt ${lib.escapeShellArgs units.passtArgs}";',
+        ]
+        actual = [
+            " ".join(line.split())
+            for line in self.nix_code().splitlines()
+            if re.match(r"\s*Exec[A-Za-z]*\s*=", line)
+        ]
+        self.assertEqual(actual, expected)
+
+    def test_relay_deny_is_set_once_and_allow_is_absent(self):
+        code = self.nix_code()
+        self.assertEqual(code.count("IPAddressDeny"), 1)
+        self.assertIn("IPAddressDeny = denyAddresses;", code)
+        deny = code.index("IPAddressDeny = denyAddresses;")
+        self.assertLess(code.index("systemd.services.project-alpha-egress-relay"), deny)
+        self.assertLess(deny, code.index("systemd.sockets.project-alpha-egress ="))
+        self.assertNotIn("IPAddressAllow", code)
+
+    def test_list_reader_definitions_are_exact(self):
+        code = self.nix_code()
+        read_list = re.search(r"readList\s*=.*?\bentries;", code, re.DOTALL)
+        self.assertIsNotNone(read_list)
+        self.assertEqual(
+            " ".join(read_list.group(0).split()),
+            'readList = file: let strip = line: lib.removeSuffix "\\r" '
+            '(builtins.head (lib.splitString "#" line)); entries = map strip '
+            '(lib.splitString "\\n" (builtins.readFile file)); in '
+            'builtins.filter (entry: entry != "") entries;',
+        )
+        deny = re.search(r"denyAddresses\s*=.*?;", code, re.DOTALL)
+        self.assertIsNotNone(deny)
+        self.assertEqual(
+            " ".join(deny.group(0).split()),
+            'denyAddresses = readList (assets + "/deny-ipv4.list") '
+            '++ readList (assets + "/deny-ipv6.list");',
+        )
 
     def test_runner_gets_only_the_two_a8_lines(self):
         text = RUNNER_FILE.read_text(encoding="utf-8")
