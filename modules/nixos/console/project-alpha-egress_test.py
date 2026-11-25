@@ -1791,5 +1791,69 @@ class NixWiringTests(unittest.TestCase):
         self.assertEqual(len(keys), 4)
 
 
+class NixDefinitionTests(unittest.TestCase):
+    def test_no_log_or_error_redirection_in_nix(self):
+        code = nix_code()
+        for key in ("StandardOutput", "StandardError", "LogNamespace"):
+            self.assertNotIn(key, code)
+
+    def test_config_key_counts_and_no_set_form(self):
+        flat = nix_flat()
+        self.assertEqual(flat.count("serviceConfig"), 2)
+        self.assertEqual(flat.count("unitConfig"), 4)
+        self.assertEqual(flat.count("socketConfig"), 2)
+        self.assertEqual(len(re.findall(r"\bsystemd\b", flat)), 9)
+        for set_form in (
+            r"\bsystemd\s*=\s*\{",
+            r"\bsystemd\.services\s*=\s*\{",
+            r"\bsystemd\.sockets\s*=\s*\{",
+        ):
+            self.assertIsNone(re.search(set_form, flat), set_form)
+
+    def test_config_keys_live_only_in_the_two_helpers(self):
+        code = nix_code()
+        spans = []
+        for helper in ("mkService", "mkSocket"):
+            start = code.index(helper + " = ")
+            opening = code.index("{", start)
+            spans.append((start, matched_brace(code, opening) + 1))
+        remainder = code
+        for start, close in sorted(spans, reverse=True):
+            remainder = remainder[:start] + remainder[close:]
+        flat = " ".join(remainder.split())
+        for key in ("serviceConfig", "unitConfig", "socketConfig"):
+            self.assertNotIn(key, flat, key)
+
+    def test_units_definition_is_exact(self):
+        flat = nix_flat()
+        match = re.search(r"(?<![\w.])units\s*=\s*", flat)
+        self.assertIsNotNone(match)
+        depth = 0
+        in_string = False
+        index = match.end()
+        while index < len(flat):
+            char = flat[index]
+            if in_string:
+                if char == "\\":
+                    index += 2
+                    continue
+                if char == '"':
+                    in_string = False
+            elif char == '"':
+                in_string = True
+            elif char in "{[(":
+                depth += 1
+            elif char in "}])":
+                depth -= 1
+            elif char == ";" and depth == 0:
+                break
+            index += 1
+        self.assertEqual(
+            flat[match.start() : index + 1],
+            "units = builtins.fromJSON (builtins.readFile "
+            "./project-alpha-egress/units.json);",
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
