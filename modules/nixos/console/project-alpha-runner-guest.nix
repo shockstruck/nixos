@@ -8,10 +8,14 @@
 # device but its own virtual ones. The single-use JIT configuration arrives
 # through QEMU fw_cfg at `opt/io.project-alpha-console-runner/jit`; Linux exposes
 # that blob as a root-only `raw` sysfs attribute
-# (`drivers/firmware/qemu_fw_cfg.c`: `S_IRUSR`). The root bootstrap validates it,
+# (`drivers/firmware/qemu_fw_cfg.c`: `S_IRUSR`). The root bootstrap runs
+# `project-alpha-jit-state.sh`, which reads `.runner` the way Newtonsoft does
+# (case-insensitive keys), requires an ephemeral runner with a non-empty work
+# folder, and pins `gitHubUrl` to this repository as defence in depth. It
 # materialises only the pinned runner's own state files under the guest-local
-# `RUNNER_ROOT`, deletes the payload, and starts `Runner.Listener` without the
-# blob in its argv or environment.
+# `RUNNER_ROOT` — nothing is written until every value has validated — deletes
+# the payload, and starts `Runner.Listener` without the blob in its argv or
+# environment.
 { config
 , modulesPath
 , pkgs
@@ -23,92 +27,18 @@ let
   runnerUser = "project-alpha-runner";
   runnerHome = "/var/lib/project-alpha-runner";
   runnerRoot = "${runnerHome}/.github-runner";
+  expectedGitHubUrl = "https://github.com/project-alpha-rsps/server";
 
-  # Materialises the broker's encoded JIT payload as the pinned runner's own
-  # state files. The outer payload is base64 of a JSON object that maps a config
-  # file name to that file's base64 content; actions/runner's `Runner.cs` writes
-  # each key under `RUNNER_ROOT`. Only the pinned runner's known config names are
-  # accepted and `.runner` must declare itself ephemeral. No payload string is
-  # used as a path, put in argv or logged.
+  # The decoder is a committed fragment so it can be read and tested on its
+  # own. `writeShellApplication` prepends its shebang and `set` options; the
+  # file starts with a shellcheck directive instead.
   jitState = pkgs.writeShellApplication {
     name = "project-alpha-jit-state";
     runtimeInputs = [
       pkgs.coreutils
       pkgs.jq
     ];
-    text = ''
-      payload="$1"
-      runnerRoot="$2"
-      stateDir="$(mktemp -d /run/project-alpha-jit.XXXXXXXXXX)"
-      trap 'rm -rf "$stateDir"' EXIT
-
-      if ! [ -s "$payload" ]; then
-        echo "JIT payload is missing or empty" >&2
-        exit 1
-      fi
-      if ! [ -d "$runnerRoot" ]; then
-        echo "runner state directory is missing: $runnerRoot" >&2
-        exit 1
-      fi
-
-      if ! base64 --decode "$payload" > "$stateDir/payload.json" 2>/dev/null; then
-        echo "JIT payload is not valid base64" >&2
-        exit 1
-      fi
-      if ! jq -e 'type == "object"' "$stateDir/payload.json" >/dev/null; then
-        echo "JIT payload is not a JSON object" >&2
-        exit 1
-      fi
-
-      unknown="$(jq -r --argjson allowed '[".runner",".credentials",".credentials_rsaparams"]' 'keys_unsorted - $allowed | .[]' "$stateDir/payload.json")"
-      if [ -n "$unknown" ]; then
-        echo "JIT payload names unsupported runner state: $unknown" >&2
-        exit 1
-      fi
-      if ! jq -e 'has(".runner") and has(".credentials")' "$stateDir/payload.json" >/dev/null; then
-        echo "JIT payload is missing .runner or .credentials" >&2
-        exit 1
-      fi
-
-      if ! jq -r '.[".runner"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/runner.json" 2>/dev/null; then
-        echo "JIT .runner state is not valid base64" >&2
-        exit 1
-      fi
-      if ! jq -e '(.ephemeral == true) and ((.workFolder // "") | length > 0)' "$stateDir/runner.json" >/dev/null; then
-        echo "JIT .runner state is malformed or not ephemeral" >&2
-        exit 1
-      fi
-
-      if ! jq -r '.[".credentials"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/credentials" 2>/dev/null; then
-        echo "JIT .credentials state is not valid base64" >&2
-        exit 1
-      fi
-      if ! [ -s "$stateDir/credentials" ]; then
-        echo "JIT .credentials state is empty" >&2
-        exit 1
-      fi
-      if ! jq -e 'type == "object"' "$stateDir/credentials" >/dev/null; then
-        echo "JIT .credentials state is not a JSON object" >&2
-        exit 1
-      fi
-
-      haveRsaparams=0
-      if jq -e 'has(".credentials_rsaparams")' "$stateDir/payload.json" >/dev/null; then
-        if ! jq -r '.[".credentials_rsaparams"]' "$stateDir/payload.json" | base64 --decode > "$stateDir/rsaparams" 2>/dev/null; then
-          echo "JIT .credentials_rsaparams state is not valid base64" >&2
-          exit 1
-        fi
-        haveRsaparams=1
-      fi
-
-      # Nothing is written until every accepted state file has validated.
-      rm -f "$runnerRoot/.runner" "$runnerRoot/.credentials" "$runnerRoot/.credentials_rsaparams"
-      install -m 0600 -o ${runnerUser} -g ${runnerUser} "$stateDir/runner.json" "$runnerRoot/.runner"
-      install -m 0600 -o ${runnerUser} -g ${runnerUser} "$stateDir/credentials" "$runnerRoot/.credentials"
-      if [ "$haveRsaparams" = "1" ]; then
-        install -m 0600 -o ${runnerUser} -g ${runnerUser} "$stateDir/rsaparams" "$runnerRoot/.credentials_rsaparams"
-      fi
-    '';
+    text = builtins.readFile ./project-alpha-jit-state.sh;
   };
 
   bootstrap = pkgs.writeShellApplication {
@@ -136,7 +66,8 @@ let
       fi
 
       install -d -m 0700 -o ${runnerUser} -g ${runnerUser} ${runnerRoot}
-      ${jitState}/bin/project-alpha-jit-state "$payload" ${runnerRoot}
+      TMPDIR=/run ${jitState}/bin/project-alpha-jit-state \
+        "$payload" ${runnerRoot} ${runnerUser} "${expectedGitHubUrl}"
       rm -f "$payload"
       trap - EXIT
 
