@@ -1,0 +1,452 @@
+{
+  "passtArgs": [
+    "--foreground",
+    "--fd",
+    "3",
+    "--ipv4-only",
+    "--interface",
+    "pa-egress0",
+    "--address",
+    "198.18.0.2",
+    "--netmask",
+    "30",
+    "--gateway",
+    "198.18.0.1",
+    "--dns",
+    "198.18.0.1",
+    "--search",
+    "none",
+    "--no-map-gw",
+    "--no-icmp"
+  ],
+  "project-alpha-egress-overlap.service": {
+    "unitConfig": {},
+    "serviceConfig": {
+      "Type": "oneshot",
+      "User": "project-alpha-egress-overlap",
+      "Group": "project-alpha-egress-overlap",
+      "NoNewPrivileges": "yes",
+      "CapabilityBoundingSet": [
+        ""
+      ],
+      "AmbientCapabilities": [
+        ""
+      ],
+      "ProtectSystem": "strict",
+      "ProtectHome": "yes",
+      "ProtectClock": "yes",
+      "ProtectControlGroups": "yes",
+      "ProtectHostname": "yes",
+      "ProtectKernelLogs": "yes",
+      "ProtectKernelModules": "yes",
+      "ProtectKernelTunables": "yes",
+      "PrivateTmp": "disconnected",
+      "UMask": "0077",
+      "Restart": "no",
+      "MemorySwapMax": "0",
+      "SystemCallArchitectures": "native",
+      "SystemCallErrorNumber": "EPERM",
+      "MemoryMax": "64M",
+      "CPUQuota": "20%",
+      "TasksMax": 16,
+      "LimitNOFILE": 256,
+      "RestrictAddressFamilies": [
+        "AF_NETLINK",
+        "AF_UNIX",
+        "AF_INET"
+      ],
+      "RestrictNamespaces": "yes",
+      "InaccessiblePaths": [
+        "-/etc/credstore",
+        "-/etc/credstore.encrypted"
+      ],
+      "SystemCallFilter": [
+        "@system-service",
+        "~@privileged",
+        "~io_uring_setup io_uring_enter io_uring_register"
+      ],
+      "IPAddressDeny": [
+        "any"
+      ]
+    }
+  },
+  "project-alpha-egress-netns.service": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-overlap.service"
+      ],
+      "After": [
+        "project-alpha-egress-overlap.service"
+      ],
+      "StopWhenUnneeded": "yes"
+    },
+    "serviceConfig": {
+      "Type": "oneshot",
+      "User": "project-alpha-egress-netns",
+      "Group": "project-alpha-egress-netns",
+      "NoNewPrivileges": "yes",
+      "CapabilityBoundingSet": [
+        "CAP_NET_ADMIN"
+      ],
+      "AmbientCapabilities": [
+        "CAP_NET_ADMIN"
+      ],
+      "ProtectSystem": "strict",
+      "ProtectHome": "yes",
+      "ProtectClock": "yes",
+      "ProtectControlGroups": "yes",
+      "ProtectHostname": "yes",
+      "ProtectKernelLogs": "yes",
+      "ProtectKernelModules": "yes",
+      "ProtectKernelTunables": "yes",
+      "PrivateTmp": "disconnected",
+      "UMask": "0077",
+      "Restart": "no",
+      "MemorySwapMax": "0",
+      "SystemCallArchitectures": "native",
+      "SystemCallErrorNumber": "EPERM",
+      "MemoryMax": "64M",
+      "CPUQuota": "20%",
+      "TasksMax": 16,
+      "LimitNOFILE": 256,
+      "RestrictAddressFamilies": [
+        "AF_NETLINK",
+        "AF_INET",
+        "AF_UNIX"
+      ],
+      "RestrictNamespaces": "yes",
+      "InaccessiblePaths": [
+        "-/etc/credstore",
+        "-/etc/credstore.encrypted"
+      ],
+      "SystemCallFilter": [
+        "@system-service",
+        "~@privileged",
+        "~io_uring_setup io_uring_enter io_uring_register"
+      ],
+      "RemainAfterExit": "yes",
+      "PrivateNetwork": "yes",
+      "IPAddressDeny": [
+        "any"
+      ]
+    }
+  },
+  "project-alpha-egress-dns.socket": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service"
+      ],
+      "DefaultDependencies": "no",
+      "Conflicts": [
+        "shutdown.target"
+      ],
+      "Before": [
+        "shutdown.target"
+      ],
+      "StopWhenUnneeded": "yes",
+      "JoinsNamespaceOf": "project-alpha-egress-netns.service"
+    },
+    "socketConfig": {
+      "ListenStream": [
+        "198.18.0.1:53"
+      ],
+      "ListenDatagram": [
+        "198.18.0.1:53"
+      ],
+      "PrivateNetwork": "yes",
+      "IPAddressDeny": [
+        "any"
+      ],
+      "IPAddressAllow": [
+        "198.18.0.0/30"
+      ]
+    }
+  },
+  "project-alpha-egress-dns.service": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.socket"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.socket"
+      ],
+      "StopWhenUnneeded": "yes"
+    },
+    "serviceConfig": {
+      "Type": "exec",
+      "User": "project-alpha-egress-dns",
+      "Group": "project-alpha-egress-dns",
+      "NoNewPrivileges": "yes",
+      "CapabilityBoundingSet": [
+        ""
+      ],
+      "AmbientCapabilities": [
+        ""
+      ],
+      "ProtectSystem": "strict",
+      "ProtectHome": "yes",
+      "ProtectClock": "yes",
+      "ProtectControlGroups": "yes",
+      "ProtectHostname": "yes",
+      "ProtectKernelLogs": "yes",
+      "ProtectKernelModules": "yes",
+      "ProtectKernelTunables": "yes",
+      "PrivateTmp": "disconnected",
+      "UMask": "0077",
+      "Restart": "no",
+      "MemorySwapMax": "0",
+      "SystemCallArchitectures": "native",
+      "SystemCallErrorNumber": "EPERM",
+      "MemoryMax": "64M",
+      "CPUQuota": "50%",
+      "TasksMax": 32,
+      "LimitNOFILE": 1024,
+      "RestrictAddressFamilies": [
+        "none"
+      ],
+      "RestrictNamespaces": "yes",
+      "InaccessiblePaths": [
+        "-/etc/credstore",
+        "-/etc/credstore.encrypted"
+      ],
+      "SystemCallFilter": [
+        "@system-service",
+        "~@privileged",
+        "~io_uring_setup io_uring_enter io_uring_register"
+      ],
+      "PrivateNetwork": "yes",
+      "IPAddressDeny": [
+        "any"
+      ],
+      "IPAddressAllow": [
+        "198.18.0.0/30"
+      ]
+    }
+  },
+  "project-alpha-egress-relay.socket": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service"
+      ],
+      "DefaultDependencies": "no",
+      "Conflicts": [
+        "shutdown.target"
+      ],
+      "Before": [
+        "shutdown.target"
+      ],
+      "StopWhenUnneeded": "yes",
+      "JoinsNamespaceOf": "project-alpha-egress-netns.service"
+    },
+    "socketConfig": {
+      "ListenStream": [
+        "198.18.0.1:443"
+      ],
+      "PrivateNetwork": "yes",
+      "IPAddressDeny": [
+        "any"
+      ],
+      "IPAddressAllow": [
+        "198.18.0.0/30"
+      ]
+    }
+  },
+  "project-alpha-egress-relay.service": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-relay.socket"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-relay.socket"
+      ],
+      "StopWhenUnneeded": "yes"
+    },
+    "serviceConfig": {
+      "Type": "exec",
+      "User": "project-alpha-egress-relay",
+      "Group": "project-alpha-egress-relay",
+      "NoNewPrivileges": "yes",
+      "CapabilityBoundingSet": [
+        ""
+      ],
+      "AmbientCapabilities": [
+        ""
+      ],
+      "ProtectSystem": "strict",
+      "ProtectHome": "yes",
+      "ProtectClock": "yes",
+      "ProtectControlGroups": "yes",
+      "ProtectHostname": "yes",
+      "ProtectKernelLogs": "yes",
+      "ProtectKernelModules": "yes",
+      "ProtectKernelTunables": "yes",
+      "PrivateTmp": "disconnected",
+      "UMask": "0077",
+      "Restart": "no",
+      "MemorySwapMax": "0",
+      "SystemCallArchitectures": "native",
+      "SystemCallErrorNumber": "EPERM",
+      "MemoryMax": "256M",
+      "CPUQuota": "200%",
+      "TasksMax": 64,
+      "LimitNOFILE": 4096,
+      "RestrictAddressFamilies": [
+        "AF_INET"
+      ],
+      "RestrictNamespaces": "yes",
+      "InaccessiblePaths": [
+        "-/etc/credstore",
+        "-/etc/credstore.encrypted",
+        "-/etc/resolv.conf"
+      ],
+      "SystemCallFilter": [
+        "@system-service",
+        "~@privileged",
+        "~io_uring_setup io_uring_enter io_uring_register"
+      ]
+    }
+  },
+  "project-alpha-egress.socket": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "DefaultDependencies": "no",
+      "Conflicts": [
+        "shutdown.target"
+      ],
+      "Before": [
+        "shutdown.target"
+      ],
+      "StopWhenUnneeded": "yes"
+    },
+    "socketConfig": {
+      "SocketMode": "0600",
+      "DirectoryMode": "0700",
+      "Accept": "yes",
+      "MaxConnections": 1
+    }
+  },
+  "project-alpha-egress@.service": {
+    "unitConfig": {
+      "Requires": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "BindsTo": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "After": [
+        "project-alpha-egress-netns.service",
+        "project-alpha-egress-dns.service",
+        "project-alpha-egress-relay.service"
+      ],
+      "CollectMode": "inactive-or-failed",
+      "JoinsNamespaceOf": "project-alpha-egress-netns.service"
+    },
+    "serviceConfig": {
+      "Type": "exec",
+      "User": "project-alpha-egress-passt",
+      "Group": "project-alpha-egress-passt",
+      "NoNewPrivileges": "yes",
+      "CapabilityBoundingSet": [
+        ""
+      ],
+      "AmbientCapabilities": [
+        ""
+      ],
+      "ProtectSystem": "strict",
+      "ProtectHome": "yes",
+      "ProtectClock": "yes",
+      "ProtectControlGroups": "yes",
+      "ProtectHostname": "yes",
+      "ProtectKernelLogs": "yes",
+      "ProtectKernelModules": "yes",
+      "ProtectKernelTunables": "yes",
+      "PrivateTmp": "disconnected",
+      "UMask": "0077",
+      "Restart": "no",
+      "MemorySwapMax": "0",
+      "SystemCallArchitectures": "native",
+      "SystemCallErrorNumber": "EPERM",
+      "MemoryMax": "512M",
+      "CPUQuota": "200%",
+      "TasksMax": 64,
+      "LimitNOFILE": 4096,
+      "RestrictAddressFamilies": [
+        "AF_INET",
+        "AF_NETLINK",
+        "AF_UNIX"
+      ],
+      "RestrictNamespaces": [
+        "user",
+        "ipc",
+        "mnt",
+        "uts",
+        "pid"
+      ],
+      "InaccessiblePaths": [
+        "-/etc/credstore",
+        "-/etc/credstore.encrypted",
+        "-/etc/resolv.conf"
+      ],
+      "SystemCallFilter": [
+        "@system-service",
+        "@mount",
+        "seccomp",
+        "~@clock",
+        "~@module",
+        "~@raw-io",
+        "~@reboot",
+        "~@swap",
+        "~@obsolete",
+        "~@cpu-emulation",
+        "~io_uring_setup io_uring_enter io_uring_register"
+      ],
+      "PrivateNetwork": "yes",
+      "IPAddressDeny": [
+        "any"
+      ],
+      "IPAddressAllow": [
+        "198.18.0.0/30"
+      ]
+    }
+  }
+}
