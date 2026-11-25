@@ -26,12 +26,14 @@
 # ADR 1751 says such a hook is not a security control, that actions are
 # downloaded before it runs and that a hook which cannot start only fails the
 # job; it never replaces the broker checks. The runner picks `bash` (else `sh`)
-# from the listener's `PATH` to run a `.sh` hook, and the pinned
-# `systemd.defaultPath` has neither, so the bootstrap's `runtimeInputs` carries
-# `pkgs.bash`.
+# from the listener's `PATH` to run a `.sh` hook. The bootstrap sets that
+# `PATH` explicitly to the store `bin` directories of the job tools in
+# `environment.systemPackages`; `bashInteractive` in that list supplies
+# `bash`, and no profile, `/run/wrappers` or inherited directory is in it.
 { config
 , modulesPath
 , pkgs
+, lib
 , fwCfgName
 , ...
 }:
@@ -41,6 +43,28 @@ let
   runnerHome = "/var/lib/project-alpha-runner";
   runnerRoot = "${runnerHome}/.github-runner";
   expectedGitHubUrl = "https://github.com/project-alpha-rsps/server";
+
+  # The job tools are installed and put on the listener's `PATH`; `cacert` has
+  # no `bin` directory, so it is installed separately.
+  jobTools = with pkgs; [
+    bashInteractive
+    coreutils
+    curl
+    diffutils
+    findutils
+    gawk
+    git
+    gnugrep
+    gnused
+    gnutar
+    gzip
+    jdk21
+    jq
+    procps
+    unzip
+    which
+    xz
+  ];
 
   # The decoder is a committed fragment so it can be read and tested on its
   # own. `writeShellApplication` prepends its shebang and `set` options; the
@@ -66,7 +90,6 @@ let
   bootstrap = pkgs.writeShellApplication {
     name = "project-alpha-runner-bootstrap";
     runtimeInputs = [
-      pkgs.bash
       pkgs.coreutils
       pkgs.kmod
       pkgs.util-linux
@@ -96,11 +119,13 @@ let
 
       # The listener reads .runner/.credentials from RUNNER_ROOT. The raw blob
       # is gone before it starts and never reaches argv or the environment. The
-      # job-started hook is a store path, not a credential, and needs `bash` on
-      # the listener's PATH to start.
+      # job-started hook is a store path, not a credential. PATH is set here,
+      # after `runuser` and before the listener, so the job tools and the
+      # hook's `bash` come from the guest store and nothing is inherited.
       exec ${pkgs.util-linux}/bin/runuser -u ${runnerUser} -- \
         ${pkgs.coreutils}/bin/env \
         HOME=${runnerHome} \
+        PATH=${lib.makeBinPath jobTools} \
         RUNNER_ROOT=${runnerRoot} \
         ACTIONS_RUNNER_HOOK_JOB_STARTED=${jobStartedHook}/bin/project-alpha-job-started.sh \
         ${pkgs.github-runner}/bin/Runner.Listener run --once
@@ -153,26 +178,7 @@ in
   security.sudo.enable = false;
   nix.daemon.enable = false;
 
-  environment.systemPackages = with pkgs; [
-    bashInteractive
-    cacert
-    coreutils
-    curl
-    diffutils
-    findutils
-    gawk
-    git
-    gnugrep
-    gnused
-    gnutar
-    gzip
-    jdk21
-    jq
-    procps
-    unzip
-    which
-    xz
-  ];
+  environment.systemPackages = jobTools ++ [ pkgs.cacert ];
 
   systemd.tmpfiles.rules = [
     "d ${runnerHome} 0700 ${runnerUser} ${runnerUser} -"
