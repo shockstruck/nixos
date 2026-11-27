@@ -21,6 +21,22 @@ let
       exec "$@"
     '';
   };
+
+  # The laptop's only Java 11 runtime. RSPS clients run on it and start their
+  # game JVM from it, and RuneLite-based plugins load natives such as
+  # `librlawt.so` that need `libGL.so.1`. Wrapping `bin/java` puts the same
+  # pinned `libGL` on that process's `LD_LIBRARY_PATH`, which child JVMs
+  # inherit, so an ordinary launch needs no `rsps-with-gl` prefix. The real
+  # binary keeps its store path, so `java.home` still resolves to the JDK.
+  temurin11WithGl = pkgs.symlinkJoin {
+    name = "temurin-bin-11-with-gl";
+    paths = [ pkgs.temurin-bin-11 ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/java \
+        --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ pkgs.libGL ]}
+    '';
+  };
 in
 {
   # The T500 is Turing (sm_75); do not compile CUDA packages for every GPU generation.
@@ -48,5 +64,8 @@ in
 
   services.xserver.videoDrivers = [ "nvidia" ];
 
-  environment.systemPackages = [ rspsWithGl ];
+  environment.systemPackages = [
+    rspsWithGl
+    temurin11WithGl
+  ];
 }
