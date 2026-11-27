@@ -18,7 +18,6 @@ in
   ];
 
   environment.systemPackages = [
-    pkgs.temurin-bin-11
     pkgs.python3
   ];
 
