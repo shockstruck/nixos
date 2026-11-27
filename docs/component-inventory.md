@@ -1,6 +1,6 @@
 # Component inventory
 
-Captured against `origin/main` @ `8cb0ec9be725` (2026-11-25). This doc is not
+Captured against `origin/main` @ `ddef4922bc80` (2026-11-27). This doc is not
 imported by the flake and does not affect the build; it is a living inventory
 that must be re-verified against `main` whenever the flake changes.
 
@@ -103,16 +103,20 @@ digits-only saved value is absent rather than restoring a stale level or a
 default.
 
 `configurations/nixos/laptop/default.nix` (laptop only): `environment.systemPackages
-= [ pkgs.temurin-bin-11 pkgs.python3 ]` — Eclipse Temurin JDK 11
-(`temurin-bin-11`, nixpkgs' `javaPackages.compiler.temurin-bin.jdk-11`) and the
-nixpkgs `python3` interpreter, installed system-wide for the laptop.
+= [ pkgs.python3 ]` — the nixpkgs `python3` interpreter, installed system-wide
+for the laptop. Temurin 11 moved to `graphics.nix`.
 
 `configurations/nixos/laptop/graphics.nix` (laptop only): the T500's NVIDIA
 layer — `nixpkgs.config.cudaCapabilities = [ "7.5" ]`, the `nvidia_uvm` kernel
 module, `hardware.graphics` with 32-bit support, the proprietary driver with
 `hardware.nvidia.prime.offload` (iGPU `PCI:0:2:0`, T500 `PCI:1:0:0`) and
 `offload.enableOffloadCmd`, and `services.xserver.videoDrivers = [ "nvidia" ]`.
-The same module also installs `rsps-with-gl` (`pkgs.writeShellApplication`),
+The same module installs `temurin-bin-11-with-gl`: `symlinkJoin` of Eclipse
+Temurin JDK 11 with `wrapProgram` on `bin/java`. The wrapper uses
+`--prefix LD_LIBRARY_PATH` with the pinned nixpkgs `libGL` (`libglvnd`, via
+`lib.makeLibraryPath`). Child JVMs inherit the path, so a launch through the
+laptop's system `java` needs no extra command prefix.
+The module keeps `rsps-with-gl` (`pkgs.writeShellApplication`),
 which takes an existing launch command: usage is
 `rsps-with-gl <existing command and arguments>`, for example
 `rsps-with-gl java -jar /path/to/client.jar`. It prepends the pinned nixpkgs
